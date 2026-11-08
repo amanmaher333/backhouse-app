@@ -112,6 +112,12 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+td.num,
+.totals .num,
+.nowrap {
+  white-space: nowrap;
+}
+
 .muted {
   color: var(--t2);
 }
@@ -819,4 +825,15 @@ input[type='time'].inline-input {
 .task-card .evidence {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.totals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 24px;
+  max-width: 320px;
+  margin-inline-start: auto;
+  width: 100%;
+}
+.totals > :nth-child(even) {
+  text-align: end;
 }

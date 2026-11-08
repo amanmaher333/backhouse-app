@@ -249,7 +249,7 @@ infra/        docker-compose (postgres, redis, minio), CI
 | 1 Catalogue | Shared ingredient map and matching, items, packs, par levels, suppliers, prices, CSV | ✅ |
 | A Agent platform | Agent identities, events, runtime, tasks/actions/autonomy/guardrails, usage tracking, inbox, access tokens, MCP server, **Price Watch agent** | ✅ |
 | B Channels | WhatsApp approval cards, digest, push; direct supplier messaging | next |
-| 2 Procurement + **Purchasing agent** | Requisitions, POs, approvals and limits, sending, receiving (GRN), stock ledger. Built agent-first (core actions and review screens, few hand-entry forms) | |
+| 2 Procurement + **Purchasing agent** | POs, approvals and spend limits, sending, receiving (GRN), stock ledger with weighted average cost, Purchasing agent (reorder drafts, late-delivery chasing). Built agent-first (core actions and review screens, few hand-entry forms). Requisitions and multi-level approval deferred | ✅ |
 | 3 Invoices + **Invoice agent** | Email/e-invoice intake, AI extraction, three-way matching, credit notes, ZATCA | |
 | 4 Stock + **Stock agent** | Counts by voice/WhatsApp, waste, transfers, variance | |
 | 5 Recipes, POS + **Cost Controller** | Recipes and costing, Foodics integration, theoretical vs actual, weekly report | |

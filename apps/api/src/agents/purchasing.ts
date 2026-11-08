@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { and, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import {
   itemSiteSettings,
   items,
@@ -37,17 +37,23 @@ interface SuggestedLine {
   par: string;
   reorderAt: string;
   onOrder: string;
+  onHandAr: string;
+  parAr: string;
+  reorderAtAr: string;
   qty: number;
   unitPrice: string;
 }
 
 const money = (v: Decimal.Value) => new Decimal(v).toFixed(2);
-const qtyLabel = (base: Decimal.Value, unit: string) => {
+const qtyLabel = (base: Decimal.Value, unit: string, ar = false) => {
   const n = new Decimal(base);
-  if (unit === 'g') return n.gte(1000) ? `${n.div(1000).toDecimalPlaces(2)} kg` : `${n.toDecimalPlaces(0)} g`;
-  if (unit === 'ml') return n.gte(1000) ? `${n.div(1000).toDecimalPlaces(2)} L` : `${n.toDecimalPlaces(0)} ml`;
-  return `${n.toDecimalPlaces(2)} each`;
+  const u = ar ? { kg: 'كجم', g: 'غ', L: 'لتر', ml: 'مل', each: 'حبة' } : { kg: 'kg', g: 'g', L: 'L', ml: 'ml', each: 'each' };
+  if (unit === 'g') return n.gte(1000) ? `${n.div(1000).toDecimalPlaces(2)} ${u.kg}` : `${n.toDecimalPlaces(0)} ${u.g}`;
+  if (unit === 'ml') return n.gte(1000) ? `${n.div(1000).toDecimalPlaces(2)} ${u.L}` : `${n.toDecimalPlaces(0)} ${u.ml}`;
+  return `${n.toDecimalPlaces(2)} ${u.each}`;
 };
+/** Keep a left-to-right value (an ISO date) in order inside Arabic text. */
+const ltr = (v: string | null | undefined) => `\u2066${v ?? '—'}\u2069`;
 
 async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ proposals: TaskProposal[]; expirePrefixes: string[] }> {
   const { tx, settings } = ctx;
@@ -60,7 +66,8 @@ async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ prop
     .select({ s: itemSiteSettings, item: items })
     .from(itemSiteSettings)
     .innerJoin(items, eq(items.id, itemSiteSettings.itemId))
-    .where(and(inArray(itemSiteSettings.siteId, siteIds), isNotNull(itemSiteSettings.parLevel), eq(itemSiteSettings.isStocked, true), eq(items.isActive, true)));
+    .where(and(inArray(itemSiteSettings.siteId, siteIds), isNotNull(itemSiteSettings.parLevel), eq(itemSiteSettings.isStocked, true), eq(items.isActive, true)))
+    .orderBy(asc(items.code)); // stable line order, so a re-run produces the same draft
   const balances = await ctx.services.stock.balances(tx, siteIds);
   const balanceBy = new Map(balances.map((b) => [`${b.siteId}:${b.itemId}`, b]));
   const onOrderRows = await ctx.services.procurement.onOrder(tx, siteIds);
@@ -116,6 +123,9 @@ async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ prop
         par: qtyLabel(par, p.item.baseUnit),
         reorderAt: qtyLabel(reorderAt, p.item.baseUnit),
         onOrder: qtyLabel(onOrder, p.item.baseUnit),
+        onHandAr: qtyLabel(onHand, p.item.baseUnit, true),
+        parAr: qtyLabel(par, p.item.baseUnit, true),
+        reorderAtAr: qtyLabel(reorderAt, p.item.baseUnit, true),
         qty,
         unitPrice: line.si.currentPrice,
       });
@@ -150,8 +160,8 @@ async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ prop
           .join('; ')}${g.lines.length > 3 ? `; and ${g.lines.length - 3} more` : ''}. Suggested delivery ${deliveryDate}.${belowMinimum ? ` Below the supplier's minimum order of SAR ${money(g.rel.minOrderValue!)}.` : ''}`,
         summary_ar: `${g.lines
           .slice(0, 3)
-          .map((l) => `${l.itemAr} عند ${l.onHand} (إعادة الطلب عند ${l.reorderAt}، المستهدف ${l.par})`)
-          .join('؛ ')}${g.lines.length > 3 ? `؛ و${g.lines.length - 3} أخرى` : ''}. التوصيل المقترح ${deliveryDate}.${belowMinimum ? ` أقل من الحد الأدنى للطلب لدى المورد ${money(g.rel.minOrderValue!)} ر.س.` : ''}`,
+          .map((l) => `${l.itemAr} عند ${l.onHandAr} (إعادة الطلب عند ${l.reorderAtAr}، المستهدف ${l.parAr})`)
+          .join('؛ ')}${g.lines.length > 3 ? `؛ و${g.lines.length - 3} أخرى` : ''}. التوصيل المقترح ${ltr(deliveryDate)}.${belowMinimum ? ` أقل من الحد الأدنى للطلب لدى المورد ${money(g.rel.minOrderValue!)} ر.س.` : ''}`,
         message: '',
         message_ar: '',
       });
@@ -168,7 +178,7 @@ async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ prop
         id: 'order',
         type: 'create_po',
         label: `Create the order (SAR ${money(totals.total)}, delivery ${deliveryDate})`,
-        labelAr: `أنشئ الطلب (${money(totals.total)} ر.س، التوصيل ${deliveryDate})`,
+        labelAr: `أنشئ الطلب (${money(totals.total)} ر.س، التوصيل ${ltr(deliveryDate)})`,
         params: {
           siteId: site.id,
           relationshipId: g.rel.id,
@@ -211,7 +221,7 @@ async function overdueProposals(ctx: RunContext): Promise<{ proposals: TaskPropo
     const sup = rel.displayName;
     const supAr = rel.displayNameAr ?? rel.displayName;
     const message = `Hello ${sup} team, our order ${po.number} for ${site.name} was due on ${po.deliveryDate} and has not fully arrived. Could you confirm when it will be delivered? Thank you.`;
-    const messageAr = `مرحبًا فريق ${supAr}، طلبنا ${po.number} لفرع ${site.nameAr ?? site.name} كان موعد توصيله ${po.deliveryDate} ولم يصل كاملًا بعد. نرجو تأكيد موعد التوصيل. شكرًا لكم.`;
+    const messageAr = `مرحبًا فريق ${supAr}، طلبنا ${po.number} لفرع ${site.nameAr ?? site.name} كان موعد توصيله ${ltr(po.deliveryDate)} ولم يصل كاملًا بعد. نرجو تأكيد موعد التوصيل. شكرًا لكم.`;
     proposals.push({
       kind: 'po_overdue',
       subjectKey: `overdue:${po.id}`,
@@ -219,7 +229,7 @@ async function overdueProposals(ctx: RunContext): Promise<{ proposals: TaskPropo
       title: `${po.number} from ${sup} is ${late} ${late === 1 ? 'day' : 'days'} late`,
       titleAr: `الطلب ${po.number} من ${supAr} متأخر ${late} ${late === 1 ? 'يوم' : 'أيام'}`,
       summary: `The delivery for ${site.name} was due on ${po.deliveryDate} (SAR ${money(po.total)}). ${po.status === 'partially_received' ? 'Part of it has arrived.' : 'Nothing has been received yet.'}`,
-      summaryAr: `كان موعد التوصيل لفرع ${site.nameAr ?? site.name} في ${po.deliveryDate} (${money(po.total)} ر.س). ${po.status === 'partially_received' ? 'وصل جزء منه.' : 'لم يُستلم شيء بعد.'}`,
+      summaryAr: `كان موعد التوصيل لفرع ${site.nameAr ?? site.name} في ${ltr(po.deliveryDate)} (${money(po.total)} ر.س). ${po.status === 'partially_received' ? 'وصل جزء منه.' : 'لم يُستلم شيء بعد.'}`,
       evidence: { poId: po.id, number: po.number, deliveryDate: po.deliveryDate, daysLate: late, total: po.total, status: po.status, site: { id: site.id, name: site.name, nameAr: site.nameAr }, supplier: { id: rel.id, name: sup, nameAr: supAr } },
       actions: rel.contactEmail || rel.contactPhone
         ? [{ id: 'contact', type: 'contact_supplier', label: `Ask ${sup} when it will arrive`, labelAr: `اسأل ${supAr} عن موعد الوصول`, params: { supplierId: rel.id, channel: rel.orderChannel, email: rel.contactEmail, phone: rel.contactPhone, message, messageAr } }]

@@ -98,3 +98,9 @@ export const IconBot = (p: SVGProps<SVGSVGElement>) => (
 export const IconPlug = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0zM12 16v5" /></svg>
 );
+export const IconCart = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M3 4h2l2.2 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2" /><circle cx="9" cy="19" r="1.5" /><circle cx="17" cy="19" r="1.5" /></svg>
+);
+export const IconLayers = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5" /></svg>
+);

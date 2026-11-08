@@ -103,7 +103,7 @@ export default function InboxPage() {
 }
 
 function TaskCard({ task, onChanged }: { task: Task; onChanged: (msg?: string) => void }) {
-  const { t, lang, fmtMoney, pick } = useI18n();
+  const { t, lang, fmtMoney, pick, fmtDate } = useI18n();
   const { api, can } = useSession();
   const [busy, setBusy] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
@@ -200,6 +200,76 @@ function TaskCard({ task, onChanged }: { task: Task; onChanged: (msg?: string) =
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {task.kind === 'reorder' && (
+        <div className="evidence">
+          <div className="evidence-main">
+            <div>
+              <div className="stat-label">
+                {pick({ name: ev.supplier?.name, nameAr: ev.supplier?.nameAr })} · {pick({ name: ev.site?.name, nameAr: ev.site?.nameAr })}
+              </div>
+              <div className="num" style={{ fontSize: 22, fontWeight: 700 }}>
+                {fmtMoney(ev.total)}
+              </div>
+              <div className="faint num" style={{ fontSize: 12 }}>
+                {t('delivery')} {ev.deliveryDate ? fmtDate(ev.deliveryDate) : '–'} · {t('vat')} {fmtMoney(ev.tax)}
+              </div>
+            </div>
+          </div>
+          {ev.belowMinimum && <div className="notice">{t('belowMinimum')}</div>}
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>{t('name')}</th>
+                  <th className="end">{t('onHand')}</th>
+                  <th className="end hide-phone">{t('par')}</th>
+                  <th className="end">{t('qty')}</th>
+                  <th className="end hide-phone">{t('lineTotal')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ev.lines?.map((l: any) => (
+                  <tr key={l.supplierItemId}>
+                    <td>{ar ? l.itemAr : l.item}</td>
+                    <td className="end num">{ar ? l.onHandAr ?? l.onHand : l.onHand}</td>
+                    <td className="end num hide-phone">{ar ? l.parAr ?? l.par : l.par}</td>
+                    <td className="end num">
+                      {l.qty} × {ar ? l.packAr : l.pack}
+                    </td>
+                    <td className="end num hide-phone">{fmtMoney(l.lineTotal)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {ev.skipped?.uncounted > 0 && (
+            <div className="faint" style={{ fontSize: 12 }}>
+              {ev.skipped.uncounted} {t('skippedUncounted')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {task.kind === 'po_overdue' && (
+        <div className="evidence">
+          <div className="num" style={{ fontSize: 22, fontWeight: 700 }}>
+            {ev.daysLate} <span style={{ fontSize: 14, fontWeight: 500 }}>{t('daysLate')}</span>
+          </div>
+          <div className="faint num" style={{ fontSize: 12 }}>
+            {ev.number} · {t('delivery')} {ev.deliveryDate ? fmtDate(ev.deliveryDate) : '–'} · {fmtMoney(ev.total)}
+          </div>
+        </div>
+      )}
+
+      {!open && result.poId && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Link className="btn btn-sm btn-primary" href={`/orders/${result.poId}`}>
+            {t('openPo')} {result.number}
+          </Link>
+          {result.status === 'pending_approval' && <span className="tag tag-late">{t('needsApproval')}</span>}
         </div>
       )}
 

@@ -264,7 +264,7 @@ export class ProcurementService {
       );
     const total = new Decimal(po.total);
     for (const l of limits.filter((x) => x.period === 'order')) {
-      if (total.gt(l.amount)) return `Order total SAR ${total.toFixed(2)} is above the per-order limit of SAR ${new Decimal(l.amount).toFixed(2)}`;
+      if (total.gt(l.amount)) return `Order total SAR ${total.toFixed(2)} is above the per-order limit of SAR ${new Decimal(l.amount).toFixed(2)}\nإجمالي الطلب ${total.toFixed(2)} ر.س أعلى من حد الطلب الواحد ${new Decimal(l.amount).toFixed(2)} ر.س`;
     }
     const monthly = limits.filter((x) => x.period === 'month');
     if (monthly.length) {
@@ -284,7 +284,7 @@ export class ProcurementService {
             ),
           );
         const after = new Decimal(spent?.s ?? 0).plus(total);
-        if (after.gt(l.amount)) return `This order takes month-to-date spend to SAR ${after.toFixed(2)}, above the monthly limit of SAR ${new Decimal(l.amount).toFixed(2)}`;
+        if (after.gt(l.amount)) return `This order takes month-to-date spend to SAR ${after.toFixed(2)}, above the monthly limit of SAR ${new Decimal(l.amount).toFixed(2)}\nهذا الطلب يرفع إنفاق الشهر إلى ${after.toFixed(2)} ر.س، أعلى من الحد الشهري ${new Decimal(l.amount).toFixed(2)} ر.س`;
       }
     }
     return null;

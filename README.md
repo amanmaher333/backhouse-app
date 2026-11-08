@@ -27,7 +27,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - "Ask BOH" agent preview: the chat UI only, with clearly labelled sample data (the agent arrives in phase 8)
   - The refresh token is kept in an httpOnly cookie through a Next.js backend-for-frontend; API calls go through a same-origin proxy
   - Manifest, service worker for the app shell, install button, online/offline pill
-- CI (GitHub Actions) with Postgres; 57 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices, CSV import, the agent runtime (autonomy, guardrails, pause, dedup, permissions), access tokens and MCP
+- CI (GitHub Actions) with Postgres; 76 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices, CSV import, the agent runtime (autonomy, guardrails, pause, dedup, permissions), access tokens, MCP, delivery dates, stock costing, the PO lifecycle, spend limits and the Purchasing agent
 
 **Phase 1 (catalogue and shared ingredient map) done:**
 
@@ -49,6 +49,16 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
 - **Language model:** Claude (`claude-opus-5-5`, structured JSON output, low effort, refusal fallback) writes titles, summaries and messages from evidence the code computes. Without `ANTHROPIC_API_KEY`, agents use bilingual templates.
 - **Open access:** personal access tokens (`boh_pat_…`) and an **MCP server** at `/mcp` (stateless Streamable HTTP; tools filtered by permission: items, ingredient matching, suppliers, price changes, set price, agent inbox, approve and reject).
 - **Web:** the Inbox is home (approve, reject or dismiss, with evidence, cheaper options and the supplier message), plus an Agents page (hire, pause, autonomy, limits, runs and AI cost) and an API & MCP page (tokens and client config).
+
+**Phase 2 (procurement) with the Purchasing agent done:**
+
+- **Stock ledger:** append-only stock movements (opening count, adjustment, receipt) and a balance per site and item, costed at weighted average. The first count of an item is costed at its cheapest supplier price. Stock shows low / OK / no par against each site's reorder point and par level.
+- **Purchase orders:** draft → waiting for approval → approved → sent → partly received → received → closed (or cancelled). Spend limits per order and per month, for the whole org, a site or a supplier. Orders over a limit need someone with `po:approve`, who can't be the person who created them.
+- **Delivery dates:** worked out in Riyadh time from each supplier's delivery days, cut-off and lead time.
+- **Sending:** builds a bilingual order message with WhatsApp and email links, and marks the order as sent. BOH doesn't send it directly yet.
+- **Receiving:** quantities and prices from the delivery note, partial deliveries, and an immutable goods receipt. Stock is posted at the delivered price. Changed prices update the supplier catalogue (source `invoice`), which feeds Price Watch.
+- **Purchasing agent:** watches stock, order and receipt events, plus a daily scan. For items at or below their reorder point it drafts one order per supplier per site, topped up to par in whole packs net of what's already on order, using the preferred supplier (otherwise the cheapest). Evidence covers on hand, par, quantities, totals, delivery date and the supplier minimum. Items never counted are skipped by default. It also flags late deliveries and drafts a chaser. On "do it" autonomy it creates orders by itself only up to a SAR cap (default 1,500), and spend limits still apply.
+- **Web:** Orders (list, new order from a supplier's catalogue, order detail with approve / send / receive / close / cancel), Stock (per site, low filter, set count in any pack), and inbox cards for reorder drafts and late deliveries, in Arabic and English.
 
 ## Layout
 
@@ -119,6 +129,6 @@ Set `ANTHROPIC_API_KEY` in `.env` for Claude-written text (optional; `AGENTS_LLM
 ## Next
 
 - **Phase B (channels):** WhatsApp approval cards, daily digest, direct supplier messaging.
-- **Phase 2 (procurement) with the Purchasing agent:** POs, approvals, receiving, stock ledger.
+- **Phase 3 (invoices) with the Invoice agent:** email and e-invoice intake, matching to orders and deliveries, credit notes, ZATCA.
 
 See `docs/SPEC.md` §10.
