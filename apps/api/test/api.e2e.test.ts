@@ -57,7 +57,8 @@ describe('auth', () => {
     expect(login.body.orgId).toBe(owner.orgId); // single org auto-selected
     expect(login.body.user.passwordHash).toBeUndefined();
 
-    const r1 = await http.post('/v1/auth/refresh').send({ refreshToken: login.body.refreshToken, orgId: owner.orgId }).expect(200);
+    const r1 = await http.post('/v1/auth/refresh').send({ refreshToken: login.body.refreshToken }).expect(200);
+    expect(r1.body.orgId).toBe(owner.orgId); // single org auto-selected on refresh too
     expect(r1.body.refreshToken).not.toBe(login.body.refreshToken);
     // Reusing the old token revokes the family, including the new one.
     await http.post('/v1/auth/refresh').send({ refreshToken: login.body.refreshToken }).expect(401);

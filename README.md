@@ -19,12 +19,21 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - Users can't grant permissions they don't hold themselves, and the last org admin can't be removed
   - Every write is audited in the same transaction, recording before and after values
   - OpenAPI docs at `/docs`
+- `apps/web`: Next.js PWA built to the design spec in `docs/design/design-spec.md`. The back office uses the POS tokens; the "Ask BOH" agent screen uses the AI Insights tokens.
+  - Arabic (RTL, the default) and English, light and dark themes
+  - Phone bottom bar, tablet drawer, desktop sidebar that collapses
+  - Sign-up with Saudi VAT/CR, login, invitation links, switching organisations
+  - Screens: overview, sites and storage locations, members and invitations, roles (custom roles with a permission picker), audit log with before/after diffs, settings and legal entities
+  - "Ask BOH" agent preview: the chat UI only, with clearly labelled sample data (the agent arrives in phase 8)
+  - The refresh token is kept in an httpOnly cookie through a Next.js backend-for-frontend; API calls go through a same-origin proxy
+  - Manifest, service worker for the app shell, install button, online/offline pill
 - CI (GitHub Actions) with Postgres; 29 tests covering units maths, RLS isolation, audit immutability, auth flows, tenant isolation over HTTP, and permissions
 
 ## Layout
 
 ```
 apps/api          NestJS API (REST, OpenAPI)
+apps/web          Next.js PWA (back office + agent screen)
 packages/db       schema, migrations (Drizzle + hand-written RLS SQL), tenant-scoped DB helpers
 packages/domain   pure domain logic: units, conversions, KSA identifiers
 infra/            docker-compose for Postgres, Redis, MinIO
@@ -56,6 +65,14 @@ pnpm --filter @boh/api start
 ```
 
 The API listens on `http://localhost:3000`. Docs are at `http://localhost:3000/docs`; all routes except `/health` are under `/v1`.
+
+Start the web app in a second terminal (it calls the API at `BOH_API_URL`, default `http://localhost:3000`):
+
+```bash
+pnpm --filter @boh/web start
+```
+
+Open `http://localhost:3001` and create an account. It's in Arabic by default; use the language button to switch.
 
 Run all tests (needs the `boh_test` database from `.env`):
 

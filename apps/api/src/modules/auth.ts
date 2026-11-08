@@ -177,6 +177,10 @@ export class AuthService {
       if (dto.orgId) {
         if (!(await this.isMember(tx, user.id, dto.orgId))) throw new ForbiddenException('Not a member of this organisation');
         orgId = dto.orgId;
+      } else {
+        // Same rule as login: with exactly one organisation, select it.
+        const orgs = await this.orgsFor(tx, user.id);
+        if (orgs.length === 1) orgId = orgs[0]!.id;
       }
       return { reuse: false as const, tokens: await this.issue(tx, user.id, orgId, row.familyId) };
     });
