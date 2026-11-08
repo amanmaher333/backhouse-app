@@ -15,7 +15,7 @@ import {
   type AgentAction,
   type Tx,
 } from '@boh/db';
-import { findLinkCode, inServiceWindow, linkCode, normalizePhone, parseApprovalPayload, parseDigestPayload, waId } from '@boh/domain';
+import { findLinkCode, inServiceWindow, linkCode, normalizePhone, parseApprovalPayload, parseDigestPayload, parseSupplierPayload, waId } from '@boh/domain';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { DbService } from '../common/db.service.js';
 import { AccessContext } from '../common/access.js';
@@ -24,6 +24,7 @@ import { audit } from '../common/audit.js';
 import { AgentRuntime } from '../agents/runtime.js';
 import { getDefinition } from '../agents/registry.js';
 import { approvalCard, replies, taskLink, taskValue } from './cards.js';
+import { SupplierMessenger } from './supplier-messenger.js';
 import { SendError, WHATSAPP_TRANSPORT, type MessageContent, type SendForm, type WhatsAppTransport } from './transport.js';
 
 type Lang = 'ar' | 'en';
@@ -36,7 +37,7 @@ const MAX_ATTEMPTS = 5;
 const MAX_RECIPIENTS = 10;
 const SHOW_DECISIONS_MAX = 5;
 /** Messages BOH starts itself: free-form only inside the 24-hour window, a template otherwise. */
-const SCHEDULED_KINDS = new Set(['approval_card', 'digest']);
+const SCHEDULED_KINDS = new Set(['approval_card', 'digest', 'supplier_order', 'supplier_followup', 'supplier_update']);
 
 /** One message as the webhook delivers it (the parts BOH uses). */
 export interface InboundMessage {
@@ -77,6 +78,7 @@ export class ChannelsService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(WHATSAPP_TRANSPORT) private readonly transport: WhatsAppTransport,
     private readonly runtime: AgentRuntime,
+    private readonly suppliers: SupplierMessenger,
   ) {}
 
   get mode() {
@@ -316,7 +318,13 @@ export class ChannelsService {
     let delivered = 0;
     await this.db.system(async (tx) => {
       const due = await tx
-        .select({ msg: outboundMessages, lastInboundAt: userChannels.lastInboundAt })
+        // The window is per number: a linked person's last message, or for suppliers the message log.
+        .select({
+          msg: outboundMessages,
+          lastInboundAt: sql<Date | null>`coalesce(${userChannels.lastInboundAt}, (select max(i.received_at) from inbound_messages i where i.from_address = ${outboundMessages.toAddress}))`.mapWith(
+            (v) => (v ? new Date(v) : null),
+          ),
+        })
         .from(outboundMessages)
         .leftJoin(userChannels, and(eq(userChannels.channel, 'whatsapp'), eq(userChannels.address, outboundMessages.toAddress)))
         .where(and(eq(outboundMessages.status, 'queued'), lte(outboundMessages.nextAttemptAt, new Date()), ids?.length ? inArray(outboundMessages.id, ids) : undefined))
@@ -448,7 +456,16 @@ export class ChannelsService {
     const word = text.trim().toLowerCase();
 
     const digestOrg = payload ? parseDigestPayload(payload) : null;
-    if (approval) {
+    const supplierAnswer = payload ? parseSupplierPayload(payload) : null;
+    // Numbers that are not BOH users may be suppliers answering an order.
+    const supplier =
+      !recorded.channel && !code && (supplierAnswer || !payload)
+        ? await this.suppliers.handleInbound({ from, inboundId: recorded.rowId, answer: supplierAnswer ?? undefined, text })
+        : null;
+    if (supplier) {
+      outcome = `supplier:${supplier.outcome}`;
+      replyIds.push(...supplier.ids);
+    } else if (approval) {
       outcome = await this.decide(approval.promptId, approval.decision, from, m.id, reply);
     } else if (digestOrg) {
       outcome = await this.showDecisions(digestOrg, from, reply, replyIds);

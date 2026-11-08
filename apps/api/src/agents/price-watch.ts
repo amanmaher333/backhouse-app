@@ -296,13 +296,16 @@ export const priceWatch: AgentDefinition = {
       return switchPreferred(tx, access, p.supplierItemId, p.fromSupplierItemId);
     }
     if (action.type === 'contact_supplier') {
-      const p = action.params as { email?: string | null; phone?: string | null; message: string; messageAr: string; channel: string };
+      const p = action.params as { supplierId?: string; email?: string | null; phone?: string | null; message: string; messageAr: string; channel: string };
       const body = `${p.messageAr}\n\n${p.message}`;
+      if (p.channel === 'whatsapp' && p.supplierId) {
+        const sent = await ctx.services.messenger.sendFollowUp(tx, access, { relationshipId: p.supplierId, about: 'الأسعار', message: p.message, messageAr: p.messageAr });
+        if (sent) return { sentDirect: true, to: sent.to, messageId: sent.messageId };
+      }
       return {
         prepared: true,
         mailto: p.email ? `mailto:${p.email}?subject=${encodeURIComponent('Price change / تغيير السعر')}&body=${encodeURIComponent(body)}` : null,
         whatsapp: p.phone ? `https://wa.me/${p.phone.replace(/\D/g, '')}?text=${encodeURIComponent(body)}` : null,
-        note: 'Message prepared for sending. Direct sending arrives with WhatsApp/email channels.',
       };
     }
     if (action.type === 'accept_price') return { accepted: true };

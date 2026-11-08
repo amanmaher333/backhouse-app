@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { ArmButton, Dialog, Field, PageHead, Toast } from '@/components/ui';
 import { IconBot } from '@/components/icons';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
 import type { PoDetail } from '@/lib/types-procurement';
 import { PoStatusTag } from '@/components/procurement';
@@ -35,7 +35,10 @@ export default function OrderPage() {
     setBusy(true);
     try {
       const r = await api<any>(`/purchase-orders/${id}/${path}`, { method: 'POST', body });
-      if (path === 'send') setSent({ message: r.message, links: r.links });
+      if (path === 'send') {
+        if (r.direct) setToast(t('sentDirect'));
+        else setSent({ message: r.message, links: r.links });
+      }
       reload();
     } catch (e) {
       setToast((e as ApiError).message);
@@ -135,11 +138,20 @@ export default function OrderPage() {
               {t('approve')}
             </button>
           )}
-          {po.status === 'approved' && has('po:manage') && (
-            <button className="btn btn-primary" disabled={busy} onClick={() => act('send')}>
+          {po.status === 'approved' && has('po:manage') && (po.supplier.orderChannel === 'whatsapp' && po.supplier.contactPhone ? (
+            <>
+              <button className="btn btn-primary" disabled={busy} onClick={() => act('send', { direct: true })}>
+                {t('sendOnWhatsapp')}
+              </button>
+              <button className="btn btn-quiet" disabled={busy} onClick={() => act('send', { direct: false })}>
+                {t('sendMyself')}
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary" disabled={busy} onClick={() => act('send', { direct: false })}>
               {t('sendOrder')}
             </button>
-          )}
+          ))}
           {['approved', 'sent', 'partially_received'].includes(po.status) && has('stock:manage') && (
             <button className={`btn ${po.status === 'approved' ? 'btn-quiet' : 'btn-primary'}`} disabled={busy} onClick={() => setReceiving(true)}>
               {t('receive')}
@@ -173,6 +185,44 @@ export default function OrderPage() {
               <span className="num">{fmtMoney(r.total)}</span>
             </div>
           ))}
+        </section>
+      )}
+
+      {(po.sentVia === 'whatsapp_direct' || po.supplierConfirmedAt || po.supplierIssue || po.conversation.length > 0) && (
+        <section className="card">
+          <h2 className="card-title">{t('supplierConversation')}</h2>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            {po.supplierConfirmedAt ? (
+              <span className="tag tag-accent">
+                {t('supplierConfirmed')} · {po.supplierConfirmedVia === 'link' ? t('viaLink') : t('via_whatsapp')} · {fmtDate(po.supplierConfirmedAt)}
+              </span>
+            ) : (
+              ['sent', 'partially_received'].includes(po.status) && <span className="tag">{t('awaitingSupplier')}</span>
+            )}
+          </div>
+          {po.supplierIssue && (
+            <div className="notice notice-error" style={{ marginBottom: 12 }}>
+              <strong>{t('supplierIssue')}:</strong> {po.supplierIssue}
+            </div>
+          )}
+          {po.conversation.length > 0 && (
+            <div className="wa-thread wa-thread-static">
+              {/* Newest last, shown from the bottom (column-reverse keeps it scrolled to the latest). */}
+              {[...po.conversation].reverse().map((m) => (
+                <div key={m.id} className={`wa-bubble-row ${m.dir === 'to_supplier' ? 'from-me' : 'from-boh'}`}>
+                  <div className="wa-bubble">
+                    <div className="wa-bubble-text" style={{ whiteSpace: 'pre-line' }}>
+                      {m.text}
+                    </div>
+                    <div className="wa-bubble-time num">
+                      {new Date(m.at).toLocaleString(ar ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {m.status ? ` · ${t(`ms_${m.status}` as TKey)}` : ''}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 

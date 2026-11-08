@@ -7,6 +7,7 @@ import { Access, CurrentAuth, MEMBER, Public, Requires } from '../common/auth.js
 import type { AccessContext } from '../common/access.js';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { AgentsModule } from '../agents/agents.module.js';
+import { SupplierMessagingModule } from './supplier-messenger.js';
 import { ChannelsService } from './channels.service.js';
 import { DigestService } from './digest.js';
 import { createTransport, WHATSAPP_TRANSPORT } from './transport.js';
@@ -96,7 +97,7 @@ class ChannelsController {
 }
 
 @Module({
-  imports: [AgentsModule],
+  imports: [AgentsModule, SupplierMessagingModule],
   controllers: [WhatsAppWebhookController, ChannelsController],
   providers: [ChannelsService, DigestService, { provide: WHATSAPP_TRANSPORT, inject: [APP_CONFIG], useFactory: (config: AppConfig) => createTransport(config) }],
   exports: [ChannelsService, DigestService, WHATSAPP_TRANSPORT],

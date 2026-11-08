@@ -836,6 +836,11 @@ export const purchaseOrders = pgTable(
     relationshipId: uuid('relationship_id').notNull(),
     status: poStatus('status').notNull().default('draft'),
     deliveryDate: text('delivery_date'),
+    /** The supplier's answer: confirmed (WhatsApp button or order link), or a problem they reported. */
+    supplierConfirmedAt: timestamp('supplier_confirmed_at', { withTimezone: true }),
+    supplierConfirmedVia: text('supplier_confirmed_via'),
+    supplierIssue: text('supplier_issue'),
+    supplierIssueAt: timestamp('supplier_issue_at', { withTimezone: true }),
     currency: text('currency').notNull().default('SAR'),
     taxRate: numeric('tax_rate', { precision: 6, scale: 4 }).notNull().default('0.15'),
     subtotal: numeric('subtotal', { precision: 16, scale: 2 }).notNull().default('0'),
@@ -1012,6 +1017,9 @@ export const outboundMessages = pgTable(
     /** 'approval_card', 'decision_reply', 'link_confirm', 'help', 'notice'. */
     kind: text('kind').notNull(),
     taskId: uuid('task_id'),
+    /** Messages to suppliers: which supplier and order. */
+    relationshipId: uuid('relationship_id'),
+    poId: uuid('po_id'),
     /** Rendered content in both forms; the sender picks free-form or template by the 24-hour window. */
     content: jsonb('content').$type<Record<string, unknown>>().notNull(),
     /** What was actually sent: 'interactive', 'text' or 'template'. */
@@ -1029,6 +1037,7 @@ export const outboundMessages = pgTable(
     uniqueIndex('outbound_messages_provider_id_uq').on(t.providerMessageId),
     index('outbound_messages_queue_idx').on(t.status, t.nextAttemptAt),
     index('outbound_messages_org_idx').on(t.orgId, t.createdAt),
+    index('outbound_messages_po_idx').on(t.poId),
   ],
 );
 
@@ -1041,12 +1050,20 @@ export const inboundMessages = pgTable(
     providerMessageId: text('provider_message_id').notNull(),
     fromAddress: text('from_address').notNull(),
     userId: uuid('user_id'),
+    /** Set when the sender is a supplier replying about an order. */
+    orgId: uuid('org_id'),
+    relationshipId: uuid('relationship_id'),
+    poId: uuid('po_id'),
     type: text('type').notNull(),
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
     outcome: text('outcome'),
     receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('inbound_messages_provider_id_uq').on(t.channel, t.providerMessageId)],
+  (t) => [
+    uniqueIndex('inbound_messages_provider_id_uq').on(t.channel, t.providerMessageId),
+    index('inbound_messages_from_idx').on(t.fromAddress, t.receivedAt),
+    index('inbound_messages_po_idx').on(t.poId),
+  ],
 );
 
 /**
@@ -1096,4 +1113,29 @@ export const digestRuns = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('digest_runs_user_org_date_uq').on(t.userId, t.orgId, t.localDate)],
+);
+
+/**
+ * An order shared with a supplier: a private link (token, stored hashed) to view, confirm or
+ * report a problem, and the WhatsApp number it was sent to (button taps must come from it).
+ */
+export const supplierOrderLinks = pgTable(
+  'supplier_order_links',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    poId: uuid('po_id').notNull(),
+    relationshipId: uuid('relationship_id').notNull(),
+    toAddress: text('to_address'),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** After "Problem", the supplier's next message is taken as the description, until this time. */
+    awaitingNoteUntil: timestamp('awaiting_note_until', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('supplier_order_links_token_uq').on(t.tokenHash),
+    index('supplier_order_links_to_idx').on(t.toAddress, t.createdAt),
+    foreignKey({ columns: [t.orgId, t.poId], foreignColumns: [purchaseOrders.orgId, purchaseOrders.id] }).onDelete('cascade'),
+  ],
 );

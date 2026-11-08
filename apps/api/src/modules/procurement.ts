@@ -42,6 +42,7 @@ import { audit } from '../common/audit.js';
 import { emitEvent } from '../agents/events.js';
 import { StockModule, StockService } from './stock.js';
 import { SuppliersModule, SuppliersService } from './suppliers.js';
+import { SupplierMessagingModule, SupplierMessenger } from '../channels/supplier-messenger.js';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
 const OPEN_STATUSES = ['draft', 'pending_approval', 'approved', 'sent', 'partially_received'] as const;
@@ -86,7 +87,7 @@ const ListSchema = z.object({
 });
 class ListDto extends createZodDto(ListSchema) {}
 
-const SendSchema = z.object({ via: z.enum(['email', 'whatsapp', 'portal', 'manual']).optional() });
+const SendSchema = z.object({ via: z.enum(['email', 'whatsapp', 'portal', 'manual']).optional(), direct: z.boolean().optional() });
 class SendDto extends createZodDto(SendSchema) {}
 
 const ReceiveSchema = z.object({
@@ -124,6 +125,7 @@ export class ProcurementService {
     private readonly db: DbService,
     private readonly stock: StockService,
     private readonly suppliers: SuppliersService,
+    private readonly messenger: SupplierMessenger,
   ) {}
 
   private async nextNumber(tx: Tx, orgId: string, key: 'po' | 'grn'): Promise<string> {
@@ -325,17 +327,25 @@ export class ProcurementService {
     });
   }
 
-  /** Mark as sent and return a ready-to-send message (email/WhatsApp links). */
-  send(a: AccessContext, id: string, via?: string) {
+  /**
+   * Mark as sent. With direct (the default when the supplier orders by WhatsApp and has a
+   * number), BOH sends it to the supplier's WhatsApp itself; otherwise it returns a
+   * ready-to-send message with email/WhatsApp links.
+   */
+  send(a: AccessContext, id: string, via?: string, direct?: boolean) {
     return this.db.tenant(a.tenant, async (tx) => {
       const po = await this.load(tx, id);
       this.mustSite(a, 'po:manage', po.siteId);
       if (po.status !== 'approved') throw new BadRequestException(po.status === 'pending_approval' ? 'This order is waiting for approval' : `Order is ${po.status}`);
       const detail = await this.detailInTx(tx, a, po.id);
       const message = this.orderMessage(detail);
-      const channel = via ?? detail.supplier.orderChannel;
-      const after = await this.setStatus(tx, a, po, 'sent', { sentAt: new Date(), sentVia: channel });
-      return { ...after, message, links: this.links(detail, message) };
+      const hasNumber = Boolean(this.messenger.supplierAddress(detail.supplier.contactPhone));
+      const sendDirect = direct ?? (detail.supplier.orderChannel === 'whatsapp' && hasNumber);
+      if (sendDirect && !hasNumber) throw new BadRequestException('This supplier has no valid WhatsApp number');
+      const channel = sendDirect ? 'whatsapp' : (via ?? detail.supplier.orderChannel);
+      const after = await this.setStatus(tx, a, po, 'sent', { sentAt: new Date(), sentVia: sendDirect ? 'whatsapp_direct' : channel });
+      const sent = sendDirect ? await this.messenger.sendOrder(tx, a, detail, message) : null;
+      return { ...after, message, links: this.links(detail, message), direct: sent };
     });
   }
 
@@ -509,8 +519,10 @@ export class ProcurementService {
       .where(eq(purchaseOrderLines.poId, po.id))
       .orderBy(asc(purchaseOrderLines.sortOrder));
     const receipts = await tx.select().from(goodsReceipts).where(eq(goodsReceipts.poId, po.id)).orderBy(asc(goodsReceipts.receivedAt));
+    const conversation = await this.messenger.conversation(tx, po.id);
     return {
       ...po,
+      conversation,
       site: { id: site!.id, name: site!.name, nameAr: site!.nameAr },
       supplier: {
         id: rel!.id,
@@ -626,7 +638,7 @@ export class ProcurementController {
   back(@Access() a: AccessContext, @Param('id', uuid) id: string, @Body() dto: NoteDto) { return this.svc.returnToDraft(a, id, dto.note ?? null); }
 
   @Post('purchase-orders/:id/send') @Requires('po:manage') @HttpCode(200)
-  send(@Access() a: AccessContext, @Param('id', uuid) id: string, @Body() dto: SendDto) { return this.svc.send(a, id, dto.via); }
+  send(@Access() a: AccessContext, @Param('id', uuid) id: string, @Body() dto: SendDto) { return this.svc.send(a, id, dto.via, dto.direct); }
 
   @Post('purchase-orders/:id/cancel') @Requires('po:manage') @HttpCode(200)
   cancel(@Access() a: AccessContext, @Param('id', uuid) id: string, @Body() dto: NoteDto) { return this.svc.cancel(a, id, dto.note ?? null); }
@@ -647,5 +659,5 @@ export class ProcurementController {
   deleteLimit(@Access() a: AccessContext, @Param('id', uuid) id: string) { return this.svc.deleteLimit(a, id); }
 }
 
-@Module({ imports: [StockModule, SuppliersModule], controllers: [ProcurementController], providers: [ProcurementService], exports: [ProcurementService] })
+@Module({ imports: [StockModule, SuppliersModule, SupplierMessagingModule], controllers: [ProcurementController], providers: [ProcurementService], exports: [ProcurementService] })
 export class ProcurementModule {}

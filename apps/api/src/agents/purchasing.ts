@@ -240,6 +240,39 @@ async function overdueProposals(ctx: RunContext): Promise<{ proposals: TaskPropo
   return { proposals, expirePrefixes: ['overdue:'] };
 }
 
+/** Suppliers' problems and messages about an order (from WhatsApp or the order link) become inbox tasks. */
+async function supplierReplyProposals(ctx: RunContext, evts: EventRow[]): Promise<{ proposals: TaskProposal[]; expirePrefixes: string[] }> {
+  const replies = evts.filter((e) => e.type === 'po.supplier_replied' && ['problem', 'message'].includes(String((e.payload as { kind?: string }).kind)));
+  const proposals: TaskProposal[] = [];
+  for (const e of replies) {
+    const p = e.payload as { poId: string; number: string; relationshipId: string; kind: 'problem' | 'message'; text: string; via: string };
+    const [row] = await ctx.tx
+      .select({ rel: tradingRelationships, site: sites, po: purchaseOrders })
+      .from(purchaseOrders)
+      .innerJoin(tradingRelationships, eq(tradingRelationships.id, purchaseOrders.relationshipId))
+      .innerJoin(sites, eq(sites.id, purchaseOrders.siteId))
+      .where(eq(purchaseOrders.id, p.poId));
+    if (!row) continue;
+    const sup = row.rel.displayName;
+    const supAr = row.rel.displayNameAr ?? sup;
+    const problem = p.kind === 'problem';
+    proposals.push({
+      kind: 'supplier_reply',
+      subjectKey: `supplier_reply:${p.poId}:${e.id}`,
+      priority: problem ? 1 : 2,
+      title: problem ? `${sup} reported a problem with ${p.number}` : `${sup} replied about ${p.number}`,
+      titleAr: problem ? `${supAr} أبلغ عن مشكلة في الطلب ${p.number}` : `${supAr} ردّ بخصوص الطلب ${p.number}`,
+      summary: `“${p.text}”`,
+      summaryAr: `«${p.text}»`,
+      evidence: { poId: p.poId, number: p.number, text: p.text, replyKind: p.kind, via: p.via, status: row.po.status, deliveryDate: row.po.deliveryDate, site: { id: row.site.id, name: row.site.name, nameAr: row.site.nameAr }, supplier: { id: row.rel.id, name: sup, nameAr: supAr } },
+      actions: [],
+      sourceEventId: e.id,
+      writtenBy: 'template',
+    });
+  }
+  return { proposals, expirePrefixes: [] };
+}
+
 const merge = (...outs: { proposals: TaskProposal[]; expirePrefixes: string[] }[]): AgentOutput => ({
   proposals: outs.flatMap((o) => o.proposals),
   expirePrefixes: outs.flatMap((o) => o.expirePrefixes),
@@ -252,7 +285,7 @@ export const purchasing: AgentDefinition = {
   description: 'Keeps every site stocked: drafts orders per supplier from par levels, stock and deliveries already on the way, and chases late deliveries.',
   descriptionAr: 'يحافظ على مخزون كل فرع: يصيغ الطلبات لكل مورد حسب المستويات المستهدفة والمخزون والتوريدات القادمة، ويتابع التوريدات المتأخرة.',
   roleKey: 'agent_purchasing',
-  subscribes: ['stock.changed', 'po.status_changed', 'po.received'],
+  subscribes: ['stock.changed', 'po.status_changed', 'po.received', 'po.supplier_replied'],
   defaultSettings: { maxAutoOrderSar: 1500, includeUncounted: false },
   actionTypes: [
     { type: 'create_po', label: 'Create purchase orders', labelAr: 'إنشاء أوامر الشراء', allowed: ['suggest', 'approve', 'auto'], default: 'approve', requires: 'po:manage' },
@@ -263,6 +296,7 @@ export const purchasing: AgentDefinition = {
     const siteIds = [...new Set(evts.map((e) => (e.payload as { siteId?: string }).siteId).filter((s): s is string => Boolean(s)))];
     const out = [await siteProposals(ctx, siteIds)];
     if (evts.some((e) => e.type !== 'stock.changed')) out.push(await overdueProposals(ctx));
+    out.push(await supplierReplyProposals(ctx, evts));
     return merge(...out);
   },
 
@@ -309,8 +343,14 @@ export const purchasing: AgentDefinition = {
       return { poId: po.id, number: po.number, status: po.status, total: po.total, approvalReason: po.approvalReason };
     }
     if (action.type === 'contact_supplier') {
-      const p = action.params as { email?: string | null; phone?: string | null; message: string; messageAr: string };
+      const p = action.params as { supplierId?: string; channel?: string; email?: string | null; phone?: string | null; message: string; messageAr: string };
       const body = `${p.messageAr}\n\n${p.message}`;
+      // Suppliers who take orders on WhatsApp get the chaser from BOH directly, once a person approved it.
+      if (p.channel === 'whatsapp' && p.supplierId) {
+        const ev = ctx.task.evidence as { poId?: string; number?: string };
+        const sent = await ctx.services.messenger.sendFollowUp(ctx.tx, ctx.access, { relationshipId: p.supplierId, poId: ev.poId ?? null, about: `الطلب ${ev.number ?? ''}`.trim(), message: p.message, messageAr: p.messageAr });
+        if (sent) return { sentDirect: true, to: sent.to, messageId: sent.messageId };
+      }
       return {
         prepared: true,
         mailto: p.email ? `mailto:${p.email}?subject=${encodeURIComponent('Late delivery / تأخر التوصيل')}&body=${encodeURIComponent(body)}` : null,

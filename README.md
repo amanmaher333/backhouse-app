@@ -27,7 +27,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - "Ask BOH" agent preview: the chat UI only, with clearly labelled sample data (the agent arrives in phase 8)
   - The refresh token is kept in an httpOnly cookie through a Next.js backend-for-frontend; API calls go through a same-origin proxy
   - Manifest, service worker for the app shell, install button, online/offline pill
-- CI (GitHub Actions) with Postgres; 101 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices, CSV import, the agent runtime (autonomy, guardrails, pause, dedup, permissions), access tokens, MCP, delivery dates, stock costing, the PO lifecycle, spend limits, the Purchasing agent, and WhatsApp linking, routing, signed webhooks, button decisions and the daily digest
+- CI (GitHub Actions) with Postgres; 108 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices, CSV import, the agent runtime (autonomy, guardrails, pause, dedup, permissions), access tokens, MCP, delivery dates, stock costing, the PO lifecycle, spend limits, the Purchasing agent, and WhatsApp linking, routing, signed webhooks, button decisions, the daily digest and supplier messaging (orders, confirmations, problems, the order link, direct chasers)
 
 **Phase 1 (catalogue and shared ingredient map) done:**
 
@@ -60,7 +60,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
 - **Purchasing agent:** watches stock, order and receipt events, plus a daily scan. For items at or below their reorder point it drafts one order per supplier per site, topped up to par in whole packs net of what's already on order, using the preferred supplier (otherwise the cheapest). Evidence covers on hand, par, quantities, totals, delivery date and the supplier minimum. Items never counted are skipped by default. It also flags late deliveries and drafts a chaser. On "do it" autonomy it creates orders by itself only up to a SAR cap (default 1,500), and spend limits still apply.
 - **Web:** Orders (list, new order from a supplier's catalogue, order detail with approve / send / receive / close / cancel), Stock (per site, low filter, set count in any pack), and inbox cards for reorder drafts and late deliveries, in Arabic and English.
 
-**Phase B (channels): WhatsApp approvals and daily digest done:**
+**Phase B (channels): WhatsApp approvals, daily digest and supplier messaging done:**
 
 - **Linking:** a person links their number by sending a one-time code (15 minutes, stored hashed) from WhatsApp. Sending from the number proves they hold it. One number per account, and it works across all their organisations.
 - **Approval cards:** when an agent proposes something that needs a decision, the worker sends a card to everyone who could approve it at that site and has cards turned on. Inside WhatsApp's 24-hour window it's an interactive message with Approve / Reject buttons. Outside it, an approved template is used (see [`docs/whatsapp-templates.md`](docs/whatsapp-templates.md)). Cards show the order lines, total incl. VAT, delivery date, what Approve will do, and a link to the task. They're in the person's language.
@@ -78,6 +78,12 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - Quiet days send nothing, and a digest is never sent twice.
   - Outside the 24-hour window it's a compact template. Its **Show decisions** button reopens the window, and the waiting approval cards follow as interactive messages.
   - The WhatsApp page has a preview and a "send it now" button.
+- **Direct supplier messaging:** for suppliers who take orders on WhatsApp, "Send on WhatsApp from BOH" sends the order from BOH's number (Arabic and English).
+  - The message has **Confirm / Problem** buttons and a private link to the order. The link is a public page that needs no account, where the supplier can confirm or describe a problem.
+  - A confirmation is recorded on the order.
+  - A problem or any other reply is stored on the order, sent as a WhatsApp notice to the people who manage that site's orders, and added to the inbox as a Purchasing task.
+  - The order page shows the whole conversation and the supplier's answer.
+  - Once a person approves them, the Purchasing agent's late-delivery chasers and Price Watch's supplier messages are also sent directly. Suppliers on email still get the prepared message and links.
 - **Simulated mode** (default without Meta credentials): nothing leaves the machine, and the WhatsApp page includes a phone simulator for trying the whole flow.
 - **Web:** the WhatsApp page (link your number, approvals on/off, org approval limit, message log, simulator). The inbox shows "on WhatsApp" on decisions made there, and opens the right task from card links.
 
@@ -151,7 +157,7 @@ Set `ANTHROPIC_API_KEY` in `.env` for Claude-written text (optional; `AGENTS_LLM
 
 ## Next
 
-- **Phase B (rest):** push notifications, sending supplier orders directly on WhatsApp.
+- **Phase B (rest):** push notifications; supplier messages by email.
 - **Phase 3 (invoices) with the Invoice agent:** email and e-invoice intake, matching to orders and deliveries, credit notes, ZATCA.
 
 See `docs/SPEC.md` §10.

@@ -55,6 +55,11 @@ export interface PoDetail {
   createdBy: string | null;
   sentAt: string | null;
   sentVia: string | null;
+  supplierConfirmedAt: string | null;
+  supplierConfirmedVia: 'whatsapp' | 'link' | null;
+  supplierIssue: string | null;
+  supplierIssueAt: string | null;
+  conversation: { id: string; dir: 'to_supplier' | 'from_supplier'; kind: string; status: string | null; text: string; at: string }[];
   createdAt: string;
   site: { id: string; name: string; nameAr: string | null };
   supplier: { id: string; name: string; nameAr: string | null; orderChannel: string; contactEmail: string | null; contactPhone: string | null; minOrderValue: string | null };

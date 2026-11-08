@@ -1,6 +1,7 @@
 import type { AgentAction, AutonomyLevel, Tx, agents, agentTasks, events } from '@boh/db';
 import type { AccessContext } from '../common/access.js';
 import type { ProcurementService } from '../modules/procurement.js';
+import type { SupplierMessenger } from '../channels/supplier-messenger.js';
 import type { StockService } from '../modules/stock.js';
 import type { LlmWriter } from './llm.js';
 
@@ -45,6 +46,8 @@ export type AgentOutput = TaskProposal[] | { proposals: TaskProposal[]; expirePr
 export interface AgentServices {
   procurement: ProcurementService;
   stock: StockService;
+  /** Sends approved messages to suppliers on WhatsApp. */
+  messenger: SupplierMessenger;
 }
 
 export interface RunContext {

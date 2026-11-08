@@ -1054,3 +1054,61 @@ input[type='time'].inline-input {
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+
+.wa-thread-static {
+  flex-direction: column-reverse;
+  background: var(--tile);
+  border-radius: 14px;
+  max-height: 420px;
+}
+
+/* ---------- Supplier order page (public) ---------- */
+.supplier-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100dvh;
+  background: var(--canvas);
+}
+.supplier-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.supplier-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.supplier-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.supplier-title {
+  font-size: 30px;
+  margin: 4px 0 12px;
+}
+.supplier-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.supplier-facts dt {
+  color: var(--t3);
+  font-size: 12px;
+}
+.supplier-facts dd {
+  margin: 2px 0 0;
+  font-weight: 500;
+}

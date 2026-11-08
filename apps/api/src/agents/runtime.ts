@@ -22,6 +22,7 @@ import { AGENT_DEFINITIONS, getDefinition } from './registry.js';
 import type { AgentDefinition, AgentOutput, AgentRow, AgentServices, RunContext, TaskProposal, TaskRow } from './types.js';
 import { ProcurementService } from '../modules/procurement.js';
 import { StockService } from '../modules/stock.js';
+import { SupplierMessenger } from '../channels/supplier-messenger.js';
 
 const OPEN = ['proposed', 'approved'] as const;
 
@@ -59,8 +60,9 @@ export class AgentRuntime {
     private readonly llm: LlmWriter,
     procurement: ProcurementService,
     stock: StockService,
+    messenger: SupplierMessenger,
   ) {
-    this.services = { procurement, stock };
+    this.services = { procurement, stock, messenger };
   }
 
   // ---------- identities ----------

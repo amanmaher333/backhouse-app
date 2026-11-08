@@ -7,6 +7,7 @@ import type { AccessContext } from '../common/access.js';
 import { LlmWriter } from './llm.js';
 import { ProcurementModule } from '../modules/procurement.js';
 import { StockModule } from '../modules/stock.js';
+import { SupplierMessagingModule } from '../channels/supplier-messenger.js';
 import { AgentRuntime } from './runtime.js';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
@@ -80,5 +81,5 @@ export class AgentsController {
   dismiss(@Access() a: AccessContext, @Param('id', uuid) id: string, @Body() dto: NoteDto) { return this.rt.dismiss(a, id, dto.note ?? null); }
 }
 
-@Module({ imports: [ProcurementModule, StockModule], controllers: [AgentsController], providers: [AgentRuntime, LlmWriter], exports: [AgentRuntime] })
+@Module({ imports: [ProcurementModule, StockModule, SupplierMessagingModule], controllers: [AgentsController], providers: [AgentRuntime, LlmWriter], exports: [AgentRuntime] })
 export class AgentsModule {}

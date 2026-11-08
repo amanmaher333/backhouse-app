@@ -281,6 +281,17 @@ function TaskCard({ task, focused, onChanged }: { task: Task; focused?: boolean;
         </div>
       )}
 
+      {(task.kind === 'po_overdue' || task.kind === 'supplier_reply') && ev.poId && !result.poId && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Link className="btn btn-sm btn-quiet" href={`/orders/${ev.poId}`}>
+            {t('openPo')} {ev.number}
+          </Link>
+          {task.kind === 'supplier_reply' && ev.via === 'link' && <span className="faint" style={{ fontSize: 12 }}>{t('viaLink')}</span>}
+        </div>
+      )}
+
+      {!open && result.sentDirect && <div className="notice notice-info">{t('sentDirect')}</div>}
+
       {!open && result.poId && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <Link className="btn btn-sm btn-primary" href={`/orders/${result.poId}`}>
@@ -343,18 +354,21 @@ function TaskCard({ task, focused, onChanged }: { task: Task; focused?: boolean;
             ),
           )}
           <span style={{ flex: 1 }} />
-          <button className="btn btn-sm btn-danger" disabled={!!busy} onClick={() => setRejecting(true)}>
-            {t('reject')}
-          </button>
+          {/* Nothing to approve (e.g. a supplier's message): only "done with it". */}
+          {task.actions.length > 0 && (
+            <button className="btn btn-sm btn-danger" disabled={!!busy} onClick={() => setRejecting(true)}>
+              {t('reject')}
+            </button>
+          )}
           <button
-            className="btn btn-sm btn-quiet"
+            className={`btn btn-sm ${task.actions.length ? 'btn-quiet' : 'btn-primary'}`}
             disabled={!!busy}
             onClick={async () => {
               await api(`/agent-tasks/${task.id}/dismiss`, { method: 'POST', body: {} });
               onChanged();
             }}
           >
-            {t('dismiss')}
+            {task.actions.length ? t('dismiss') : t('markHandled')}
           </button>
         </footer>
       )}

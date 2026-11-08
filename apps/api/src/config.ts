@@ -36,6 +36,9 @@ const schema = z.object({
   WHATSAPP_TEMPLATE_APPROVAL: z.string().default('boh_approval_request'),
   WHATSAPP_TEMPLATE_NOTICE: z.string().default('boh_task_notice'),
   WHATSAPP_TEMPLATE_DIGEST: z.string().default('boh_daily_digest'),
+  WHATSAPP_TEMPLATE_SUPPLIER_ORDER: z.string().default('boh_purchase_order'),
+  WHATSAPP_TEMPLATE_SUPPLIER_FOLLOWUP: z.string().default('boh_supplier_followup'),
+  WHATSAPP_TEMPLATE_SUPPLIER_UPDATE: z.string().default('boh_supplier_update'),
   /** Approval cards stop working after this many hours (the task stays in the inbox). */
   WHATSAPP_PROMPT_TTL_HOURS: z.coerce.number().int().positive().default(72),
 });

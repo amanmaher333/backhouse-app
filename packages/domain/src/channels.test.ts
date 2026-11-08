@@ -80,3 +80,13 @@ describe('daily digest', () => {
     expect(digestSummary({ ...c, waiting: 0, autoDone: 0, dueToday: 0, late: 0, lowItems: 0, lowSites: 0 }, 'en')).toBe('Nothing new');
   });
 });
+
+import { parseSupplierPayload, supplierPayload } from './channels.js';
+describe('supplier payloads', () => {
+  it('round-trips confirm and problem', () => {
+    const id = '7d1c9f8e-2b3a-4c5d-8e9f-0a1b2c3d4e5f';
+    expect(parseSupplierPayload(supplierPayload(id, 'confirm'))).toEqual({ linkId: id, answer: 'confirm' });
+    expect(parseSupplierPayload(supplierPayload(id, 'problem'))).toEqual({ linkId: id, answer: 'problem' });
+    expect(parseSupplierPayload(`apr:${id}:a`)).toBeNull();
+  });
+});

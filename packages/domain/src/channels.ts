@@ -75,6 +75,14 @@ export function parseDigestPayload(payload: string): string | null {
   return m ? m[1]!.toLowerCase() : null;
 }
 
+/** Supplier buttons on an order: "sup:<linkId>:c" (confirm) or ":p" (problem). */
+export type SupplierAnswer = 'confirm' | 'problem';
+export const supplierPayload = (linkId: string, answer: SupplierAnswer) => `sup:${linkId}:${answer === 'confirm' ? 'c' : 'p'}`;
+export function parseSupplierPayload(payload: string): { linkId: string; answer: SupplierAnswer } | null {
+  const m = /^sup:([0-9a-f-]{36}):([cp])$/i.exec(payload.trim());
+  return m ? { linkId: m[1]!.toLowerCase(), answer: m[2] === 'c' ? 'confirm' : 'problem' } : null;
+}
+
 /** Link codes people send from WhatsApp: "BOH-" + 6 characters without look-alikes (0/O, 1/I/L). */
 const CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 export function linkCode(random: Uint8Array): string {

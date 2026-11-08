@@ -16,7 +16,7 @@ BOH sends approval cards on WhatsApp through Meta's WhatsApp Business Cloud API.
 | `WHATSAPP_VERIFY_TOKEN` | Any secret string; enter the same value when subscribing the webhook. |
 | `WHATSAPP_GRAPH_VERSION` | Default `v25.0`. |
 | `WHATSAPP_BUSINESS_NUMBER` | BOH's number in E.164, shown to people for linking. |
-| `WHATSAPP_TEMPLATE_APPROVAL`, `WHATSAPP_TEMPLATE_NOTICE`, `WHATSAPP_TEMPLATE_DIGEST` | Template names, if yours differ. |
+| `WHATSAPP_TEMPLATE_APPROVAL`, `WHATSAPP_TEMPLATE_NOTICE`, `WHATSAPP_TEMPLATE_DIGEST`, `WHATSAPP_TEMPLATE_SUPPLIER_ORDER`, `WHATSAPP_TEMPLATE_SUPPLIER_FOLLOWUP`, `WHATSAPP_TEMPLATE_SUPPLIER_UPDATE` | Template names, if yours differ. |
 | `WHATSAPP_PROMPT_TTL_HOURS` | How long a card's buttons stay valid (default 72). |
 | `PUBLIC_WEB_URL` | Base URL for "open in BOH" links. |
 
@@ -126,6 +126,88 @@ Inside the window, the digest goes out as a full message: the waiting decisions,
 - **Skipped when late:** if the worker was down, a missed digest is still sent up to 4 hours after the chosen hour; after that, that day's is skipped.
 - **Quiet days:** nothing is sent; the empty run is still recorded.
 - **What it covers:** only what the person's permissions allow (sites, prices, spend approval).
+
+## Supplier templates
+
+BOH writes to suppliers from the same number, on behalf of the restaurant. These templates are registered in **Arabic** (`ar`), the language Saudi suppliers use. The free-form versions sent inside the window are bilingual (Arabic first).
+
+### `boh_purchase_order` (Utility)
+
+Variables:
+
+- `{{1}}` restaurant
+- `{{2}}` order number
+- `{{3}}` site
+- `{{4}}` delivery date
+- `{{5}}` summary, e.g. "2 أصناف · 605.76 ر.س شامل الضريبة" (just the item count when the supplier's prices are hidden)
+
+Body:
+
+```
+طلب شراء جديد من {{1}}
+رقم الطلب: {{2}}
+التوصيل إلى: {{3}}
+موعد التوصيل: {{4}}
+{{5}}
+```
+
+Buttons, in this order:
+
+| # | Type | Text | Value |
+|---|---|---|---|
+| 0 | Quick reply | تأكيد / Confirm | payload set per message |
+| 1 | Quick reply | مشكلة / Problem | payload set per message |
+| 2 | URL (dynamic) | عرض الطلب | `https://app.boh.sa/s/{{1}}` (suffix: the order's private token) |
+
+### `boh_supplier_followup` (Utility)
+
+Used for a late-delivery chaser or a price question, after a person approved it. Variables:
+
+- `{{1}}` restaurant
+- `{{2}}` subject (e.g. "الطلب PO-00012")
+- `{{3}}` message
+
+Body:
+
+```
+رسالة من {{1}} بخصوص {{2}}:
+{{3}}
+
+يمكنك الرد هنا وسنوصل ردك.
+```
+
+No buttons.
+
+### `boh_supplier_update` (Utility, to restaurant staff; ar + en)
+
+Sent when a supplier reports a problem or replies about an order. Variables:
+
+- `{{1}}` supplier
+- `{{2}}` order number
+- `{{3}}` what they said
+
+Body:
+
+```
+{{1}} ردّ بخصوص الطلب {{2}}:
+{{3}}
+```
+
+Button: URL "افتح الطلب" / "Open order", `https://app.boh.sa/{{1}}` (suffix `orders/<id>`).
+
+### How supplier replies work
+
+- **Confirm** (WhatsApp button or the order link): recorded once on the order, with where it came from.
+- **Problem:** BOH asks for one message describing it, and takes the supplier's next message within 2 hours as the description. (On the link, they type it straight away.) The problem is:
+  - stored on the order;
+  - sent as a WhatsApp notice to people who manage that site's orders and have notifications on;
+  - added to the inbox as a high-priority Purchasing task.
+- **Any other text** from a supplier's number is attached to their latest order from BOH (within 30 days), relayed the same way, and acknowledged.
+- **Safety checks:**
+  - buttons only work from the number the order was sent to;
+  - order links are random 192-bit tokens, stored hashed, and expire after 45 days;
+  - suppliers see only that one order (prices hidden if the supplier is set to "hide prices on PO").
+- **Webhook URL:** point Meta at the **API** host (`/v1/webhooks/whatsapp`), not the web app; the web proxy does not forward signatures.
 
 ## Security model
 
