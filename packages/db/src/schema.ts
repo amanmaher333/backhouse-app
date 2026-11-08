@@ -750,3 +750,188 @@ export const accessTokens = pgTable(
   },
   (t) => [uniqueIndex('access_tokens_hash_uq').on(t.tokenHash), index('access_tokens_user_idx').on(t.userId)],
 );
+
+/* =====================================================================
+ * Phase 2: stock ledger, purchase orders, receiving, spend limits
+ * ===================================================================== */
+
+export const movementType = pgEnum('movement_type', [
+  'opening',
+  'receipt',
+  'adjustment',
+  'transfer_in',
+  'transfer_out',
+  'waste',
+  'sale',
+  'production_in',
+  'production_out',
+  'return',
+]);
+
+/** Append-only stock ledger. Quantities in the item's base unit; cost per base unit. */
+export const stockMovements = pgTable(
+  'stock_movements',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    orgId: uuid('org_id').notNull(),
+    siteId: uuid('site_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    type: movementType('type').notNull(),
+    qtyBase: numeric('qty_base', { precision: 18, scale: 6 }).notNull(),
+    unitCost: numeric('unit_cost', { precision: 18, scale: 8 }),
+    totalCost: numeric('total_cost', { precision: 16, scale: 4 }),
+    sourceType: text('source_type'),
+    sourceId: text('source_id'),
+    note: text('note'),
+    actorType: actorType('actor_type').notNull().default('user'),
+    createdBy: uuid('created_by'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.siteId], foreignColumns: [sites.orgId, sites.id] }),
+    foreignKey({ columns: [t.orgId, t.itemId], foreignColumns: [items.orgId, items.id] }),
+    index('stock_movements_site_item_idx').on(t.siteId, t.itemId, t.id),
+  ],
+);
+
+/** Current stock and weighted average cost per site and item, maintained with every movement. */
+export const stockBalances = pgTable(
+  'stock_balances',
+  {
+    orgId: uuid('org_id').notNull(),
+    siteId: uuid('site_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    qtyOnHand: numeric('qty_on_hand', { precision: 18, scale: 6 }).notNull().default('0'),
+    avgCost: numeric('avg_cost', { precision: 18, scale: 8 }).notNull().default('0'),
+    lastMovementAt: timestamp('last_movement_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.siteId, t.itemId] }),
+    foreignKey({ columns: [t.orgId, t.siteId], foreignColumns: [sites.orgId, sites.id] }).onDelete('cascade'),
+    foreignKey({ columns: [t.orgId, t.itemId], foreignColumns: [items.orgId, items.id] }).onDelete('cascade'),
+  ],
+);
+
+export const poStatus = pgEnum('po_status', ['draft', 'pending_approval', 'approved', 'sent', 'partially_received', 'received', 'closed', 'cancelled']);
+
+export const purchaseOrders = pgTable(
+  'purchase_orders',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    number: text('number').notNull(),
+    siteId: uuid('site_id').notNull(),
+    relationshipId: uuid('relationship_id').notNull(),
+    status: poStatus('status').notNull().default('draft'),
+    deliveryDate: text('delivery_date'),
+    currency: text('currency').notNull().default('SAR'),
+    taxRate: numeric('tax_rate', { precision: 6, scale: 4 }).notNull().default('0.15'),
+    subtotal: numeric('subtotal', { precision: 16, scale: 2 }).notNull().default('0'),
+    taxTotal: numeric('tax_total', { precision: 16, scale: 2 }).notNull().default('0'),
+    total: numeric('total', { precision: 16, scale: 2 }).notNull().default('0'),
+    notes: text('notes'),
+    source: text('source').notNull().default('manual'),
+    agentTaskId: uuid('agent_task_id'),
+    approvalReason: text('approval_reason'),
+    createdBy: uuid('created_by'),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    approvedBy: uuid('approved_by'),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    sentVia: text('sent_via'),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('purchase_orders_org_id_id_uq').on(t.orgId, t.id),
+    unique('purchase_orders_org_number_uq').on(t.orgId, t.number),
+    foreignKey({ columns: [t.orgId, t.siteId], foreignColumns: [sites.orgId, sites.id] }),
+    foreignKey({ columns: [t.orgId, t.relationshipId], foreignColumns: [tradingRelationships.orgId, tradingRelationships.id] }),
+    index('purchase_orders_org_status_idx').on(t.orgId, t.status),
+    index('purchase_orders_site_idx').on(t.siteId, t.status),
+  ],
+);
+
+export const purchaseOrderLines = pgTable(
+  'purchase_order_lines',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    poId: uuid('po_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    packId: uuid('pack_id').notNull(),
+    supplierItemId: uuid('supplier_item_id'),
+    qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),
+    unitPrice: numeric('unit_price', { precision: 14, scale: 4 }).notNull(),
+    lineTotal: numeric('line_total', { precision: 16, scale: 2 }).notNull(),
+    receivedQty: numeric('received_qty', { precision: 14, scale: 3 }).notNull().default('0'),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.poId], foreignColumns: [purchaseOrders.orgId, purchaseOrders.id] }).onDelete('cascade'),
+    foreignKey({ columns: [t.orgId, t.itemId], foreignColumns: [items.orgId, items.id] }),
+    foreignKey({ columns: [t.orgId, t.packId], foreignColumns: [packs.orgId, packs.id] }),
+    index('purchase_order_lines_po_idx').on(t.poId),
+    check('po_lines_qty_chk', sql`${t.qty} > 0`),
+  ],
+);
+
+/** Goods received note: one delivery against a PO. Posted receipts are immutable. */
+export const goodsReceipts = pgTable(
+  'goods_receipts',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    number: text('number').notNull(),
+    poId: uuid('po_id').notNull(),
+    siteId: uuid('site_id').notNull(),
+    receivedBy: uuid('received_by'),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+    documentNo: text('document_no'),
+    note: text('note'),
+    total: numeric('total', { precision: 16, scale: 2 }).notNull().default('0'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique('goods_receipts_org_id_id_uq').on(t.orgId, t.id),
+    unique('goods_receipts_org_number_uq').on(t.orgId, t.number),
+    foreignKey({ columns: [t.orgId, t.poId], foreignColumns: [purchaseOrders.orgId, purchaseOrders.id] }),
+  ],
+);
+
+export const goodsReceiptLines = pgTable(
+  'goods_receipt_lines',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    receiptId: uuid('receipt_id').notNull(),
+    poLineId: uuid('po_line_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),
+    qtyBase: numeric('qty_base', { precision: 18, scale: 6 }).notNull(),
+    unitPrice: numeric('unit_price', { precision: 14, scale: 4 }).notNull(),
+    orderedUnitPrice: numeric('ordered_unit_price', { precision: 14, scale: 4 }).notNull(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.receiptId], foreignColumns: [goodsReceipts.orgId, goodsReceipts.id] }).onDelete('cascade'),
+    index('goods_receipt_lines_receipt_idx').on(t.receiptId),
+  ],
+);
+
+/**
+ * Spend limits. A PO needs approval (po:approve) if it exceeds any limit that applies:
+ * per order, or the site's month-to-date spend. site_id / relationship_id NULL = any.
+ */
+export const spendLimits = pgTable('spend_limits', {
+  id: id(),
+  orgId: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  siteId: uuid('site_id'),
+  relationshipId: uuid('relationship_id'),
+  period: text('period').notNull(),
+  amount: numeric('amount', { precision: 16, scale: 2 }).notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});

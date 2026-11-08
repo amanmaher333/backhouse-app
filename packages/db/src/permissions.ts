@@ -35,6 +35,12 @@ export const PERMISSIONS = [
   'agent:manage',
   'task:decide',
   'token:manage',
+  'stock:read',
+  'stock:manage',
+  'po:read',
+  'po:manage',
+  'po:approve',
+  'spend_limit:manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -56,30 +62,30 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Data Manager',
     nameAr: 'مدير البيانات',
     scope: 'org',
-    permissions: [...READ_ALL, 'location:manage', 'cost_centre:manage', 'brand:manage', 'item:manage', 'par:manage', 'supplier:manage', 'price:manage', 'task:decide', 'token:manage'],
+    permissions: [...READ_ALL, 'location:manage', 'cost_centre:manage', 'brand:manage', 'item:manage', 'par:manage', 'supplier:manage', 'price:manage', 'task:decide', 'token:manage', 'stock:manage', 'po:manage'],
   },
   {
     key: 'ops_manager',
     name: 'Operations Manager',
     nameAr: 'مدير العمليات',
     scope: 'org',
-    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage', 'par:manage', 'supplier:manage', 'task:decide', 'token:manage'],
+    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage', 'par:manage', 'supplier:manage', 'task:decide', 'token:manage', 'stock:manage', 'po:manage', 'po:approve', 'spend_limit:manage'],
   },
   {
     key: 'site_manager',
     name: 'Site Manager',
     nameAr: 'مدير الفرع',
     scope: 'site',
-    permissions: ['site:read', 'location:read', 'location:manage', 'cost_centre:read', 'item:read', 'par:manage', 'supplier:read', 'price:read'],
+    permissions: ['site:read', 'location:read', 'location:manage', 'cost_centre:read', 'item:read', 'par:manage', 'supplier:read', 'price:read', 'stock:read', 'stock:manage', 'po:read', 'po:manage', 'agent:read', 'task:decide'],
   },
-  { key: 'staff', name: 'Staff', nameAr: 'موظف', scope: 'site', permissions: ['site:read', 'location:read', 'item:read'] },
-  { key: 'drafter', name: 'Drafter', nameAr: 'محرر مسودات', scope: 'site', permissions: ['site:read', 'location:read', 'item:read', 'supplier:read'] },
+  { key: 'staff', name: 'Staff', nameAr: 'موظف', scope: 'site', permissions: ['site:read', 'location:read', 'item:read', 'stock:read', 'stock:manage', 'po:read'] },
+  { key: 'drafter', name: 'Drafter', nameAr: 'محرر مسودات', scope: 'site', permissions: ['site:read', 'location:read', 'item:read', 'supplier:read', 'stock:read', 'po:read', 'po:manage'] },
   {
     key: 'accountant',
     name: 'Accountant',
     nameAr: 'محاسب',
     scope: 'org',
-    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read', 'item:read', 'supplier:read', 'price:read', 'agent:read'],
+    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read', 'item:read', 'supplier:read', 'price:read', 'agent:read', 'stock:read', 'po:read'],
   },
   // Agent roles: assigned only to agent identities, never to people.
   {
@@ -88,6 +94,13 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     nameAr: 'وكيل مراقبة الأسعار',
     scope: 'org',
     permissions: ['item:read', 'supplier:read', 'price:read', 'price:manage'],
+  },
+  {
+    key: 'agent_purchasing',
+    name: 'Purchasing agent',
+    nameAr: 'وكيل المشتريات',
+    scope: 'org',
+    permissions: ['item:read', 'supplier:read', 'price:read', 'stock:read', 'site:read', 'po:read', 'po:manage'],
   },
 ];
 

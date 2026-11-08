@@ -288,7 +288,8 @@ export class SuppliersService {
   }
 
   // ---------- Supplier items & prices ----------
-  private async writePrice(
+  /** Record a price change (history, current price, event). Public so receiving can update prices. */
+  async writePrice(
     tx: Tx,
     a: AccessContext,
     si: typeof supplierItems.$inferSelect,

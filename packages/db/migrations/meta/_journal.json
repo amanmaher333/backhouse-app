@@ -50,6 +50,20 @@
       "when": 1794169742354,
       "tag": "0006_agents_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794171363562,
+      "tag": "0007_procurement",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794171364316,
+      "tag": "0008_procurement_rls",
+      "breakpoints": true
     }
   ]
 }

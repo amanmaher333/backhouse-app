@@ -2,7 +2,7 @@ import { events, type Tx } from '@boh/db';
 import type { AccessContext } from '../common/access.js';
 
 /** Domain event types agents can subscribe to. */
-export type EventType = 'price.changed' | 'supplier_item.created' | 'item.created';
+export type EventType = 'price.changed' | 'supplier_item.created' | 'item.created' | 'stock.changed' | 'po.status_changed' | 'po.received';
 
 /**
  * Emit a domain event in the caller's transaction, so the event exists
