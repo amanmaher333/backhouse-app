@@ -1,71 +1,143 @@
-# BOH — Product Spec v0.3 (moat-first, KSA-first)
+# BOH — Product Spec v0.4 (Agents as a Service, moat-first, KSA-first)
 
-Working codename **BOH**; rename before launch. Launch market: **Saudi Arabia first**, UAE second (decided 2026-11-08).
-v0.1 was a feature-parity spec; this version is built around **defensibility**.
-Research: `research/` (procurement, inventory, platform teardown of Supy from public sources; GCC e-invoicing).
+Working codename **BOH**; rename before launch. Launch market: **Saudi Arabia first**, UAE second.
+- v0.1 was feature parity.
+- v0.2–0.3 added defensibility and Saudi-first.
+- **v0.4 changes what customers buy: agents that do back-office jobs, not software they operate.**
+
+Research: `research/` (Supy teardown from public sources; GCC e-invoicing). Design: `design/design-spec.md`.
 This is an original product. No Supy code, branding, copy or UI is used.
+
+**Status:**
+- Phase 0 (foundation) ✅
+- Phase 1 (catalogue and shared ingredient map) ✅
+- Phase A (agent platform and Price Watch) is in progress; see §10.
 
 ---
 
 ## 1. Thesis
 
-> **Incumbents sell software that restaurant teams have to operate. BOH is an AI back-of-house manager that does the work. Staff talk to it on WhatsApp in their own language. And every supplier and every invoice makes the network smarter for everyone on it.**
+> **Restaurant groups don't want more software. They want the back-office work done. BOH gives them agents that do purchasing, invoice checking, stock control and cost control. People approve and correct, mostly over WhatsApp, and every correction makes the agents and the shared network better.**
 
-Features can be copied in months. BOH is designed so that its value builds up in things a competitor **cannot** copy by rebuilding the app:
+| | SaaS (what incumbents sell) | BOH: Agents as a Service |
+|---|---|---|
+| Customer buys | Seats, modules, locations | **Agents hired per site** to do specific jobs |
+| Home screen | Lists and forms | **The inbox:** work the agents did or propose, waiting for a decision |
+| Staff do | Data entry | Approve, correct, give context (web, WhatsApp, voice) |
+| Value measured by | Logins | **Jobs done, hours saved, riyals saved** |
+| Gets better by | New features | **Every approval and correction**, plus the network's data |
 
-| # | Moat | What builds up over time | Why a copycat can't shortcut it |
+What still holds from v0.3: the moat stack (§3). Agents are how customers experience the product. The moats are why agents on BOH beat agents built anywhere else.
+
+---
+
+## 2. The agents
+
+Each agent is a product: a clear job, the tools it may use, the actions it may propose, how much it may do on its own, and a measured outcome.
+
+| Agent | Job | Triggers | Proposes / does | Outcome metric | Depends on |
+|---|---|---|---|---|---|
+| **Price Watch** | Catch supplier price rises and respond | `price.changed` events, daily scan | Switch to a cheaper supplier for the same ingredient; ask the supplier to explain or revert (drafted EN/AR message); accept the new price | SAR avoided per month; response time to price rises | Phase 1 ✅ |
+| **Onboarding** | Get a customer live in 48 h | New org, uploaded files | Build items, packs, suppliers and price lists from invoices, price lists and menus, for review | Time to first value; % of lines accepted without edits | Phase 1 ✅ + document AI |
+| **Purchasing** | Keep every site stocked at the lowest cost | Par/stock levels, delivery schedules, cut-offs | Draft orders per supplier and delivery date; send after approval; chase late confirmations | Stock-outs avoided; on-time ordering; savings vs. last price | Phase 2 |
+| **Invoice** | Never pay for what didn't arrive | Invoice received (email/e-invoice), delivery received | Match invoice to PO and delivery; flag differences; draft credit-note requests; post to accounting | SAR recovered; minutes per invoice | Phase 2, e-invoicing |
+| **Stock** | Accurate stock with minimal effort | Count schedules, WhatsApp/voice messages | Run counts and waste logging by voice; explain variances | Count completion; variance explained | Phase 3 |
+| **Cost Controller** | Protect food-cost % | Weekly schedule, questions | "Why did food cost rise?"; weekly profit-leak report; menu price suggestions | Food cost % vs. target | Recipes + POS |
+
+**Rules for every agent:**
+1. **Evidence first.** Every proposal shows the data behind it (prices, history, alternatives, calculation) so a person can decide in seconds.
+2. **Typed actions only.** An agent can only *propose* actions from a fixed list. Executing one goes through the same domain commands, permissions and audit log as a person's click. No free-form database or API access.
+3. **Bilingual.** Summaries and messages are written in Arabic and English.
+4. **Deterministic core, AI on the edges.** Calculations (cost per kg, savings, matching thresholds) are code. The language model writes summaries and messages and handles messy input. If the model is unavailable, the agent still works with templates.
+
+---
+
+## 3. Moats (unchanged from v0.3, now feeding the agents)
+
+| # | Moat | What builds up over time | How it makes agents better |
 |---|---|---|---|
-| 1 | **Supplier network** (two-sided) | Suppliers transacting on BOH | A competitor can clone the portal but not the suppliers on it |
-| 2 | **Data flywheel** | Shared ingredient map, price index, benchmarks, AI corrections | Needs years of real invoices and human corrections |
-| 3 | **Money flows** | Supplier payments, then financing | Switching means rewiring payables; financing needs our data |
-| 4 | **Regulatory depth** | E-invoicing (KSA ZATCA first, UAE Peppol later), VAT, in-Kingdom data residency | Accreditation takes time; deadlines in 2027 favour whoever is ready first |
-| 5 | **Kitchen-floor know-how** | Multilingual voice and WhatsApp workflows, dialect data | Behaviour change is sticky; speech data accumulates |
-
-**Not moats** (fine for winning customers, but don't rely on them): UI polish, individual AI features, low price.
-
-**Rule:** every feature must either (a) give a single restaurant value on its own, or (b) feed a moat. Ideally both.
+| 1 | **Supplier network** (two-sided, deduplicated by VAT number) | Suppliers transacting on BOH | Agents can message, compare and switch suppliers; suppliers confirm orders on the platform |
+| 2 | **Data flywheel** | Shared ingredient map, price index, benchmarks | Agents know whether a price is fair across the market, not just versus last week |
+| 3 | **Corrections → training data** | Every approval, rejection and edit, stored | Agents tuned and evaluated on real decisions; rejected suggestions teach the agent |
+| 4 | **Regulatory depth** | ZATCA e-invoicing, VAT, in-Kingdom hosting | The Invoice agent reads structured e-invoices exactly |
+| 5 | **Kitchen-floor know-how** | WhatsApp and voice workflows in staff languages | Agents talk to kitchen staff where they already are |
+| 6 | **Agent track record** *(new)* | Per-customer history of autonomy granted and outcomes | Customers raise autonomy as trust builds, so switching means starting from "suggest only" again |
 
 ---
 
-## 2. Product pillars
+## 4. Agent platform architecture
 
-### Pillar A — "Talk to your kitchen" (WhatsApp + voice, multilingual)
-For kitchen staff who live on WhatsApp and speak Hindi, Urdu, Malayalam, Tagalog, Nepali, Arabic or English.
-- **Voice counts:** "chicken breast three and a half boxes, cream six litres" → counted lines in the right pack sizes and units, with a confirmation message.
-- **Waste:** photo + voice note → waste record (item, qty, reason, cost).
-- **Receiving:** photo of the delivery note or invoice → matched against the PO, discrepancies flagged, GRN drafted.
-- **Requests:** "need 10 kg onions tomorrow" → requisition.
-- **Approvals:** the manager replies `approve` / `reject` to a WhatsApp card.
-- Everything also works in the web app and offline mobile app; WhatsApp is a front end on the same API.
+### 4.1 Agents are first-class actors
+- Installing an agent in an org creates an **agent identity**: a user record of kind `agent`, with no password and no ability to log in. It gets a membership with a dedicated **agent role** (e.g. `agent_price_watch`: read items, suppliers and prices; propose; on approval, set the preferred supplier).
+- Agents appear in **Members** next to people and can be paused or removed like staff. Every agent action is audited with `actor_type = agent` and the approving person recorded on the task.
+- Database row-level security, permissions and audit apply unchanged: an agent cannot see another tenant's data, and cannot do anything its role doesn't allow.
 
-### Pillar B — AI operations agent
-- **Explains:** "Why is food cost up 2.8% at Marina?" → a breakdown by cause (price, waste, variance, sales mix) with ingredient-level detail.
-- **Weekly profit-leak report** per site: the top 5 leaks in AED/SAR with a recommended action.
-- **Acts:** drafts orders from forecast and par levels, chases missing credit notes from suppliers, reconciles invoices, prepares the accounting push.
-- **Autonomy levels** set per org and per action: `suggest` → `act with approval` → `act and notify`. Money-moving and supplier-facing actions default to approval.
-- Anomaly detection: price spikes, count variance, waste patterns, suspected theft, duplicate invoices.
+### 4.2 Events
+- Domain changes emit **events** in the same transaction as the change (`price.changed`, `supplier_item.created`, later `stock.below_par`, `invoice.received`, `po.overdue`…).
+- Events are append-only rows in Postgres. Each agent keeps a **cursor** (last event processed), so nothing is missed or processed twice.
 
-### Pillar C — Live in 48 hours (AI onboarding)
-Upload 3 months of invoices (PDF, photo or e-invoice XML) + menu + any recipe sheets → BOH builds items, packs, suppliers, price lists and draft recipes, matched to the shared ingredient map. A person reviews in a guided queue. *(The incumbent's most common complaint is that customers do the setup themselves.)*
+### 4.3 Runtime
+- A **worker** process runs agents:
+  - on new events
+  - on schedules (e.g. daily 06:00 Riyadh time)
+  - on demand ("run now")
+- Phase A uses a **Postgres-backed queue** (row locks with `SKIP LOCKED`, no extra infrastructure). Redis/BullMQ is added only if volume needs it.
+- Each run records an **agent run**: trigger, events processed, tasks created, model, input/output tokens, cost (USD), duration, errors. This drives usage-based pricing and the cost-per-job metric.
 
-### Pillar D — Supplier network (free supplier portal)
-- Suppliers get a free account: receive orders, **confirm/amend/substitute**, publish catalogues and price changes, issue **compliant e-invoices**, see their restaurant customers' demand outlook, track payments.
-- **E-invoicing hook:** KSA Wave 25 (VAT-able revenue > SAR 187.5k, including voluntarily registered small suppliers) must integrate with ZATCA Fatoora by **1 Feb 2027**. That's too soon for BOH to be the compliance tool for most of them, but many small suppliers will be late, non-compliant or stuck on clunky tools, and every new VAT registrant joins later waves. BOH gives suppliers ZATCA-compliant invoicing for free → they join the network. UAE follows (businesses under AED 50M: 1 Jul 2027). See `research/research-einvoicing.md`.
-- **Viral loop:** a restaurant invites its suppliers; a supplier invites its other restaurant customers ("order from me on BOH").
+### 4.4 Tasks, actions and autonomy
+- An agent's output is an **agent task**: title and summary (EN/AR), evidence, a list of **proposed actions** (typed, with parameters), status, and decision record.
+- Task states: `proposed → approved → executed | failed`, or `rejected` / `dismissed` / `expired`.
+- **Autonomy is set per agent and per action type:**
+  - `suggest`: show it; a person carries it out themselves
+  - `approve` (the default): one tap runs it
+  - `auto`: the agent runs it immediately and notifies
+- **Guardrails** are hard limits checked in code at execution time, whatever the autonomy level. Examples:
+  - switch suppliers automatically only if the saving is at least X%
+  - never auto-switch to a supplier with no order history *(Phase 2)*
+  - order value caps *(Phase 2)*
+- **Kill switch:** pausing an agent stops runs and blocks execution of its pending tasks immediately.
+- **Deduplication:** one open task per subject (e.g. per supplier item price rise), and a newer rise updates the open task rather than creating another.
+- **Corrections:** a rejection (with optional reason) or an edited parameter is stored as a correction for evaluation and tuning.
 
-### Pillar E — Market intelligence (switched on once there's enough data)
-- **Price benchmark:** "Your tomato price is 18% above the Dubai median this month; 3 cheaper suppliers deliver to you."
-- **Market price index** by city × canonical ingredient × month.
-- **Operational benchmarks:** waste %, food cost %, yield, count variance by concept (burger, café, fine dining…).
-- Shown only when **k-anonymity** holds (≥ N distinct buyers and ≥ M suppliers per data point).
+### 4.5 Language models
+- **Claude** (Anthropic API, default `claude-opus-5-5`, low effort for short writing tasks) writes summaries and supplier messages in Arabic and English, using structured JSON output.
+  - Refusal fallbacks are enabled.
+  - Token usage and cost are recorded per run.
+- **Template fallback:** if no API key is configured, or the call fails, agents use bilingual templates, so they never stop working because of the model.
+- Prompts and outputs are logged with the task (not the API key), for review and evaluation.
+- Later: a cheaper model for high-volume extraction (invoices, voice), measured against the same evals.
 
-### Pillar F — Money (Year 3)
-- Pay suppliers through BOH (bank transfer, card, local payment rails) → BOH becomes the record of what's owed.
-- Early payment to suppliers / invoice financing with a licensed partner, underwritten on BOH data.
+### 4.6 Open access: API, tokens and MCP
+- **Personal access tokens** (`boh_pat_…`): created by a user for one org, inheriting that user's permissions there, hashed at rest, with expiry and revocation.
+- **MCP server** at `/mcp` (Streamable HTTP, stateless) exposes BOH's actions as tools: search items, item details, suppliers, recent price changes, ingredient matching, the agent inbox, approving and rejecting tasks.
+  - The same permissions apply.
+  - This lets a customer's own AI assistant work with BOH, and lets BOH agents be offered inside other agent platforms.
+- **Public REST API** with OpenAPI (existing).
+
+### 4.7 Channels
+- **Phase A:** web inbox.
+- **Phase B:** WhatsApp approval cards (approve/reject from WhatsApp), push notifications, and a daily digest.
+- Supplier messages from Price Watch are prepared as email/WhatsApp drafts with one-tap send links. Direct sending through the WhatsApp Business Platform comes in Phase B.
 
 ---
 
-## 3. Moat-critical architecture decisions (must be in place from day one)
+## 5. Pricing (to validate with design partners)
+
+| Plan part | Price (indicative) | Notes |
+|---|---|---|
+| Platform | SAR 400 / org / month | Catalogue, suppliers, members, inbox, API and MCP access, unlimited users |
+| Agent per site | SAR 150–450 / agent / site / month | Price Watch at the low end; Purchasing and Invoice at the high end |
+| Usage beyond allowance | Per job (e.g. SAR 1 per invoice processed beyond 300/month) | Covers AI cost; tracked by agent runs |
+| Optional performance plan | 15–20% of measured savings | Price Watch and Invoice savings are directly measurable |
+
+**Principles:**
+- No charge for API or MCP access; agents are the product.
+- The Price Watch agent is free for the first 60 days to prove value.
+- Unit economics are tracked from day one: AI cost per job and per site, versus price.
+
+---
+
+## 6. Day-one architecture decisions (from v0.3, still binding)
 
 These are cheap now and very expensive to add later.
 
@@ -75,12 +147,13 @@ These are cheap now and very expensive to add later.
 4. **Consent and anonymisation.** Terms allow anonymised, pooled aggregation; per-org opt-out (with reduced benchmark access in return: *give to get*). Aggregates are built in a separate **analytics store**, never by querying tenant data live; k-anonymity is enforced at build time.
 5. **Structured document input.** Invoices can arrive as **UBL / PINT AE / ZATCA XML**, PDF/A-3 with embedded XML, PDF, photo, or email. The XML path skips AI entirely.
 6. **Append-only ledgers.** One ledger for stock movements and one for **payables** (invoices, credits, payments), so payments and financing plug in later without schema surgery.
-7. **Channel-agnostic actions.** All writes go through domain commands (`RecordCount`, `PostGRN`, `ApproveDocument`). Web, mobile, WhatsApp, voice, API and the AI agent are all just *callers*, with the same permissions and audit trail.
+7. **Channel-agnostic actions.** All writes go through domain commands. Web, mobile, WhatsApp, voice, API, MCP and **agents** are all callers, with the same permissions and audit trail.
 8. **Data residency ready.** Per-region deployment (KSA in-Kingdom first, UAE later). No cross-region joins in the request path; the analytics store receives only anonymised aggregates.
 
 ---
 
-## 4. Domain model (core)
+
+## 7. Domain model (core)
 
 ```
 Organization (type: restaurant_group | supplier | platform)
@@ -100,7 +173,7 @@ Recipe (+ sub-recipes, effective-dated) ◄── PosItem mapping
 StockCount (+ sub-counts) · Waste · Transfer · ProductionBatch
 StockMovement (append-only ledger) · PayableEntry (append-only ledger)
 Correction (AI training events) · AuditEvent · Document (raw file / XML)
-AgentTask (proposed/approved/executed actions)
+Agent · AgentTask (proposed → approved → executed) · AgentRun (usage/cost) · Event (append-only) · AccessToken
 ```
 
 ### Key states
@@ -115,7 +188,8 @@ AgentTask (proposed/approved/executed actions)
 
 ---
 
-## 5. Core modules (single-restaurant value)
+
+## 8. Core modules (the ground the agents stand on)
 
 Detail carried over from v0.1, condensed. See `research/` for the incumbent's behaviour this is informed by.
 
@@ -130,7 +204,8 @@ Detail carried over from v0.1, condensed. See `research/` for the incumbent's be
 
 ---
 
-## 6. Integrations
+
+## 8b. Integrations
 
 - **Adapter framework** with idempotency, retries, sync logs and a health page.
 - **POS:** Foodics first (GCC market leader), then Square / Lightspeed / others on demand. Menu pull and sales pull or webhook → depletion.
@@ -145,85 +220,81 @@ Detail carried over from v0.1, condensed. See `research/` for the incumbent's be
 
 ---
 
-## 7. Technical architecture
+
+## 9. Technical architecture
 
 ```
 apps/
-  api/        NestJS — REST/OpenAPI, auth, permissions, domain commands
-  worker/     BullMQ — POS sync, AI extraction, e-invoicing, accounting, agent runs, reports
-  web/        Next.js — restaurant dashboard + supplier portal (role-based)
-  mobile/     offline-first PWA (counts, receiving, waste, approvals)
-  messaging/  WhatsApp + voice gateway → domain commands
-  agent/      AI ops agent: tools = domain commands; autonomy policy; AgentTask log
-  analytics/  pipeline to anonymised aggregate store (benchmarks, price index)
+  api/        NestJS: REST/OpenAPI, auth (JWT + access tokens), permissions, domain commands,
+              agent task API, MCP endpoint (/mcp)
+              worker.ts: agent runtime (Postgres queue, schedules, event cursors)
+  web/        Next.js PWA: inbox (home), back office, agent settings
 packages/
-  db/         schema + migrations
-  domain/     units, conversions, costing, ledger maths (pure, heavily tested)
-  canonical/  shared ingredient map + matching (embeddings + rules)
-  einvoice/   UBL / PINT AE / ZATCA parsers and generators
-  shared/     types, zod schemas, generated API client
-infra/        docker-compose (postgres, redis, minio), IaC per region, CI
+  db/         schema + migrations (RLS on every tenant table)
+  domain/     units, costing, text normalisation, CSV (pure, tested)
+infra/        docker-compose (postgres, redis, minio), CI
 ```
 
-- **Database:** **Postgres (decided)**: relational data, ledger transactions, SQL reporting, row-level security for tenancy, JSONB for raw payloads, pgvector for ingredient matching.
-- **AI:** Claude for extraction, voice-command parsing, recipe drafting and the operations agent. Structured outputs validated with schemas. Confidence thresholds route to human review → `Correction` events.
-- **Hosting:** in-Kingdom KSA region at launch (e.g. a cloud provider with a Saudi region, to meet data-residency expectations of KSA enterprise customers and the PDPL; confirm the exact requirements with counsel). UAE region before UAE customers.
+- **Agents live in `apps/api/src/agents/`:** a registry of agent definitions (kind, role permissions, triggers, action types and handlers, default autonomy, guardrails), the runner, and the LLM provider (Claude or templates).
+- **Database:** Postgres (decided).
+- **Hosting:** in-Kingdom KSA region at launch. Confirm data-residency requirements with counsel.
 
 ---
 
-## 8. Roadmap
+## 10. Roadmap
 
-### Year 1 — Single-restaurant value + start building moats (KSA)
-| Phase | Scope | Size |
+| Phase | Scope | Status |
 |---|---|---|
-| 0 Foundation ✅ | Monorepo, auth, orgs (incl. supplier type), entities/sites, roles, audit, units engine, CI — **done** | 2 wks |
-| 1 Catalogue + shared map ✅ | Items, packs, supplier relationships/profiles, supplier items + price history, canonical ingredient seed + matching, CSV — **done** | 2–3 wks |
-| 2 Procurement | Requisitions, POs, approvals/limits, sending POs (email/WhatsApp/portal link), GRN, stock ledger | 3 wks |
-| 3 Invoices | AI extraction + XML parsing, matching, review queue, credit notes, payables ledger, `Correction` capture | 2–3 wks |
-| 4 Inventory + recipes | Counts/sub-counts, waste, transfers, recipes/costing, effective dating | 3 wks |
-| 5 WhatsApp + voice | Messaging gateway, voice counts, waste, receiving photos, approvals | 3 wks |
-| 6 AI onboarding | Bulk invoice/menu/recipe import → guided review | 2 wks |
-| 7 Integrations | Foodics (sales → depletion), Xero/Zoho, theoretical vs actual | 3 wks |
-| 8 Agent v1 + reports | Food-cost explainer, weekly profit-leak report, scheduled reports | 2–3 wks |
-| 9 Supplier portal v1 | Supplier claims profile, receives/confirms POs, publishes prices | 2 wks |
-
-**MVP for design partners = phases 0–5 (about 15–18 weeks).** Full Year-1 scope is about 6–7 months for a small team.
-
-**Pull ZATCA forward:** supplier e-invoice issuing (ZATCA) moves into Year 1 alongside the supplier portal (phase 9), because it's the main supplier-acquisition hook in KSA. Foodics is the first POS integration; Zoho Books / Qoyod / Xero for accounting (check which have the most share among Saudi restaurant groups).
-
-### Year 2 — Network (KSA scale-up + UAE launch)
-UAE launch (ASP partner, PINT AE, UAE region), supplier-to-restaurant invites, launch of the price benchmark and price index, operational benchmarks, central kitchen + B2B ordering, forecasting + suggested orders, Peppol service provider certification.
-
-### Year 3 — Money
-Supplier payments, early payment and invoice financing with a licensed partner, agent autonomy upgrades, regional expansion.
+| 0 Foundation | Monorepo, auth, tenancy/RLS, roles, audit, units engine, CI, web shell | ✅ |
+| 1 Catalogue | Shared ingredient map and matching, items, packs, par levels, suppliers, prices, CSV | ✅ |
+| **A Agent platform** | Agent identities, events, runtime, tasks/actions/autonomy/guardrails, usage tracking, inbox, access tokens, MCP server, **Price Watch agent** | **in progress** |
+| B Channels | WhatsApp approval cards, digest, push; direct supplier messaging | next |
+| 2 Procurement + **Purchasing agent** | Requisitions, POs, approvals and limits, sending, receiving (GRN), stock ledger. Built agent-first (core actions and review screens, few hand-entry forms) | |
+| 3 Invoices + **Invoice agent** | Email/e-invoice intake, AI extraction, three-way matching, credit notes, ZATCA | |
+| 4 Stock + **Stock agent** | Counts by voice/WhatsApp, waste, transfers, variance | |
+| 5 Recipes, POS + **Cost Controller** | Recipes and costing, Foodics integration, theoretical vs actual, weekly report | |
+| Onboarding agent | Runs alongside phases 2–3 as document AI matures | |
 
 ---
 
-## 9. Metrics that prove the moat is building
-- **Network:** % of POs sent to *claimed* suppliers; supplier → restaurant invites per month; suppliers with ≥ 2 BOH buyers.
-- **Data:** % of invoice lines arriving as XML; ingredient-matching accuracy without human edits; corrections per 1,000 lines (should fall).
-- **Engagement:** % of counts / waste / receiving done via WhatsApp or voice; weekly active kitchen staff per site.
-- **Value:** food cost % reduction vs baseline at 90 days; time to go live (target ≤ 48 h to first value).
-- **Stickiness:** net revenue retention; % of payables flowing through BOH (Year 3).
+## 11. Metrics
+- **Agents:**
+  - tasks proposed per site per week
+  - **approval rate** (target > 70%)
+  - time to decision
+  - % of actions running on `auto`
+  - corrections per 100 tasks (should fall)
+- **Value:**
+  - SAR saved or avoided per site per month (Price Watch, Invoice)
+  - hours saved
+  - time to first value
+- **Unit economics:**
+  - AI cost per job and per site per month
+  - gross margin per agent
+- **Moats:**
+  - claimed suppliers
+  - % of lines matched to the shared map
+  - learned aliases confirmed by 2 or more orgs
+  - % of invoices arriving as structured e-invoices
 
 ---
 
-## 10. Risks and how we handle them
+## 12. Risks
 | Risk | How we handle it |
 |---|---|
-| Two-sided network is hard to start | Each side gets value on its own: restaurants without suppliers on BOH; suppliers from a single restaurant + free e-invoicing compliance |
-| Voice accuracy in mixed languages / noisy kitchens | Constrain parsing to the tenant's catalogue; always confirm back; test with design partners before building in full |
-| Benchmark privacy / trust | k-anonymity, opt-out, a separate analytics store, a clear data policy; never show supplier-specific prices tied to a named buyer |
-| E-invoicing dates and rules shift | Partner with an ASP rather than building one in Year 1; check official FTA/ZATCA sources; keep the e-invoicing package modular |
-| Incumbent copies the AI features | Expected. Defensibility comes from moats 1–4, not the features |
-| WhatsApp platform policy / costs | Keep WhatsApp as one front end on channel-agnostic commands; web/PWA always works |
+| Customers don't trust agents with money | Default `approve`; raise autonomy gradually; hard guardrails; full audit; kill switch; a person backing the agents with design partners |
+| Wrong suggestions erode trust | Evidence on every task; deterministic calculations; replay past corrections before shipping changes; per-agent approval-rate alerts |
+| AI cost eats margin | Short structured prompts, low effort, a cheaper model for bulk jobs, cost tracked per run; templates as fallback |
+| Model outage or refusal | Template fallback; refusal fallbacks; agents degrade gracefully, they don't stop |
+| Prompt injection through supplier content (emails, invoices) | Supplier text is treated as data; agents can only propose typed actions that pass permission and guardrail checks; no free-form tools |
+| Two-sided network is hard to start | Agents give a single restaurant value on their own; suppliers get free e-invoicing and order inbox |
+| Regulation (PDPL, data residency) | In-Kingdom hosting; data processing agreements; no customer data used to train third-party models |
 
 ---
 
-## 11. Open decisions
-1. ~~Database~~ — **decided: Postgres.**
-2. ~~Launch market~~ — **decided: Saudi Arabia first**, UAE second. Arabic/RTL is required from the first release, not Year 2.
-3. **First customer profile:** multi-site groups (recommended for supplier density) or single cafés?
-4. **Design partners:** can we line up 3–5 kitchens to test WhatsApp/voice counts before phase 5?
-5. **ASP partner shortlist:** start conversations now for the 2027 window.
-6. **Product name** and brand.
+## 13. Open decisions
+1. Product name and brand.
+2. Pricing validation with 3–5 design partners (agent-per-site vs. performance share).
+3. Anthropic data-residency and processing terms for KSA customers. Prompts and outputs that include customer data need a data processing agreement.
+4. WhatsApp Business provider for Phase B.
+5. ZATCA solution approach (build vs. specialist SDK).
