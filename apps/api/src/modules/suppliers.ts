@@ -636,6 +636,6 @@ export class SuppliersController {
   changes(@Access() a: AccessContext, @Query() q: ChangesDto) { return this.svc.priceChanges(a, q); }
 }
 
-@Module({ controllers: [SuppliersController], providers: [SuppliersService] })
+@Module({ controllers: [SuppliersController], providers: [SuppliersService], exports: [SuppliersService] })
 export class SuppliersModule {}
 

@@ -16,6 +16,7 @@
     "@anthropic-ai/sdk": "^1.6.0",
     "@boh/db": "workspace:*",
     "@boh/domain": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@nestjs/common": "^11.2.8",
     "@nestjs/core": "^11.2.8",
     "@nestjs/jwt": "^11.0.2",

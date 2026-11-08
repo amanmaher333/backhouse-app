@@ -15,6 +15,10 @@ import { memberships, roles } from '@boh/db';
 import type { Request } from 'express';
 import { AccessContext, type Grant } from './access.js';
 import { DbService } from './db.service.js';
+import { AccessTokenVerifier, PAT_PREFIX } from './access-tokens.js';
+
+/** Use with @Requires(MEMBER) when any member of the org may call the route. */
+export const MEMBER = '';
 
 export interface AccessTokenClaims {
   sub: string;
@@ -67,6 +71,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly jwt: JwtService,
+    private readonly tokens: AccessTokenVerifier,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -77,6 +82,13 @@ export class JwtAuthGuard implements CanActivate {
 
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) throw new UnauthorizedException('Missing bearer token');
+    // Personal access tokens (API and MCP clients): bound to one user in one org.
+    if (header.startsWith(`Bearer ${PAT_PREFIX}`)) {
+      const found = await this.tokens.verify(header.slice(7));
+      if (!found) throw new UnauthorizedException('Invalid, expired or revoked access token');
+      req.auth = { userId: found.userId, orgId: found.orgId };
+      return true;
+    }
     try {
       const claims = await this.jwt.verifyAsync<AccessTokenClaims>(header.slice(7));
       req.auth = { userId: claims.sub, orgId: claims.org ?? null };
@@ -131,6 +143,8 @@ export class PermissionsGuard implements CanActivate {
     const access = new AccessContext(orgId, userId, grants, req.requestId, req.ip);
     req.access = access;
 
+    // MEMBER: any member of the org (finer checks happen inside, e.g. per MCP tool).
+    if (rule.permission === MEMBER) return true;
     const siteId = rule.siteParam ? (req.params[rule.siteParam] as string | undefined) : undefined;
     const sites = access.sitesFor(rule.permission);
     const allowed = siteId ? access.can(rule.permission, siteId) : sites === 'all' || sites.length > 0;

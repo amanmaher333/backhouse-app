@@ -8,7 +8,8 @@ import type { AppConfig } from './config.js';
 
 export async function createApp(config: AppConfig, opts: { logger?: boolean } = {}): Promise<INestApplication> {
   const app = await NestFactory.create(AppModule.forRoot(config), { logger: opts.logger === false ? false : undefined });
-  app.setGlobalPrefix('v1', { exclude: ['health'] });
+  // /mcp is the conventional MCP endpoint path, outside the versioned REST API.
+  app.setGlobalPrefix('v1', { exclude: ['health', 'mcp'] });
   app.enableShutdownHooks();
   return app;
 }

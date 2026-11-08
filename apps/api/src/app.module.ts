@@ -15,6 +15,8 @@ import { MatchingModule } from './modules/matching.js';
 import { ItemsModule } from './modules/items.js';
 import { SuppliersModule } from './modules/suppliers.js';
 import { AgentsModule } from './agents/agents.module.js';
+import { McpModule } from './mcp/mcp.module.js';
+import { AccessTokenVerifier } from './common/access-tokens.js';
 
 @ApiTags('health')
 @Controller('health')
@@ -42,8 +44,8 @@ class CoreModule {
           signOptions: { expiresIn: config.JWT_ACCESS_TTL as any },
         }),
       ],
-      providers: [{ provide: APP_CONFIG, useValue: config }, DbService],
-      exports: [APP_CONFIG, DbService],
+      providers: [{ provide: APP_CONFIG, useValue: config }, DbService, AccessTokenVerifier],
+      exports: [APP_CONFIG, DbService, AccessTokenVerifier],
     };
   }
 }
@@ -53,7 +55,7 @@ export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forRoot(config), AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, AgentsModule],
+      imports: [CoreModule.forRoot(config), AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, AgentsModule, McpModule],
       controllers: [HealthController],
       providers: [
         { provide: APP_PIPE, useClass: ZodValidationPipe },
