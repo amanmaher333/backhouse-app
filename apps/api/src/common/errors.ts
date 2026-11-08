@@ -1,7 +1,6 @@
 import { ArgumentsHost, Catch, HttpException, Logger, type ExceptionFilter } from '@nestjs/common';
 import type { Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
-import { UnitError } from '@boh/domain';
 
 interface PgError {
   code?: string;
@@ -36,8 +35,13 @@ export class ErrorFilter implements ExceptionFilter {
       res.status(err.getStatus()).json(typeof body === 'string' ? { statusCode: err.getStatus(), message: body } : body);
       return;
     }
-    if (err instanceof UnitError) {
+    // Compare by name: the domain package may be loaded more than once (tests, bundlers).
+    if (err instanceof Error && err.name === 'UnitError') {
       res.status(422).json({ statusCode: 422, error: 'UnitError', message: err.message });
+      return;
+    }
+    if (err instanceof Error && err.name === 'CsvError') {
+      res.status(400).json({ statusCode: 400, error: 'CsvError', message: err.message });
       return;
     }
     const pg = findPgError(err);
