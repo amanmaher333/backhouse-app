@@ -9,9 +9,11 @@
     "start": "node dist/main.js",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch dist/main.js",
     "openapi": "node dist/openapi.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "worker": "node dist/worker.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@boh/db": "workspace:*",
     "@boh/domain": "workspace:*",
     "@nestjs/common": "^11.2.8",

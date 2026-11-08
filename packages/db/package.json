@@ -19,16 +19,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@boh/domain": "workspace:*",
+    "@opentelemetry/api": "1.10.0",
     "drizzle-orm": "^0.36.4",
-    "pg": "^8.13.1",
-    "@boh/domain": "workspace:*"
+    "pg": "^8.13.1"
   },
   "devDependencies": {
     "@types/pg": "^8.11.10",
+    "dotenv": "^16.4.7",
     "drizzle-kit": "^0.28.1",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.8",
-    "dotenv": "^16.4.7"
+    "vitest": "^2.1.8"
   }
 }

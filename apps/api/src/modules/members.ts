@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { and, asc, desc, eq, gt, inArray, isNull, lt } from 'drizzle-orm';
-import { auditEvents, invitations, isKnownPermission, memberships, PERMISSIONS, roles, sites, users, type Tx } from '@boh/db';
+import { auditEvents, invitations, isAgentRoleKey, isKnownPermission, memberships, PERMISSIONS, roles, sites, users, type Tx } from '@boh/db';
 import { DbService } from '../common/db.service.js';
 import { Access, Public, Requires } from '../common/auth.js';
 import type { AccessContext } from '../common/access.js';
@@ -57,6 +57,7 @@ export class MembersService {
   private async checkAssignable(tx: Tx, a: AccessContext, roleId: string, siteIdList: string[] | null | undefined) {
     const [role] = await tx.select().from(roles).where(eq(roles.id, roleId));
     if (!role) throw new NotFoundException('role not found');
+    if (isAgentRoleKey(role.key)) throw new BadRequestException('Agent roles are only for agents; hire the agent instead');
     if (!a.covers(role.permissions)) {
       throw new ForbiddenException('You cannot assign a role with permissions you do not hold');
     }
@@ -92,6 +93,7 @@ export class MembersService {
           roleName: roles.name,
           scope: roles.scope,
           siteIds: memberships.siteIds,
+          kind: users.kind,
         })
         .from(memberships)
         .innerJoin(users, eq(users.id, memberships.userId))

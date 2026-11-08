@@ -20,7 +20,7 @@ function clean(v: unknown): unknown {
 export async function audit(tx: Tx, access: AccessContext, e: AuditInput): Promise<void> {
   await tx.insert(auditEvents).values({
     orgId: access.orgId,
-    actorType: 'user',
+    actorType: access.actorType,
     actorUserId: access.userId,
     action: e.action,
     entityType: e.entityType,

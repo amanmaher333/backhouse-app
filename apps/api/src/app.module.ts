@@ -14,6 +14,7 @@ import { MembersModule } from './modules/members.js';
 import { MatchingModule } from './modules/matching.js';
 import { ItemsModule } from './modules/items.js';
 import { SuppliersModule } from './modules/suppliers.js';
+import { AgentsModule } from './agents/agents.module.js';
 
 @ApiTags('health')
 @Controller('health')
@@ -52,7 +53,7 @@ export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forRoot(config), AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule],
+      imports: [CoreModule.forRoot(config), AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, AgentsModule],
       controllers: [HealthController],
       providers: [
         { provide: APP_PIPE, useClass: ZodValidationPipe },

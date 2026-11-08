@@ -148,6 +148,12 @@ describe('suppliers and prices', () => {
       .set(auth(o.token))
       .send({ itemId: salmon.body.id, packId: pack.id, supplierSku: 'SAL-1', supplierName: 'Salmon Fillet Fresh 1kg', price: 95, isPreferred: true })
       .expect(201);
+    // Counts in list views come from correlated subqueries; check they bind to the right rows.
+    const listed = await http.get('/v1/items').set(auth(o.token)).expect(200);
+    expect(listed.body[0]).toMatchObject({ packCount: 1, supplierCount: 1 });
+    expect(Number(listed.body[0].bestCostPerBase)).toBeCloseTo(0.095, 6);
+    const sups = await http.get('/v1/suppliers').set(auth(o.token)).expect(200);
+    expect(sups.body[0].itemCount).toBe(1);
     const p = await http.post(`/v1/supplier-items/${line.body.id}/prices`).set(auth(o.token)).send({ price: 108.3 }).expect(201);
     expect(p.body.changed).toBe(true);
     const same = await http.post(`/v1/supplier-items/${line.body.id}/prices`).set(auth(o.token)).send({ price: 108.3 }).expect(201);

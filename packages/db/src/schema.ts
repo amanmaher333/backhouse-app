@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { ItemConversion } from '@boh/domain';
 import {
+  bigint,
   bigserial,
   boolean,
   check,
@@ -39,6 +40,7 @@ export const orgType = pgEnum('org_type', ['restaurant_group', 'supplier', 'plat
 export const siteType = pgEnum('site_type', ['restaurant', 'central_kitchen', 'warehouse']);
 export const roleScope = pgEnum('role_scope', ['org', 'site']);
 export const actorType = pgEnum('actor_type', ['user', 'system', 'api', 'agent', 'integration']);
+export const userKind = pgEnum('user_kind', ['human', 'agent']);
 
 export const organizations = pgTable('organizations', {
   id: id(),
@@ -63,6 +65,8 @@ export const users = pgTable(
     /** E.164, used later for WhatsApp identity. */
     phone: text('phone'),
     locale: text('locale').notNull().default('ar'),
+    /** 'agent' users are agent identities: no password, cannot log in. */
+    kind: userKind('kind').notNull().default('human'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -594,4 +598,155 @@ export const corrections = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('corrections_org_kind_idx').on(t.orgId, t.kind)],
+);
+
+
+/* =====================================================================
+ * Phase A: agent platform
+ * ===================================================================== */
+
+export type AutonomyLevel = 'suggest' | 'approve' | 'auto';
+
+export const agentStatus = pgEnum('agent_status', ['active', 'paused']);
+
+/** An agent hired by an org. Acts through its own user identity (users.kind = 'agent'). */
+export const agents = pgTable(
+  'agents',
+  {
+    id: id(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    name: text('name').notNull(),
+    nameAr: text('name_ar'),
+    status: agentStatus('status').notNull().default('active'),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    /** Per action type: suggest | approve | auto. */
+    autonomy: jsonb('autonomy').$type<Record<string, AutonomyLevel>>().notNull().default({}),
+    settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default({}),
+    /** Last event id this agent has processed. */
+    eventCursor: bigint('event_cursor', { mode: 'number' }).notNull().default(0),
+    lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+    createdBy: uuid('created_by'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [unique('agents_org_kind_uq').on(t.orgId, t.kind), unique('agents_org_id_id_uq').on(t.orgId, t.id)],
+);
+
+/** Append-only domain events (outbox). Emitted in the same transaction as the change. */
+export const events = pgTable(
+  'events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    orgId: uuid('org_id').notNull(),
+    type: text('type').notNull(),
+    entityType: text('entity_type'),
+    entityId: text('entity_id'),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    actorType: actorType('actor_type').notNull().default('user'),
+    actorUserId: uuid('actor_user_id'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('events_org_id_idx').on(t.orgId, t.id), index('events_type_idx').on(t.type)],
+);
+
+export interface AgentAction {
+  id: string;
+  type: string;
+  label: string;
+  labelAr: string;
+  params: Record<string, unknown>;
+  /** Filled by the runtime: what the autonomy setting allows for this action. */
+  autonomy?: AutonomyLevel;
+}
+
+export const agentTaskStatus = pgEnum('agent_task_status', ['proposed', 'approved', 'executed', 'failed', 'rejected', 'dismissed', 'expired']);
+
+export const agentTasks = pgTable(
+  'agent_tasks',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    agentId: uuid('agent_id').notNull(),
+    kind: text('kind').notNull(),
+    /** Deduplication key: one open task per subject per agent. */
+    subjectKey: text('subject_key').notNull(),
+    status: agentTaskStatus('status').notNull().default('proposed'),
+    priority: smallint('priority').notNull().default(2),
+    title: text('title').notNull(),
+    titleAr: text('title_ar').notNull(),
+    summary: text('summary').notNull(),
+    summaryAr: text('summary_ar').notNull(),
+    evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull().default({}),
+    actions: jsonb('actions').$type<AgentAction[]>().notNull().default([]),
+    chosenActionId: text('chosen_action_id'),
+    result: jsonb('result').$type<Record<string, unknown>>(),
+    error: text('error'),
+    sourceEventId: bigint('source_event_id', { mode: 'number' }),
+    /** How the text was written: 'claude' or 'template'. */
+    writtenBy: text('written_by').notNull().default('template'),
+    decidedBy: uuid('decided_by'),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    decisionNote: text('decision_note'),
+    executedAt: timestamp('executed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.agentId], foreignColumns: [agents.orgId, agents.id] }).onDelete('cascade'),
+    index('agent_tasks_org_status_idx').on(t.orgId, t.status, t.createdAt),
+    uniqueIndex('agent_tasks_open_subject_uq').on(t.orgId, t.agentId, t.subjectKey).where(sql`status in ('proposed','approved')`),
+  ],
+);
+
+export const agentRuns = pgTable(
+  'agent_runs',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    orgId: uuid('org_id').notNull(),
+    agentId: uuid('agent_id').notNull(),
+    trigger: text('trigger').notNull(),
+    status: text('status').notNull().default('running'),
+    eventsProcessed: integer('events_processed').notNull().default(0),
+    tasksCreated: integer('tasks_created').notNull().default(0),
+    tasksUpdated: integer('tasks_updated').notNull().default(0),
+    actionsExecuted: integer('actions_executed').notNull().default(0),
+    model: text('model'),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    costUsd: numeric('cost_usd', { precision: 12, scale: 6 }).notNull().default('0'),
+    error: text('error'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.agentId], foreignColumns: [agents.orgId, agents.id] }).onDelete('cascade'),
+    index('agent_runs_agent_idx').on(t.agentId, t.startedAt),
+  ],
+);
+
+/** Personal access tokens for API/MCP clients. Bound to one user in one org. */
+export const accessTokens = pgTable(
+  'access_tokens',
+  {
+    id: id(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    tokenPrefix: text('token_prefix').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('access_tokens_hash_uq').on(t.tokenHash), index('access_tokens_user_idx').on(t.userId)],
 );

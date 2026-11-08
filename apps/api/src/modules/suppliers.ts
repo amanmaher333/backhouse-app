@@ -35,6 +35,7 @@ import { DbService } from '../common/db.service.js';
 import { Access, Requires } from '../common/auth.js';
 import type { AccessContext } from '../common/access.js';
 import { audit } from '../common/audit.js';
+import { emitEvent } from '../agents/events.js';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
 const money = z.coerce
@@ -322,6 +323,16 @@ export class SuppliersService {
       })
       .returning();
     if (!siteId) await tx.update(supplierItems).set({ currentPrice: price, priceUpdatedAt: new Date() }).where(eq(supplierItems.id, si.id));
+    // Agents (e.g. Price Watch) react to this event; it commits with the price change or not at all.
+    await emitEvent(tx, a, 'price.changed', { type: 'supplier_item', id: si.id }, {
+      supplierItemId: si.id,
+      itemId: si.itemId,
+      relationshipId: si.relationshipId,
+      price,
+      previousPrice: previous,
+      siteId,
+      source,
+    });
     return row;
   }
 

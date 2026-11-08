@@ -31,6 +31,10 @@ export const PERMISSIONS = [
   'supplier:manage',
   'price:read',
   'price:manage',
+  'agent:read',
+  'agent:manage',
+  'task:decide',
+  'token:manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -52,14 +56,14 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Data Manager',
     nameAr: 'مدير البيانات',
     scope: 'org',
-    permissions: [...READ_ALL, 'location:manage', 'cost_centre:manage', 'brand:manage', 'item:manage', 'par:manage', 'supplier:manage', 'price:manage'],
+    permissions: [...READ_ALL, 'location:manage', 'cost_centre:manage', 'brand:manage', 'item:manage', 'par:manage', 'supplier:manage', 'price:manage', 'task:decide', 'token:manage'],
   },
   {
     key: 'ops_manager',
     name: 'Operations Manager',
     nameAr: 'مدير العمليات',
     scope: 'org',
-    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage', 'par:manage', 'supplier:manage'],
+    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage', 'par:manage', 'supplier:manage', 'task:decide', 'token:manage'],
   },
   {
     key: 'site_manager',
@@ -75,9 +79,19 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Accountant',
     nameAr: 'محاسب',
     scope: 'org',
-    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read', 'item:read', 'supplier:read', 'price:read'],
+    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read', 'item:read', 'supplier:read', 'price:read', 'agent:read'],
+  },
+  // Agent roles: assigned only to agent identities, never to people.
+  {
+    key: 'agent_price_watch',
+    name: 'Price Watch agent',
+    nameAr: 'وكيل مراقبة الأسعار',
+    scope: 'org',
+    permissions: ['item:read', 'supplier:read', 'price:read', 'price:manage'],
   },
 ];
+
+export const isAgentRoleKey = (key: string) => key.startsWith('agent_');
 
 export function permissionMatches(granted: string, required: string): boolean {
   if (granted === '*' || granted === required) return true;

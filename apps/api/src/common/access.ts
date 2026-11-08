@@ -16,6 +16,8 @@ export class AccessContext {
     readonly grants: Grant[],
     readonly requestId: string,
     readonly ip: string | undefined,
+    /** 'agent' when an agent identity is acting. */
+    readonly actorType: 'user' | 'agent' = 'user',
   ) {}
 
   get tenant() {
