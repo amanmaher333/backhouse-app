@@ -64,6 +64,27 @@
       "when": 1794171364316,
       "tag": "0008_procurement_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794173625364,
+      "tag": "0009_channels",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794173626214,
+      "tag": "0010_channels_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794173820393,
+      "tag": "0011_outbound_user_optional",
+      "breakpoints": true
     }
   ]
 }

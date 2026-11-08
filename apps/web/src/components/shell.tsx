@@ -25,6 +25,7 @@ import {
   IconStore,
   IconTruck,
   IconUsers,
+  IconChat,
 } from './icons';
 import { InstallButton, LangButton, SyncPill, ThemeButton } from './toolbar';
 import { initials } from './ui';
@@ -45,6 +46,7 @@ const MAIN: NavItem[] = [
   { href: '/suppliers', label: 'suppliers', icon: IconTruck, perm: 'supplier:read' },
   { href: '/sites', label: 'sites', icon: IconStore, perm: 'site:read' },
   { href: '/insights', label: 'insights', icon: IconSpark },
+  { href: '/whatsapp', label: 'whatsapp', icon: IconChat },
 ];
 const ADMIN: NavItem[] = [
   { href: '/agents', label: 'agents', icon: IconBot, perm: 'agent:read' },

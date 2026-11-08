@@ -25,6 +25,9 @@ import { StockService } from '../modules/stock.js';
 
 const OPEN = ['proposed', 'approved'] as const;
 
+/** Where a decision was made. */
+export type DecisionVia = 'web' | 'whatsapp' | 'api';
+
 function normalize(o: AgentOutput): { proposals: TaskProposal[]; expirePrefixes?: string[] } {
   return Array.isArray(o) ? { proposals: o } : o;
 }
@@ -322,7 +325,7 @@ export class AgentRuntime {
     const result = await def.execute(action, ectx);
     await tx
       .update(agentTasks)
-      .set({ status: 'executed', chosenActionId: action.id, result: { ...result, automatic: true }, executedAt: new Date(), decidedAt: new Date() })
+      .set({ status: 'executed', chosenActionId: action.id, result: { ...result, automatic: true }, executedAt: new Date(), decidedAt: new Date(), decidedVia: 'auto' })
       .where(eq(agentTasks.id, task.id));
     await audit(tx, access, { action: `agent_task.auto_executed`, entityType: 'agent_task', entityId: task.id, after: { actionId: action.id, type: action.type, result } });
     return true;
@@ -399,7 +402,7 @@ export class AgentRuntime {
   }
 
   /** A person approves one proposed action; the agent carries it out under its own identity. */
-  async approve(a: AccessContext, taskId: string, actionId: string) {
+  async approve(a: AccessContext, taskId: string, actionId: string, via: DecisionVia = 'web') {
     return this.db.tenant(a.tenant, async (tx) => {
       const [task] = await tx.select().from(agentTasks).where(eq(agentTasks.id, taskId)).for('update');
       if (!task) throw new NotFoundException('task not found');
@@ -418,12 +421,12 @@ export class AgentRuntime {
       const settings = { ...def.defaultSettings, ...agent.settings };
       const ectx = { tx, agent, access: agentAccess, task, settings, services: this.services, automatic: false, approver: a };
 
-      await this.recordDecision(tx, a, task, { decision: 'approved', actionId, actionType: action.type });
+      await this.recordDecision(tx, a, task, { decision: 'approved', actionId, actionType: action.type, via });
       const blocked = await def.guardrail(action, ectx);
       if (blocked) {
         const [failed] = await tx
           .update(agentTasks)
-          .set({ status: 'failed', chosenActionId: actionId, error: blocked, decidedBy: a.userId, decidedAt: new Date() })
+          .set({ status: 'failed', chosenActionId: actionId, error: blocked, decidedBy: a.userId, decidedAt: new Date(), decidedVia: via })
           .where(eq(agentTasks.id, taskId))
           .returning();
         await audit(tx, a, { action: 'agent_task.blocked', entityType: 'agent_task', entityId: taskId, after: { actionId, reason: blocked } });
@@ -432,34 +435,34 @@ export class AgentRuntime {
       const result = await def.execute(action, ectx);
       const [done] = await tx
         .update(agentTasks)
-        .set({ status: 'executed', chosenActionId: actionId, result, decidedBy: a.userId, decidedAt: new Date(), executedAt: new Date() })
+        .set({ status: 'executed', chosenActionId: actionId, result, decidedBy: a.userId, decidedAt: new Date(), executedAt: new Date(), decidedVia: via })
         .where(eq(agentTasks.id, taskId))
         .returning();
-      await audit(tx, a, { action: 'agent_task.approved', entityType: 'agent_task', entityId: taskId, after: { actionId, type: action.type } });
+      await audit(tx, a, { action: 'agent_task.approved', entityType: 'agent_task', entityId: taskId, after: { actionId, type: action.type, via } });
       return done;
     });
   }
 
-  async reject(a: AccessContext, taskId: string, reason: string | null) {
-    return this.close(a, taskId, 'rejected', reason);
+  async reject(a: AccessContext, taskId: string, reason: string | null, via: DecisionVia = 'web') {
+    return this.close(a, taskId, 'rejected', reason, via);
   }
 
-  async dismiss(a: AccessContext, taskId: string, note: string | null) {
-    return this.close(a, taskId, 'dismissed', note);
+  async dismiss(a: AccessContext, taskId: string, note: string | null, via: DecisionVia = 'web') {
+    return this.close(a, taskId, 'dismissed', note, via);
   }
 
-  private async close(a: AccessContext, taskId: string, status: 'rejected' | 'dismissed', note: string | null) {
+  private async close(a: AccessContext, taskId: string, status: 'rejected' | 'dismissed', note: string | null, via: DecisionVia) {
     return this.db.tenant(a.tenant, async (tx) => {
       const [task] = await tx.select().from(agentTasks).where(eq(agentTasks.id, taskId)).for('update');
       if (!task) throw new NotFoundException('task not found');
       if (!OPEN.includes(task.status as (typeof OPEN)[number])) throw new BadRequestException(`Task is already ${task.status}`);
-      await this.recordDecision(tx, a, task, { decision: status, note });
+      await this.recordDecision(tx, a, task, { decision: status, note, via });
       const [after] = await tx
         .update(agentTasks)
-        .set({ status, decidedBy: a.userId, decidedAt: new Date(), decisionNote: note })
+        .set({ status, decidedBy: a.userId, decidedAt: new Date(), decisionNote: note, decidedVia: via })
         .where(eq(agentTasks.id, taskId))
         .returning();
-      await audit(tx, a, { action: `agent_task.${status}`, entityType: 'agent_task', entityId: taskId, after: { note } });
+      await audit(tx, a, { action: `agent_task.${status}`, entityType: 'agent_task', entityId: taskId, after: { note, via } });
       return after;
     });
   }

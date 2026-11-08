@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, Empty, Field, PageHead, Toast, shortAgo } from '@/components/ui';
 import { ChangeTag } from '@/components/catalog';
 import { IconBot } from '@/components/icons';
@@ -33,6 +33,7 @@ interface Task {
   writtenBy: 'claude' | 'template';
   decidedAt: string | null;
   decisionNote: string | null;
+  decidedVia: 'web' | 'whatsapp' | 'api' | 'auto' | null;
   createdAt: string;
   updatedAt: string;
   agent: { kind: string; name: string; nameAr: string | null; status: string };
@@ -46,6 +47,20 @@ export default function InboxPage() {
   const { data: agentsInfo } = useApi<{ installed: unknown[] }>('/agents');
   const [toast, setToast] = useState<string | null>(null);
   const noAgents = agentsInfo && agentsInfo.installed.length === 0;
+  // Links from WhatsApp cards open /inbox?task=<id>: show that task, wherever it is.
+  const [focus, setFocus] = useState<string | null>(null);
+  useEffect(() => {
+    setFocus(new URLSearchParams(window.location.search).get('task'));
+  }, []);
+  useEffect(() => {
+    if (!focus || !tasks) return;
+    const el = document.getElementById(`task-${focus}`);
+    if (el) {
+      el.scrollIntoView({ block: 'center' });
+      return;
+    }
+    if (tab === 'open') setTab('closed');
+  }, [focus, tasks, tab]);
 
   return (
     <div className="page">
@@ -88,6 +103,7 @@ export default function InboxPage() {
             <TaskCard
               key={task.id}
               task={task}
+              focused={task.id === focus}
               onChanged={(msg) => {
                 if (msg) setToast(msg);
                 reload();
@@ -102,7 +118,7 @@ export default function InboxPage() {
   );
 }
 
-function TaskCard({ task, onChanged }: { task: Task; onChanged: (msg?: string) => void }) {
+function TaskCard({ task, focused, onChanged }: { task: Task; focused?: boolean; onChanged: (msg?: string) => void }) {
   const { t, lang, fmtMoney, pick, fmtDate } = useI18n();
   const { api, can } = useSession();
   const [busy, setBusy] = useState<string | null>(null);
@@ -135,7 +151,7 @@ function TaskCard({ task, onChanged }: { task: Task; onChanged: (msg?: string) =
   };
 
   return (
-    <article className={`card task-card ${task.priority === 1 && open ? 'task-high' : ''}`}>
+    <article id={`task-${task.id}`} className={`card task-card ${task.priority === 1 && open ? 'task-high' : ''} ${focused ? 'task-focus' : ''}`}>
       <header className="task-head">
         <span className="tag tag-accent">
           <IconBot width={14} height={14} />
@@ -143,6 +159,7 @@ function TaskCard({ task, onChanged }: { task: Task; onChanged: (msg?: string) =
         </span>
         {task.priority === 1 && open && <span className="tag tag-late">{t('highPriority')}</span>}
         {!open && <span className={`tag ${task.status === 'executed' ? 'tag-accent' : task.status === 'failed' ? 'tag-late' : ''}`}>{t(`st_${task.status}` as TKey)}</span>}
+        {!open && task.decidedVia && task.decidedVia !== 'web' && <span className="tag">{t(`via_${task.decidedVia}` as TKey)}</span>}
         <span className="faint num" style={{ marginInlineStart: 'auto', fontSize: 12 }}>
           {shortAgo(task.updatedAt, lang)}
         </span>

@@ -5,4 +5,5 @@ export * from './csv.js';
 export * from './catalog.js';
 export * from './delivery.js';
 export * from './stock.js';
+export * from './channels.js';
 export { Decimal } from 'decimal.js';

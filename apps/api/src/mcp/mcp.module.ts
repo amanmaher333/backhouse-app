@@ -196,7 +196,7 @@ export class McpController {
           inputSchema: { task_id: z.string().uuid(), action_id: z.string().min(1).max(60) },
           annotations: { readOnlyHint: false, destructiveHint: true },
         },
-        ({ task_id, action_id }) => guard(() => this.agents.approve(a, task_id, action_id)),
+        ({ task_id, action_id }) => guard(() => this.agents.approve(a, task_id, action_id, 'api')),
       );
       server.registerTool(
         'reject_agent_task',
@@ -206,7 +206,7 @@ export class McpController {
           inputSchema: { task_id: z.string().uuid(), reason: z.string().max(1000).optional() },
           annotations: { readOnlyHint: false, destructiveHint: false },
         },
-        ({ task_id, reason }) => guard(() => this.agents.reject(a, task_id, reason ?? null)),
+        ({ task_id, reason }) => guard(() => this.agents.reject(a, task_id, reason ?? null, 'api')),
       );
     }
     return server;

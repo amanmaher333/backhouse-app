@@ -50,10 +50,17 @@ export const organizations = pgTable('organizations', {
   country: text('country').notNull().default('SA'),
   defaultCurrency: text('default_currency').notNull().default('SAR'),
   defaultLocale: text('default_locale').notNull().default('ar'),
+  /** Org-wide preferences (e.g. whatsappApprovalMax). */
+  settings: jsonb('settings').$type<OrgSettings>().notNull().default({}),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+export interface OrgSettings {
+  /** Largest task value (SAR, incl. VAT) that can be approved from WhatsApp. Above it, the card links to BOH instead. */
+  whatsappApprovalMax?: number;
+}
 
 export const users = pgTable(
   'users',
@@ -692,12 +699,17 @@ export const agentTasks = pgTable(
     decidedBy: uuid('decided_by'),
     decidedAt: timestamp('decided_at', { withTimezone: true }),
     decisionNote: text('decision_note'),
+    /** Where the decision was made: 'web', 'whatsapp', 'api' (tokens/MCP) or 'auto'. */
+    decidedVia: text('decided_via'),
+    /** When people were notified on their channels (WhatsApp approval cards). NULL = not yet. */
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
     executedAt: timestamp('executed_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     foreignKey({ columns: [t.orgId, t.agentId], foreignColumns: [agents.orgId, agents.id] }).onDelete('cascade'),
+    unique('agent_tasks_org_id_id_uq').on(t.orgId, t.id),
     index('agent_tasks_org_status_idx').on(t.orgId, t.status, t.createdAt),
     uniqueIndex('agent_tasks_open_subject_uq').on(t.orgId, t.agentId, t.subjectKey).where(sql`status in ('proposed','approved')`),
   ],
@@ -935,3 +947,129 @@ export const spendLimits = pgTable('spend_limits', {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+// ---------- Channels (Phase B): WhatsApp identities, approval cards, message log ----------
+
+export const channelKind = pgEnum('channel_kind', ['whatsapp']);
+export const outboundStatus = pgEnum('outbound_status', ['queued', 'sent', 'delivered', 'read', 'failed', 'simulated']);
+
+/**
+ * A person's verified address on a messaging channel. Belongs to the user, not an org:
+ * one WhatsApp number serves every org the person belongs to. Verified by the person
+ * sending a one-time code from that number (which proves they hold it).
+ */
+export const userChannels = pgTable(
+  'user_channels',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channel: channelKind('channel').notNull(),
+    /** E.164, e.g. +966501234567. */
+    address: text('address').notNull(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull(),
+    /** Last message from this person: WhatsApp lets businesses send free-form messages for 24 hours after it. */
+    lastInboundAt: timestamp('last_inbound_at', { withTimezone: true }),
+    approvalsEnabled: boolean('approvals_enabled').notNull().default(true),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex('user_channels_address_uq').on(t.channel, t.address), uniqueIndex('user_channels_user_uq').on(t.userId, t.channel)],
+);
+
+/** One-time codes a person sends from WhatsApp to link that number to their account. Only the hash is stored. */
+export const channelLinkCodes = pgTable(
+  'channel_link_codes',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channel: channelKind('channel').notNull(),
+    codeHash: text('code_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('channel_link_codes_hash_uq').on(t.codeHash)],
+);
+
+/** Outbox and log of messages BOH sends. org_id is NULL for account messages (e.g. link confirmations). */
+export const outboundMessages = pgTable(
+  'outbound_messages',
+  {
+    id: id(),
+    orgId: uuid('org_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    /** NULL for replies to numbers not linked to anyone. */
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    channel: channelKind('channel').notNull(),
+    toAddress: text('to_address').notNull(),
+    /** 'approval_card', 'decision_reply', 'link_confirm', 'help', 'notice'. */
+    kind: text('kind').notNull(),
+    taskId: uuid('task_id'),
+    /** Rendered content in both forms; the sender picks free-form or template by the 24-hour window. */
+    content: jsonb('content').$type<Record<string, unknown>>().notNull(),
+    /** What was actually sent: 'interactive', 'text' or 'template'. */
+    sentAs: text('sent_as'),
+    status: outboundStatus('status').notNull().default('queued'),
+    providerMessageId: text('provider_message_id'),
+    error: text('error'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('outbound_messages_provider_id_uq').on(t.providerMessageId),
+    index('outbound_messages_queue_idx').on(t.status, t.nextAttemptAt),
+    index('outbound_messages_org_idx').on(t.orgId, t.createdAt),
+  ],
+);
+
+/** Every webhook message received, deduplicated by the provider's message id (providers retry). */
+export const inboundMessages = pgTable(
+  'inbound_messages',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    channel: channelKind('channel').notNull(),
+    providerMessageId: text('provider_message_id').notNull(),
+    fromAddress: text('from_address').notNull(),
+    userId: uuid('user_id'),
+    type: text('type').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    outcome: text('outcome'),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('inbound_messages_provider_id_uq').on(t.channel, t.providerMessageId)],
+);
+
+/**
+ * An approval card sent to one person for one task. Buttons carry the prompt id; a tap
+ * is honoured only from that person's verified number, once, before it expires, and with
+ * the person's permissions at the moment of the tap.
+ */
+export const approvalPrompts = pgTable(
+  'approval_prompts',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id').notNull(),
+    actionId: text('action_id').notNull(),
+    /** False when the task is above the org's WhatsApp approval cap: the card can reject, or link to BOH. */
+    canApprove: boolean('can_approve').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    decision: text('decision'),
+    outcome: text('outcome'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.taskId], foreignColumns: [agentTasks.orgId, agentTasks.id] }).onDelete('cascade'),
+    uniqueIndex('approval_prompts_task_user_uq').on(t.taskId, t.userId),
+  ],
+);

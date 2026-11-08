@@ -104,3 +104,6 @@ export const IconCart = (p: SVGProps<SVGSVGElement>) => (
 export const IconLayers = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5" /></svg>
 );
+export const IconChat = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 18.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8.5z" /><path d="m9 10 2 2 4-4" /></svg>
+);

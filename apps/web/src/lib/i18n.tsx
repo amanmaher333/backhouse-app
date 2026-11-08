@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 import { arCatalog, enCatalog } from './i18n-catalog';
 import { arAgents, enAgents } from './i18n-agents';
 import { arProcurement, enProcurement } from './i18n-procurement';
+import { arChannels, enChannels } from './i18n-channels';
 
 export type Lang = 'en' | 'ar';
 
@@ -11,6 +12,7 @@ const en = {
   ...enCatalog,
   ...enAgents,
   ...enProcurement,
+  ...enChannels,
   appName: 'BOH',
   appSub: 'Back of house',
   // nav
@@ -177,6 +179,7 @@ const ar: Dict = {
   ...arCatalog,
   ...arAgents,
   ...arProcurement,
+  ...arChannels,
   appName: 'BOH',
   appSub: 'إدارة المطبخ',
   navMain: 'مساحة العمل',

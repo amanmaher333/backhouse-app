@@ -4,6 +4,7 @@ import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module.js';
 import { loadConfig } from './config.js';
 import { AgentRuntime } from './agents/runtime.js';
+import { ChannelsService } from './channels/channels.service.js';
 
 /**
  * Agent worker: polls for agents with unprocessed events (and daily scans) and runs them.
@@ -12,12 +13,13 @@ import { AgentRuntime } from './agents/runtime.js';
 const config = loadConfig();
 const app = await NestFactory.createApplicationContext(AppModule.forRoot(config), { logger: ['error', 'warn', 'log'] });
 const runtime = app.get(AgentRuntime);
+const channels = app.get(ChannelsService);
 const logger = new Logger('Worker');
 let stopping = false;
 process.on('SIGINT', () => (stopping = true));
 process.on('SIGTERM', () => (stopping = true));
 
-logger.log(`Agent worker started (poll every ${config.WORKER_POLL_MS} ms)`);
+logger.log(`Agent and messaging worker started (poll every ${config.WORKER_POLL_MS} ms)`);
 while (!stopping) {
   try {
     const results = await runtime.runDue();
@@ -26,6 +28,10 @@ while (!stopping) {
         `run ${r.runId}: ${r.status}, events ${r.eventsProcessed}, tasks +${r.tasksCreated}/~${r.tasksUpdated}, auto ${r.actionsExecuted}, $${r.costUsd.toFixed(4)}`,
       );
     }
+    // WhatsApp: approval cards for new tasks, then anything queued (retries included).
+    const cards = await channels.notifyPending();
+    const sent = await channels.deliver();
+    if (cards || sent) logger.log(`whatsapp (${channels.mode}): ${cards} cards queued, ${sent} messages sent`);
   } catch (err) {
     logger.error((err as Error).message);
   }
