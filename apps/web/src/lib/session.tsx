@@ -45,7 +45,8 @@ type Status = 'loading' | 'anonymous' | 'authenticated';
 interface Session {
   status: Status;
   me: Me | null;
-  api: <T = any>(path: string, init?: { method?: string; body?: unknown }) => Promise<T>;
+  /** raw: return the response text (e.g. CSV) instead of parsed JSON. */
+  api: <T = any>(path: string, init?: { method?: string; body?: unknown; raw?: boolean }) => Promise<T>;
   /** Called with the JSON from /api/session/{login,signup,accept}. */
   begin: (data: { accessToken: string; orgId: string | null }) => Promise<void>;
   switchOrg: (orgId: string) => Promise<void>;
@@ -102,7 +103,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const api = useCallback(
-    async <T,>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> => {
+    async <T,>(path: string, init: { method?: string; body?: unknown; raw?: boolean } = {}): Promise<T> => {
       const run = () =>
         fetch(`/api/v1${path}`, {
           method: init.method ?? 'GET',
@@ -119,7 +120,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setMe(null);
       }
       const text = res.status === 204 ? '' : await res.text();
-      const data = text ? JSON.parse(text) : null;
+      if (init.raw && res.ok) return text as T;
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = { message: text };
+      }
       if (!res.ok) throw new ApiError(res.status, data);
       return data as T;
     },

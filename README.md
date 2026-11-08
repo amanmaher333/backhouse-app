@@ -27,7 +27,17 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - "Ask BOH" agent preview: the chat UI only, with clearly labelled sample data (the agent arrives in phase 8)
   - The refresh token is kept in an httpOnly cookie through a Next.js backend-for-frontend; API calls go through a same-origin proxy
   - Manifest, service worker for the app shell, install button, online/offline pill
-- CI (GitHub Actions) with Postgres; 29 tests covering units maths, RLS isolation, audit immutability, auth flows, tenant isolation over HTTP, and permissions
+- CI (GitHub Actions) with Postgres; 47 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices and CSV import
+
+**Phase 1 (catalogue and shared ingredient map) done:**
+
+- **Shared ingredient map:** 134 common Saudi kitchen ingredients with English/Arabic names and supplier-style aliases. Item names are normalised (Arabic letter forms, diacritics, Arabic-Indic digits, pack sizes such as "6x1L" or "كرتون") and matched with Postgres trigram search. Confident matches link automatically; the rest are suggested for a person to pick.
+- **Learning:** every time a person picks or changes a match, a correction is stored (training data). The name also becomes a new alias, which only takes effect once **two different organisations** confirm it, so one tenant can't poison the shared map.
+- **Items:** auto codes, category, allergens and base unit (prefilled from the matched ingredient), duplicate warnings, nested packs (case → bottle → ml) with cross-unit conversion (density, piece weight), and par levels per site entered in any pack.
+- **Suppliers:** a supplier profile is shared across BOH and deduplicated by VAT number, but each restaurant's relationship stays private. Each supplier has an ordering channel (email/WhatsApp/portal/manual), terms, and a delivery schedule per site (days, cut-off, lead time).
+- **Prices:** supplier catalogue lines per pack, append-only price history, cost per kg / L / each, the preferred supplier per item, and a recent price changes feed (on the overview). Prices are hidden from roles without `price:read`.
+- **CSV:** import and export for items and supplier price lists. Imports run as a dry run first, then commit all-or-nothing; empty cells mean "leave unchanged". Files include a BOM so Excel opens Arabic correctly.
+- **Web:** items list with filters, item detail, suppliers list, supplier detail with inline price editing and history, the CSV import preview, and the overview price changes, all in Arabic and English.
 
 ## Layout
 
@@ -87,6 +97,6 @@ pnpm test
 - Permissions are `resource:action` strings. Org-scoped roles apply everywhere; site-scoped roles apply only to the sites on the membership.
 - Schema changes: edit `packages/db/src/schema.ts`, then run `pnpm --filter @boh/db generate --name <change>`. New tenant tables need RLS policies; add a custom migration (see `0001_rls_audit_roles.sql`).
 
-## Next: Phase 1 (catalogue and shared ingredient map)
+## Next: Phase 2 (procurement)
 
-Items, packs, supplier relationships and unclaimed supplier profiles, supplier items with price history, the canonical ingredient taxonomy and matching, CSV import/export. See `docs/SPEC.md` §8.
+Requisitions, purchase orders, approval chains and spend limits, sending POs (email/WhatsApp/portal link), receiving (GRN) and the stock ledger. See `docs/SPEC.md` §8.

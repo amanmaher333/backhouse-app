@@ -1,10 +1,12 @@
 'use client';
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { arCatalog, enCatalog } from './i18n-catalog';
 
 export type Lang = 'en' | 'ar';
 
 const en = {
+  ...enCatalog,
   appName: 'BOH',
   appSub: 'Back of house',
   // nav
@@ -69,7 +71,7 @@ const en = {
   legalEntities: 'Legal entities',
   storageLocations: 'Storage locations',
   comingNext: 'Coming next',
-  comingNextBody: 'Catalogue, suppliers and price history arrive in phase 1.',
+  comingNextBody: 'Purchase orders, approvals and receiving deliveries arrive in phase 2.',
   // sites
   sitesSub: 'Branches, central kitchens and warehouses',
   addSite: 'Add site',
@@ -168,6 +170,7 @@ const en = {
 type Dict = typeof en;
 
 const ar: Dict = {
+  ...arCatalog,
   appName: 'BOH',
   appSub: 'إدارة المطبخ',
   navMain: 'مساحة العمل',
@@ -228,7 +231,7 @@ const ar: Dict = {
   legalEntities: 'الكيانات القانونية',
   storageLocations: 'مواقع التخزين',
   comingNext: 'القادم',
-  comingNextBody: 'الأصناف والموردون وسجل الأسعار في المرحلة الأولى.',
+  comingNextBody: 'أوامر الشراء والموافقات واستلام التوريدات في المرحلة الثانية.',
   sitesSub: 'الفروع والمطابخ المركزية والمستودعات',
   addSite: 'إضافة فرع',
   siteName: 'اسم الفرع',
@@ -331,6 +334,12 @@ interface I18n {
   locale: string;
   fmtNum: (n: number, digits?: number) => string;
   fmtDate: (iso: string) => string;
+  /** SAR amount, e.g. "54.00 ر.س" / "SAR 54.00". */
+  fmtMoney: (v: string | number | null | undefined, digits?: number) => string;
+  /** Base quantity shown in a friendly unit (g→kg, ml→L). */
+  fmtQty: (base: string | number, baseUnit: string) => string;
+  /** Cost per base unit shown per kg / per L / each. */
+  fmtUnitCost: (costPerBase: string | number | null | undefined, baseUnit: string) => string;
 }
 
 const Ctx = createContext<I18n | null>(null);
@@ -357,6 +366,25 @@ export function I18nProvider({ children, initialLang }: { children: ReactNode; i
     locale: lang === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB',
     fmtNum: (n, digits = 0) =>
       n.toLocaleString(lang === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits }),
+    fmtMoney: (v, digits = 2) => {
+      if (v === null || v === undefined || v === '') return '–';
+      const n = Number(v).toLocaleString(lang === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+      return lang === 'ar' ? `${n} ر.س` : `SAR ${n}`;
+    },
+    fmtQty: (base, baseUnit) => {
+      const n = Number(base);
+      const nf = (x: number) => x.toLocaleString(lang === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB', { maximumFractionDigits: 3 });
+      if (baseUnit === 'g') return n >= 1000 ? `${nf(n / 1000)} ${lang === 'ar' ? 'كجم' : 'kg'}` : `${nf(n)} ${lang === 'ar' ? 'غ' : 'g'}`;
+      if (baseUnit === 'ml') return n >= 1000 ? `${nf(n / 1000)} ${lang === 'ar' ? 'لتر' : 'L'}` : `${nf(n)} ${lang === 'ar' ? 'مل' : 'ml'}`;
+      return `${nf(n)} ${lang === 'ar' ? 'حبة' : 'each'}`;
+    },
+    fmtUnitCost: (c, baseUnit) => {
+      if (c === null || c === undefined) return '–';
+      const factor = baseUnit === 'each' ? 1 : 1000;
+      const per = baseUnit === 'g' ? dicts[lang].perKg : baseUnit === 'ml' ? dicts[lang].perL : dicts[lang].perEach;
+      const n = (Number(c) * factor).toLocaleString(lang === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return lang === 'ar' ? `${n} ر.س ${per}` : `SAR ${n} ${per}`;
+    },
     fmtDate: (iso) =>
       new Date(iso).toLocaleDateString(lang === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
   };

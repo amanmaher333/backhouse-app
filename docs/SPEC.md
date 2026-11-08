@@ -177,7 +177,7 @@ infra/        docker-compose (postgres, redis, minio), IaC per region, CI
 | Phase | Scope | Size |
 |---|---|---|
 | 0 Foundation ✅ | Monorepo, auth, orgs (incl. supplier type), entities/sites, roles, audit, units engine, CI — **done** | 2 wks |
-| 1 Catalogue + shared map | Items, packs, supplier relationships/profiles, supplier items + price history, canonical ingredient seed + matching, CSV | 2–3 wks |
+| 1 Catalogue + shared map ✅ | Items, packs, supplier relationships/profiles, supplier items + price history, canonical ingredient seed + matching, CSV — **done** | 2–3 wks |
 | 2 Procurement | Requisitions, POs, approvals/limits, sending POs (email/WhatsApp/portal link), GRN, stock ledger | 3 wks |
 | 3 Invoices | AI extraction + XML parsing, matching, review queue, credit notes, payables ledger, `Correction` capture | 2–3 wks |
 | 4 Inventory + recipes | Counts/sub-counts, waste, transfers, recipes/costing, effective dating | 3 wks |

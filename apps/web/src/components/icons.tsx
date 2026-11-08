@@ -71,3 +71,21 @@ export const IconArrowUp = (p: SVGProps<SVGSVGElement>) => (
 export const IconDownload = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
 );
+export const IconBox = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8" /></svg>
+);
+export const IconTruck = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7" /><circle cx="7" cy="18" r="2" /><circle cx="17.5" cy="18" r="2" /></svg>
+);
+export const IconUpload = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M12 20V9M7 14l5-5 5 5M5 4h14" /></svg>
+);
+export const IconStar = (p: SVGProps<SVGSVGElement> & { filled?: boolean }) => {
+  const { filled, ...rest } = p;
+  return (
+    <svg {...base(rest)} fill={filled ? 'currentColor' : 'none'}><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z" /></svg>
+  );
+};
+export const IconSearch = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+);

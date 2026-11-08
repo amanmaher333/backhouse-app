@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import {
+  IconBox,
   IconBuilding,
   IconChevron,
   IconHome,
@@ -17,6 +18,7 @@ import {
   IconSidebar,
   IconSpark,
   IconStore,
+  IconTruck,
   IconUsers,
 } from './icons';
 import { InstallButton, LangButton, SyncPill, ThemeButton } from './toolbar';
@@ -31,6 +33,8 @@ interface NavItem {
 
 const MAIN: NavItem[] = [
   { href: '/overview', label: 'overview', icon: IconHome },
+  { href: '/items', label: 'items', icon: IconBox, perm: 'item:read' },
+  { href: '/suppliers', label: 'suppliers', icon: IconTruck, perm: 'supplier:read' },
   { href: '/sites', label: 'sites', icon: IconStore, perm: 'site:read' },
   { href: '/insights', label: 'insights', icon: IconSpark },
 ];
