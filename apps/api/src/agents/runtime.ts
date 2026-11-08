@@ -19,9 +19,15 @@ import { AccessContext } from '../common/access.js';
 import { audit, auditRaw } from '../common/audit.js';
 import { LlmWriter } from './llm.js';
 import { AGENT_DEFINITIONS, getDefinition } from './registry.js';
-import type { AgentDefinition, AgentRow, RunContext, TaskProposal, TaskRow } from './types.js';
+import type { AgentDefinition, AgentOutput, AgentRow, AgentServices, RunContext, TaskProposal, TaskRow } from './types.js';
+import { ProcurementService } from '../modules/procurement.js';
+import { StockService } from '../modules/stock.js';
 
 const OPEN = ['proposed', 'approved'] as const;
+
+function normalize(o: AgentOutput): { proposals: TaskProposal[]; expirePrefixes?: string[] } {
+  return Array.isArray(o) ? { proposals: o } : o;
+}
 
 export interface RunSummary {
   runId: number;
@@ -43,10 +49,16 @@ export interface RunSummary {
 export class AgentRuntime {
   private readonly logger = new Logger('AgentRuntime');
 
+  private readonly services: AgentServices;
+
   constructor(
     private readonly db: DbService,
     private readonly llm: LlmWriter,
-  ) {}
+    procurement: ProcurementService,
+    stock: StockService,
+  ) {
+    this.services = { procurement, stock };
+  }
 
   // ---------- identities ----------
 
@@ -208,7 +220,7 @@ export class AgentRuntime {
         const [run] = await tx.insert(agentRuns).values({ orgId: agent.orgId, agentId, trigger }).returning();
         const access = await this.agentAccess(tx, fresh, `agent-run:${run!.id}`);
         const settings = { ...def.defaultSettings, ...fresh.settings };
-        const ctx: RunContext = { tx, agent: fresh, access, settings, llm: this.llm, usage: { model: null, inputTokens: 0, outputTokens: 0, costUsd: 0 } };
+        const ctx: RunContext = { tx, agent: fresh, access, settings, llm: this.llm, services: this.services, usage: { model: null, inputTokens: 0, outputTokens: 0, costUsd: 0 } };
 
         const newEvents = await tx
           .select()
@@ -216,9 +228,9 @@ export class AgentRuntime {
           .where(and(gt(events.id, fresh.eventCursor), inArray(events.type, def.subscribes)))
           .orderBy(asc(events.id))
           .limit(500);
-        const proposals = [...(await def.handleEvents(ctx, newEvents)), ...(opts.scan && def.scan ? await def.scan(ctx) : [])];
+        const outputs = [normalize(await def.handleEvents(ctx, newEvents)), ...(opts.scan && def.scan ? [normalize(await def.scan(ctx))] : [])];
         // A scan and an event may produce the same subject: keep the last.
-        const bySubject = new Map(proposals.map((p) => [p.subjectKey, p]));
+        const bySubject = new Map(outputs.flatMap((o) => o.proposals).map((p) => [p.subjectKey, p]));
 
         let created = 0;
         let updated = 0;
@@ -228,6 +240,16 @@ export class AgentRuntime {
           if (isNew) created++;
           else updated++;
           if (await this.autoExecute(tx, fresh, access, settings, task)) executed++;
+        }
+        // Subjects re-checked with nothing needed any more: their open, undecided tasks expire.
+        const prefixes = [...new Set(outputs.flatMap((o) => o.expirePrefixes ?? []))];
+        if (prefixes.length) {
+          const open = await tx
+            .select({ id: agentTasks.id, subjectKey: agentTasks.subjectKey })
+            .from(agentTasks)
+            .where(and(eq(agentTasks.agentId, agentId), eq(agentTasks.status, 'proposed')));
+          const stale = open.filter((t) => prefixes.some((p) => t.subjectKey.startsWith(p)) && !bySubject.has(t.subjectKey)).map((t) => t.id);
+          if (stale.length) await tx.update(agentTasks).set({ status: 'expired' }).where(inArray(agentTasks.id, stale));
         }
 
         const lastEventId = newEvents.length ? newEvents[newEvents.length - 1]!.id : fresh.eventCursor;
@@ -291,7 +313,7 @@ export class AgentRuntime {
     const action = task.actions.find((x) => x.autonomy === 'auto');
     if (!action) return false;
     const def = this.def(agent.kind);
-    const ectx = { tx, agent, access, task, settings, automatic: true };
+    const ectx = { tx, agent, access, task, settings, services: this.services, automatic: true };
     const blocked = await def.guardrail(action, ectx);
     if (blocked) {
       await tx.update(agentTasks).set({ result: { autoBlocked: blocked, actionId: action.id } }).where(eq(agentTasks.id, task.id));
@@ -394,7 +416,7 @@ export class AgentRuntime {
       const agentAccess = await this.agentAccess(tx, agent, a.requestId);
       if (at?.requires && !agentAccess.can(at.requires)) throw new ForbiddenException('The agent role does not allow this action');
       const settings = { ...def.defaultSettings, ...agent.settings };
-      const ectx = { tx, agent, access: agentAccess, task, settings, automatic: false };
+      const ectx = { tx, agent, access: agentAccess, task, settings, services: this.services, automatic: false, approver: a };
 
       await this.recordDecision(tx, a, task, { decision: 'approved', actionId, actionType: action.type });
       const blocked = await def.guardrail(action, ectx);

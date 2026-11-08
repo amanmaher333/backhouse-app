@@ -1,5 +1,7 @@
 import type { AgentAction, AutonomyLevel, Tx, agents, agentTasks, events } from '@boh/db';
 import type { AccessContext } from '../common/access.js';
+import type { ProcurementService } from '../modules/procurement.js';
+import type { StockService } from '../modules/stock.js';
 import type { LlmWriter } from './llm.js';
 
 export type AgentRow = typeof agents.$inferSelect;
@@ -32,6 +34,19 @@ export interface TaskProposal {
   writtenBy: 'claude' | 'template';
 }
 
+/**
+ * What an agent returns from a run. `expirePrefixes`: subjects the agent
+ * re-checked; open, undecided tasks under these prefixes that were not
+ * proposed again are no longer needed and expire.
+ */
+export type AgentOutput = TaskProposal[] | { proposals: TaskProposal[]; expirePrefixes?: string[] };
+
+/** Domain services agents use, so they act through the same rules as people. */
+export interface AgentServices {
+  procurement: ProcurementService;
+  stock: StockService;
+}
+
 export interface RunContext {
   tx: Tx;
   agent: AgentRow;
@@ -39,6 +54,7 @@ export interface RunContext {
   access: AccessContext;
   settings: Record<string, unknown>;
   llm: LlmWriter;
+  services: AgentServices;
   usage: { model: string | null; inputTokens: number; outputTokens: number; costUsd: number };
 }
 
@@ -48,8 +64,11 @@ export interface ExecuteContext {
   access: AccessContext;
   task: TaskRow;
   settings: Record<string, unknown>;
+  services: AgentServices;
   /** True when the agent runs the action on its own (autonomy = auto), with no person approving. */
   automatic: boolean;
+  /** The person who approved, when there is one (for site-level permission checks). */
+  approver?: AccessContext;
 }
 
 export interface AgentDefinition {
@@ -64,9 +83,9 @@ export interface AgentDefinition {
   actionTypes: ActionTypeDef[];
   defaultSettings: Record<string, unknown>;
   /** Turn new events into task proposals. */
-  handleEvents(ctx: RunContext, events: EventRow[]): Promise<TaskProposal[]>;
-  /** Look back over existing data (first install or "run now"). */
-  scan?(ctx: RunContext): Promise<TaskProposal[]>;
+  handleEvents(ctx: RunContext, events: EventRow[]): Promise<AgentOutput>;
+  /** Look back over existing data (first install, daily, or "run now"). */
+  scan?(ctx: RunContext): Promise<AgentOutput>;
   /** Hard limits checked before any execution, whatever the autonomy. Returns a reason to block, or null. */
   guardrail(action: AgentAction, ctx: ExecuteContext): Promise<string | null>;
   /** Carry out an action through domain commands. Returns a result to store on the task. */
