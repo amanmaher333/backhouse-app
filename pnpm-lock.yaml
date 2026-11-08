@@ -120,6 +120,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@boh/domain':
+        specifier: workspace:*
+        version: link:../domain
       drizzle-orm:
         specifier: ^0.36.4
         version: 0.36.4(@types/pg@8.23.1)(@types/react@19.3.0)(pg@8.23.1)(react@19.1.10)

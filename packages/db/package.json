@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.36.4",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "@boh/domain": "workspace:*"
   },
   "devDependencies": {
     "@types/pg": "^8.11.10",

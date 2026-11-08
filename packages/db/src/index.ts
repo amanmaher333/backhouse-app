@@ -8,6 +8,8 @@ export * from './schema.js';
 export * from './permissions.js';
 export { syncSystemRoles } from './system-roles.js';
 export { runMigrations } from './migrator.js';
+export { syncCanonicalIngredients } from './canonical-sync.js';
+export { CANONICAL_SEED } from './canonical-seed.js';
 
 export type Db = NodePgDatabase<typeof schema>;
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];

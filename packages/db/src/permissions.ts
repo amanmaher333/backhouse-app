@@ -24,6 +24,13 @@ export const PERMISSIONS = [
   'role:read',
   'role:manage',
   'audit:read',
+  'item:read',
+  'item:manage',
+  'par:manage',
+  'supplier:read',
+  'supplier:manage',
+  'price:read',
+  'price:manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -45,30 +52,30 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Data Manager',
     nameAr: 'مدير البيانات',
     scope: 'org',
-    permissions: [...READ_ALL, 'location:manage', 'cost_centre:manage', 'brand:manage'],
+    permissions: [...READ_ALL, 'location:manage', 'cost_centre:manage', 'brand:manage', 'item:manage', 'par:manage', 'supplier:manage', 'price:manage'],
   },
   {
     key: 'ops_manager',
     name: 'Operations Manager',
     nameAr: 'مدير العمليات',
     scope: 'org',
-    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage'],
+    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage', 'par:manage', 'supplier:manage'],
   },
   {
     key: 'site_manager',
     name: 'Site Manager',
     nameAr: 'مدير الفرع',
     scope: 'site',
-    permissions: ['site:read', 'location:read', 'location:manage', 'cost_centre:read'],
+    permissions: ['site:read', 'location:read', 'location:manage', 'cost_centre:read', 'item:read', 'par:manage', 'supplier:read', 'price:read'],
   },
-  { key: 'staff', name: 'Staff', nameAr: 'موظف', scope: 'site', permissions: ['site:read', 'location:read'] },
-  { key: 'drafter', name: 'Drafter', nameAr: 'محرر مسودات', scope: 'site', permissions: ['site:read', 'location:read'] },
+  { key: 'staff', name: 'Staff', nameAr: 'موظف', scope: 'site', permissions: ['site:read', 'location:read', 'item:read'] },
+  { key: 'drafter', name: 'Drafter', nameAr: 'محرر مسودات', scope: 'site', permissions: ['site:read', 'location:read', 'item:read', 'supplier:read'] },
   {
     key: 'accountant',
     name: 'Accountant',
     nameAr: 'محاسب',
     scope: 'org',
-    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read'],
+    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read', 'item:read', 'supplier:read', 'price:read'],
   },
 ];
 
