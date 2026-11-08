@@ -1037,3 +1037,20 @@ input[type='time'].inline-input {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+.wa-digest {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.wa-preview {
+  background: var(--tile);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}

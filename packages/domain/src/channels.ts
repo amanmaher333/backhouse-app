@@ -68,6 +68,13 @@ export function parseApprovalPayload(payload: string): { promptId: string; decis
   return m ? { promptId: m[1]!.toLowerCase(), decision: m[2] === 'a' ? 'approve' : 'reject' } : null;
 }
 
+/** Digest button payload: "dig:<orgId>" ("show me what is waiting"). */
+export const digestPayload = (orgId: string) => `dig:${orgId}`;
+export function parseDigestPayload(payload: string): string | null {
+  const m = /^dig:([0-9a-f-]{36})$/i.exec(payload.trim());
+  return m ? m[1]!.toLowerCase() : null;
+}
+
 /** Link codes people send from WhatsApp: "BOH-" + 6 characters without look-alikes (0/O, 1/I/L). */
 const CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 export function linkCode(random: Uint8Array): string {
@@ -81,4 +88,51 @@ export function findLinkCode(text: string): string | null {
   const s = [...text].map((c) => AR_DIGITS[c] ?? c).join('').toUpperCase();
   const m = /\bBOH[\s-]?([2-9A-HJKMNP-Z]{6})\b/.exec(s);
   return m ? `BOH-${m[1]}` : null;
+}
+
+/**
+ * Daily digest scheduling: due once per local day, from the chosen hour until a few
+ * hours after it (so a worker restart still sends it, but never in the evening).
+ */
+export function digestDue(now: Date, timeZone: string, hour: number, graceHours = 4): { due: boolean; localDate: string } {
+  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' });
+  const p = Object.fromEntries(fmt.formatToParts(now).map((x) => [x.type, x.value]));
+  const localDate = `${p.year}-${p.month}-${p.day}`;
+  const h = Number(p.hour);
+  return { due: h >= hour && h < hour + graceHours, localDate };
+}
+
+export interface DigestCounts {
+  /** Decisions waiting for this person. */
+  waiting: number;
+  /** Actions agents carried out on their own in the last 24 hours. */
+  autoDone: number;
+  /** Orders waiting for spend approval (only for people who can give it). */
+  pendingSpend: number;
+  /** Deliveries expected today. */
+  dueToday: number;
+  /** Deliveries past their date. */
+  late: number;
+  /** Items at or below their reorder point, and at how many sites. */
+  lowItems: number;
+  lowSites: number;
+  /** Supplier price rises in the last 24 hours. */
+  priceRises: number;
+}
+
+export const digestIsEmpty = (c: DigestCounts) => Object.values(c).every((v) => v === 0);
+
+/** One line, for the template parameter (no newlines allowed there). */
+export function digestSummary(c: DigestCounts, lang: 'ar' | 'en'): string {
+  const ar = lang === 'ar';
+  const parts: string[] = [];
+  const add = (n: number, en: string, arText: string) => n > 0 && parts.push(ar ? arText.replace('{n}', String(n)) : en.replace('{n}', String(n)));
+  add(c.waiting, `{n} ${c.waiting === 1 ? 'decision' : 'decisions'} waiting`, '{n} بانتظار قرارك');
+  add(c.autoDone, '{n} done by agents', '{n} نفّذها الوكلاء');
+  add(c.pendingSpend, '{n} for spend approval', '{n} بانتظار اعتماد الإنفاق');
+  add(c.dueToday, `{n} ${c.dueToday === 1 ? 'delivery' : 'deliveries'} today`, '{n} توريد اليوم');
+  add(c.late, '{n} late', '{n} متأخر');
+  add(c.lowItems, `{n} ${c.lowItems === 1 ? 'item' : 'items'} low`, '{n} صنف منخفض');
+  add(c.priceRises, `{n} price ${c.priceRises === 1 ? 'rise' : 'rises'}`, '{n} ارتفاع أسعار');
+  return parts.join(' · ') || (ar ? 'لا جديد' : 'Nothing new');
 }

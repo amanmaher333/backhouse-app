@@ -57,3 +57,26 @@ describe('payloads and link codes', () => {
     expect(findLinkCode('hello')).toBeNull();
   });
 });
+
+import { digestDue, digestIsEmpty, digestSummary } from './channels.js';
+
+describe('daily digest', () => {
+  it('is due from the chosen local hour for a few hours, per local day', () => {
+    // 05:30 UTC = 08:30 in Riyadh
+    expect(digestDue(new Date('2026-11-08T05:30:00Z'), 'Asia/Riyadh', 8)).toEqual({ due: true, localDate: '2026-11-08' });
+    expect(digestDue(new Date('2026-11-08T04:59:00Z'), 'Asia/Riyadh', 8).due).toBe(false); // 07:59
+    expect(digestDue(new Date('2026-11-08T09:00:00Z'), 'Asia/Riyadh', 8).due).toBe(false); // 12:00, past the grace period
+    // Dubai is an hour ahead: 05:30 UTC = 09:30
+    expect(digestDue(new Date('2026-11-08T05:30:00Z'), 'Asia/Dubai', 9).due).toBe(true);
+    // 22:30 UTC on the 7th is already the 8th in Riyadh
+    expect(digestDue(new Date('2026-11-07T22:30:00Z'), 'Asia/Riyadh', 1).localDate).toBe('2026-11-08');
+  });
+
+  it('summarises counts on one line in both languages', () => {
+    const c = { waiting: 3, autoDone: 1, pendingSpend: 0, dueToday: 2, late: 1, lowItems: 4, lowSites: 2, priceRises: 0 };
+    expect(digestSummary(c, 'en')).toBe('3 decisions waiting · 1 done by agents · 2 deliveries today · 1 late · 4 items low');
+    expect(digestSummary(c, 'ar')).toBe('3 بانتظار قرارك · 1 نفّذها الوكلاء · 2 توريد اليوم · 1 متأخر · 4 صنف منخفض');
+    expect(digestIsEmpty({ ...c, waiting: 0, autoDone: 0, dueToday: 0, late: 0, lowItems: 0, lowSites: 0 })).toBe(true);
+    expect(digestSummary({ ...c, waiting: 0, autoDone: 0, dueToday: 0, late: 0, lowItems: 0, lowSites: 0 }, 'en')).toBe('Nothing new');
+  });
+});

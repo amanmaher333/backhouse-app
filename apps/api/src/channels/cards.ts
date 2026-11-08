@@ -168,5 +168,6 @@ export const replies = {
   },
   blocked: (lang: Lang, title: string, reason: string) => (lang === 'ar' ? `⚠️ لم يُنفَّذ «${title}»: ${reason}` : `⚠️ Not done: "${title}": ${reason}`),
   rejected: (lang: Lang, title: string) => (lang === 'ar' ? `❌ تم الرفض: ${title}` : `❌ Rejected: ${title}`),
+  nothingWaiting: (lang: Lang) => (lang === 'ar' ? '👍 لا شيء بانتظار قرارك الآن.' : '👍 Nothing is waiting for your decision right now.'),
   refused: (lang: Lang, reason: string) => (lang === 'ar' ? `⚠️ تعذّر ذلك: ${reason}` : `⚠️ Could not do that: ${reason}`),
 };

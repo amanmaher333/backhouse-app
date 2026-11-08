@@ -972,6 +972,10 @@ export const userChannels = pgTable(
     /** Last message from this person: WhatsApp lets businesses send free-form messages for 24 hours after it. */
     lastInboundAt: timestamp('last_inbound_at', { withTimezone: true }),
     approvalsEnabled: boolean('approvals_enabled').notNull().default(true),
+    /** Daily digest: on/off, local hour (0-23) and time zone. */
+    digestEnabled: boolean('digest_enabled').notNull().default(true),
+    digestHour: smallint('digest_hour').notNull().default(8),
+    timeZone: text('time_zone').notNull().default('Asia/Riyadh'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -1072,4 +1076,24 @@ export const approvalPrompts = pgTable(
     foreignKey({ columns: [t.orgId, t.taskId], foreignColumns: [agentTasks.orgId, agentTasks.id] }).onDelete('cascade'),
     uniqueIndex('approval_prompts_task_user_uq').on(t.taskId, t.userId),
   ],
+);
+
+/** One row per person, org and local day a digest went out: makes the schedule idempotent across workers. */
+export const digestRuns = pgTable(
+  'digest_runs',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    localDate: text('local_date').notNull(),
+    /** What the digest counted; empty days are recorded too (and nothing is sent). */
+    counts: jsonb('counts').$type<Record<string, number>>().notNull(),
+    outboundMessageId: uuid('outbound_message_id'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('digest_runs_user_org_date_uq').on(t.userId, t.orgId, t.localDate)],
 );

@@ -16,7 +16,7 @@ BOH sends approval cards on WhatsApp through Meta's WhatsApp Business Cloud API.
 | `WHATSAPP_VERIFY_TOKEN` | Any secret string; enter the same value when subscribing the webhook. |
 | `WHATSAPP_GRAPH_VERSION` | Default `v25.0`. |
 | `WHATSAPP_BUSINESS_NUMBER` | BOH's number in E.164, shown to people for linking. |
-| `WHATSAPP_TEMPLATE_APPROVAL`, `WHATSAPP_TEMPLATE_NOTICE` | Template names, if yours differ. |
+| `WHATSAPP_TEMPLATE_APPROVAL`, `WHATSAPP_TEMPLATE_NOTICE`, `WHATSAPP_TEMPLATE_DIGEST` | Template names, if yours differ. |
 | `WHATSAPP_PROMPT_TTL_HOURS` | How long a card's buttons stay valid (default 72). |
 | `PUBLIC_WEB_URL` | Base URL for "open in BOH" links. |
 
@@ -90,6 +90,42 @@ Buttons, in this order:
 |---|---|---|---|---|
 | 0 | Quick reply | رفض | Reject | payload set per message |
 | 1 | URL (dynamic) | افتح في BOH | Open in BOH | `https://app.boh.sa/inbox?task={{1}}` |
+
+### `boh_daily_digest`
+
+The morning summary, sent outside the 24-hour window. Keep it factual and non-promotional; that keeps it in the **Utility** category. Variables:
+
+- `{{1}}` the organisation
+- `{{2}}` the date
+- `{{3}}` a one-line summary, e.g. "3 decisions waiting · 2 deliveries today · 4 items low"
+
+Arabic body:
+
+```
+☀️ {{1}} · {{2}}
+{{3}}
+```
+
+English body: the same.
+
+Buttons, in this order:
+
+| # | Type | Arabic | English | Value |
+|---|---|---|---|---|
+| 0 | Quick reply | اعرض القرارات | Show decisions | payload set per message |
+| 1 | URL (dynamic) | افتح في BOH | Open in BOH | `https://app.boh.sa/{{1}}` (suffix `inbox`) |
+
+**Show decisions** is the key button. Tapping it opens the 24-hour window, so BOH then re-sends up to five waiting approval cards as interactive messages. Those don't need a template and aren't charged separately.
+
+Inside the window, the digest goes out as a full message: the waiting decisions, what agents did on their own, orders (spend approval, due today, late), low stock by site and price rises.
+
+### Digest scheduling
+
+- **When:** each person picks an hour and time zone (default 08:00 Riyadh) and can turn the digest off.
+- **One per person per organisation per local day:** a `digest_runs` row claims it first, so several workers or a restart never send twice.
+- **Skipped when late:** if the worker was down, a missed digest is still sent up to 4 hours after the chosen hour; after that, that day's is skipped.
+- **Quiet days:** nothing is sent; the empty run is still recorded.
+- **What it covers:** only what the person's permissions allow (sites, prices, spend approval).
 
 ## Security model
 

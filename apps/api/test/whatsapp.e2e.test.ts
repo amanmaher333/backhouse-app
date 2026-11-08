@@ -10,6 +10,8 @@ import { loadConfig } from '../src/config.js';
 import { AgentRuntime } from '../src/agents/runtime.js';
 import { ChannelsService } from '../src/channels/channels.service.js';
 import { WHATSAPP_TRANSPORT, type SimulatedTransport } from '../src/channels/transport.js';
+import { DigestService } from '../src/channels/digest.js';
+import { digestRuns } from '@boh/db';
 import { cloudRequestBody } from '../src/channels/transport.js';
 import { DbService } from '../src/common/db.service.js';
 
@@ -25,6 +27,7 @@ let runtime: AgentRuntime;
 let channels: ChannelsService;
 let sim: SimulatedTransport;
 let db: DbService;
+let digests: DigestService;
 
 const sign = (raw: string) => `sha256=${createHmac('sha256', SECRET).update(raw).digest('hex')}`;
 
@@ -64,10 +67,10 @@ async function setup(locale: 'ar' | 'en' = 'en') {
   const site = (await http.post('/v1/sites').set(auth(token)).send({ legalEntityId: s.body.legalEntity.id, name: 'Olaya', nameAr: 'العليا' }).expect(201)).body;
   const chicken = (await http.post('/v1/items').set(auth(token)).send({ name: 'Chicken breast', nameAr: 'صدور دجاج' }).expect(201)).body;
   const wat = (await http.post('/v1/suppliers').set(auth(token)).send({ displayName: 'Al Watania', contactEmail: 'o@w.sa' }).expect(201)).body;
-  await http.post(`/v1/suppliers/${wat.id}/items`).set(auth(token)).send({ itemId: chicken.id, packId: chicken.packs[0].id, price: 24.75, isPreferred: true }).expect(201);
+  const line = (await http.post(`/v1/suppliers/${wat.id}/items`).set(auth(token)).send({ itemId: chicken.id, packId: chicken.packs[0].id, price: 24.75, isPreferred: true }).expect(201)).body;
   await http.put(`/v1/items/${chicken.id}/sites/${site.id}`).set(auth(token)).send({ parLevel: 10, reorderPoint: 4, unit: 'kg' }).expect(200);
   const agent = (await http.post('/v1/agents').set(auth(token)).send({ kind: 'purchasing' }).expect(201)).body;
-  return { token, site, chicken, agentId: agent.agent.id as string, legalEntityId: s.body.legalEntity.id as string };
+  return { token, site, chicken, wat, lineId: line.id as string, agentId: agent.agent.id as string, legalEntityId: s.body.legalEntity.id as string };
 }
 
 /** Make the agent propose the order, then run the notifier until this task has been handled. */
@@ -96,6 +99,7 @@ beforeAll(async () => {
   channels = app.get(ChannelsService);
   sim = app.get(WHATSAPP_TRANSPORT);
   db = app.get(DbService);
+  digests = app.get(DigestService);
 });
 afterAll(async () => {
   await app?.close();
@@ -308,5 +312,104 @@ describe('Approving on WhatsApp', () => {
     // No stray prompts for this task remain usable.
     const open = await db.system((tx) => tx.select().from(approvalPrompts).where(and(eq(approvalPrompts.taskId, task.id), inArray(approvalPrompts.outcome, ['rejected']))));
     expect(open).toHaveLength(1);
+  });
+});
+
+describe('Daily digest', () => {
+  /** 17:30 UTC = 20:30 in Riyadh: outside the default 08:00 slot, so other test users stay quiet. */
+  const EVENING = new Date('2026-11-08T17:30:00Z');
+
+  it('summarises what needs the person, scoped to what they may see', async () => {
+    const x = await setup();
+    await link(x.token);
+    await propose(x); // chicken at 3 kg (reorder at 4): one decision waiting, one item low
+    await http.post(`/v1/supplier-items/${x.lineId}/prices`).set(auth(x.token)).send({ price: 26.5 }).expect(201); // +7.1%
+    const late = (
+      await http
+        .post('/v1/purchase-orders')
+        .set(auth(x.token))
+        .send({ siteId: x.site.id, relationshipId: x.wat.id, deliveryDate: '2026-01-05', submit: true, lines: [{ supplierItemId: x.lineId, qty: 1 }] })
+        .expect(201)
+    ).body;
+    await http.post(`/v1/purchase-orders/${late.id}/send`).set(auth(x.token)).send({ via: 'email' }).expect((r) => expect([200, 201]).toContain(r.status));
+
+    const d = (await http.post('/v1/me/whatsapp/digest').set(auth(x.token)).send({}).expect(200)).body;
+    expect(d.counts).toMatchObject({ waiting: 1, lowItems: 1, lowSites: 1, priceRises: 1, late: 1 });
+    expect(d.text).toContain('*Waiting for your decision (1)*');
+    expect(d.text).toContain('Order for Olaya from Al Watania');
+    expect(d.text).toContain('*Stock*: 1 item low at 1 site: Chicken breast');
+    expect(d.text).toContain('Chicken breast +7.1%');
+    expect(d.text).toContain(`1 late: ${late.number}`);
+    expect(d.summary).toBe('1 decision waiting · 1 late · 1 item low · 1 price rise');
+    expect(d.queued).toBe(false);
+
+    // A manager of another site sees none of Olaya's business.
+    const malqa = (await http.post('/v1/sites').set(auth(x.token)).send({ legalEntityId: x.legalEntityId, name: 'Malqa' }).expect(201)).body;
+    const mgr = await invite(x.token, 'site_manager', [malqa.id]);
+    const md = (await http.post('/v1/me/whatsapp/digest').set(auth(mgr)).send({}).expect(200)).body;
+    expect(md.counts).toMatchObject({ waiting: 0, lowItems: 0, late: 0 });
+    expect(md.counts.priceRises).toBe(1); // prices are org-wide catalogue data, and site managers may read them
+  });
+
+  it('goes out once a day at the chosen hour, as a template outside the 24-hour window', async () => {
+    const x = await setup();
+    const number = await link(x.token);
+    await propose(x);
+    await http.patch('/v1/me/whatsapp').set(auth(x.token)).send({ digestHour: 20 }).expect(200);
+    await db.system((tx) => tx.update(userChannels).set({ lastInboundAt: new Date(Date.now() - 30 * 3600_000) }).where(eq(userChannels.address, number)));
+
+    expect(await digests.runDue(new Date('2026-11-08T16:59:00Z'))).toBe(0); // 19:59: not yet
+    const before = sentTo(number).length;
+    await digests.runDue(EVENING);
+    await digests.runDue(EVENING); // a second worker, or a restart: no repeat
+    await channels.deliver();
+    const sent = sentTo(number).slice(before);
+    expect(sent).toHaveLength(1);
+    const body = cloudRequestBody(number, sent[0]!.content, sent[0]!.form) as any;
+    expect(sent[0]!.form).toBe('template');
+    expect(body.template.name).toBe('boh_daily_digest');
+    const [params, show, url] = body.template.components;
+    expect(params.parameters[2].text).toContain('1 decision waiting');
+    expect(show.parameters[0].payload).toMatch(/^dig:/);
+    expect(url).toMatchObject({ sub_type: 'url', index: '1', parameters: [{ type: 'text', text: 'inbox' }] });
+
+    // "Show decisions" opens the window: the waiting card comes again, interactive.
+    await tap(number, show.parameters[0].payload).expect(200);
+    const card = lastTo(number);
+    expect(card.form).toBe('interactive');
+    expect(card.content.buttons!.map((b) => b.title)).toEqual(['Approve', 'Reject']);
+    await tap(number, card.content.buttons![0]!.id).expect(200);
+    expect(lastTo(number).content.text).toContain('order PO-');
+  });
+
+  it('records quiet days without sending, and respects the off switch', async () => {
+    const quiet = await setup();
+    const n1 = await link(quiet.token);
+    await http.patch('/v1/me/whatsapp').set(auth(quiet.token)).send({ digestHour: 20 }).expect(200);
+    const off = await setup();
+    const n2 = await link(off.token);
+    await propose(off);
+    await http.patch('/v1/me/whatsapp').set(auth(off.token)).send({ digestHour: 20, digestEnabled: false }).expect(200);
+    const before = [sentTo(n1).length, sentTo(n2).length];
+    await digests.runDue(EVENING);
+    await channels.deliver();
+    expect([sentTo(n1).length, sentTo(n2).length]).toEqual(before);
+    const me = (await http.get('/v1/auth/me').set(auth(quiet.token))).body;
+    const runs = await db.system((tx) => tx.select().from(digestRuns).where(eq(digestRuns.userId, me.user.id)));
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.outboundMessageId).toBeNull();
+
+    // Nothing waiting: the button says so.
+    await tap(n1, `dig:${me.currentOrgId}`).expect(200);
+    expect(lastTo(n1).content.text).toContain('Nothing is waiting');
+  });
+
+  it('validates preferences', async () => {
+    const x = await setup();
+    await link(x.token);
+    await http.patch('/v1/me/whatsapp').set(auth(x.token)).send({ digestHour: 25 }).expect(400);
+    await http.patch('/v1/me/whatsapp').set(auth(x.token)).send({ timeZone: 'Europe/London' }).expect(400);
+    const ok = (await http.patch('/v1/me/whatsapp').set(auth(x.token)).send({ digestHour: 7, timeZone: 'Asia/Dubai' }).expect(200)).body;
+    expect(ok.linked).toMatchObject({ digestEnabled: true, digestHour: 7, timeZone: 'Asia/Dubai' });
   });
 });

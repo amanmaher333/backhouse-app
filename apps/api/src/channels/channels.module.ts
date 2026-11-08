@@ -3,14 +3,23 @@ import { ApiBearerAuth, ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import type { Request } from 'express';
-import { Access, CurrentAuth, Public, Requires } from '../common/auth.js';
+import { Access, CurrentAuth, MEMBER, Public, Requires } from '../common/auth.js';
 import type { AccessContext } from '../common/access.js';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { AgentsModule } from '../agents/agents.module.js';
 import { ChannelsService } from './channels.service.js';
+import { DigestService } from './digest.js';
 import { createTransport, WHATSAPP_TRANSPORT } from './transport.js';
 
-const PrefsSchema = z.object({ approvalsEnabled: z.boolean() });
+const TIME_ZONES = ['Asia/Riyadh', 'Asia/Dubai', 'Asia/Qatar', 'Asia/Bahrain', 'Asia/Kuwait', 'Asia/Muscat'] as const;
+const PrefsSchema = z
+  .object({
+    approvalsEnabled: z.boolean().optional(),
+    digestEnabled: z.boolean().optional(),
+    digestHour: z.number().int().min(0).max(23).optional(),
+    timeZone: z.enum(TIME_ZONES).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, 'Nothing to update');
 class PrefsDto extends createZodDto(PrefsSchema) {}
 const OrgSettingsSchema = z.object({ whatsappApprovalMax: z.number().min(0).max(10_000_000) });
 class OrgSettingsDto extends createZodDto(OrgSettingsSchema) {}
@@ -22,6 +31,8 @@ const SimSendSchema = z
 class SimSendDto extends createZodDto(SimSendSchema) {}
 const SimThreadSchema = z.object({ from: z.string().max(30).optional() });
 class SimThreadDto extends createZodDto(SimThreadSchema) {}
+const DigestSchema = z.object({ send: z.boolean().default(false) });
+class DigestDto extends createZodDto(DigestSchema) {}
 
 /** Meta calls these; they are authenticated by the verify token and the payload signature. */
 @ApiTags('webhooks')
@@ -45,7 +56,10 @@ class WhatsAppWebhookController {
 @ApiBearerAuth()
 @Controller()
 class ChannelsController {
-  constructor(private readonly svc: ChannelsService) {}
+  constructor(
+    private readonly svc: ChannelsService,
+    private readonly digest: DigestService,
+  ) {}
 
   // The signed-in person's own WhatsApp link (works in any org).
   @Get('me/whatsapp')
@@ -66,6 +80,10 @@ class ChannelsController {
   @Post('me/whatsapp/simulator') @ApiExcludeEndpoint() @HttpCode(200)
   simulate(@CurrentAuth() auth: { userId: string }, @Body() dto: SimSendDto) { return this.svc.simulatorSend(auth.userId, dto); }
 
+  /** Today's digest for me in the current org: preview, or send it now. */
+  @Post('me/whatsapp/digest') @Requires(MEMBER) @HttpCode(200)
+  digestNow(@Access() a: AccessContext, @Body() dto: DigestDto) { return this.digest.preview(a, dto.send); }
+
   // Org-wide WhatsApp settings and message log.
   @Get('channels/settings') @Requires('org:read')
   settings(@Access() a: AccessContext) { return this.svc.orgSettings(a); }
@@ -80,7 +98,7 @@ class ChannelsController {
 @Module({
   imports: [AgentsModule],
   controllers: [WhatsAppWebhookController, ChannelsController],
-  providers: [ChannelsService, { provide: WHATSAPP_TRANSPORT, inject: [APP_CONFIG], useFactory: (config: AppConfig) => createTransport(config) }],
-  exports: [ChannelsService, WHATSAPP_TRANSPORT],
+  providers: [ChannelsService, DigestService, { provide: WHATSAPP_TRANSPORT, inject: [APP_CONFIG], useFactory: (config: AppConfig) => createTransport(config) }],
+  exports: [ChannelsService, DigestService, WHATSAPP_TRANSPORT],
 })
 export class ChannelsModule {}

@@ -9,7 +9,7 @@ interface Mine {
   mode: 'cloud' | 'simulated';
   businessNumber: string;
   simulator: boolean;
-  linked: { address: string; verifiedAt: string; approvalsEnabled: boolean; windowOpen: boolean } | null;
+  linked: { address: string; verifiedAt: string; approvalsEnabled: boolean; digestEnabled: boolean; digestHour: number; timeZone: string; windowOpen: boolean } | null;
 }
 interface LinkCode {
   code: string;
@@ -95,6 +95,7 @@ export default function WhatsAppPage() {
                     }}
                   />
                 </div>
+                <DigestPrefs linked={mine.linked} onChange={reload} onSent={() => setToast(t('digestSent'))} />
               </>
             ) : code ? (
               <div className="wa-code">
@@ -157,6 +158,92 @@ export default function WhatsAppPage() {
         {mine?.simulator && <Simulator linked={!!mine.linked} onActivity={reload} />}
       </div>
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+    </div>
+  );
+}
+
+const TIME_ZONES = ['Asia/Riyadh', 'Asia/Dubai', 'Asia/Qatar', 'Asia/Bahrain', 'Asia/Kuwait', 'Asia/Muscat'];
+
+function DigestPrefs({ linked, onChange, onSent }: { linked: NonNullable<Mine['linked']>; onChange: () => void; onSent: () => void }) {
+  const { t } = useI18n();
+  const { api } = useSession();
+  const [preview, setPreview] = useState<{ text: string; empty: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const save = async (body: Record<string, unknown>) => {
+    await api('/me/whatsapp', { method: 'PATCH', body });
+    onChange();
+  };
+  return (
+    <div className="wa-digest">
+      <div className="wa-toggle" style={{ borderTop: 0, marginTop: 0, paddingTop: 0 }}>
+        <div>
+          <div style={{ fontWeight: 500 }}>{t('dailyDigest')}</div>
+          <div className="faint" style={{ fontSize: 13 }}>
+            {t('dailyDigestHint')}
+          </div>
+        </div>
+        <button className="switch" role="switch" aria-checked={linked.digestEnabled} aria-label={t('dailyDigest')} onClick={() => save({ digestEnabled: !linked.digestEnabled })} />
+      </div>
+      {linked.digestEnabled && (
+        <div className="form-row">
+          <Field label={t('digestTime')}>
+            <select className="select num" value={linked.digestHour} onChange={(e) => save({ digestHour: Number(e.target.value) })}>
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>
+                  {String(h).padStart(2, '0')}:00
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={t('timeZone')}>
+            <select className="select" value={linked.timeZone} onChange={(e) => save({ timeZone: e.target.value })}>
+              {TIME_ZONES.map((z) => (
+                <option key={z} value={z}>
+                  {t(`tz_${z.replace('/', '_')}` as TKey)}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          className="btn btn-quiet btn-sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              setPreview(await api<{ text: string; empty: boolean }>('/me/whatsapp/digest', { method: 'POST', body: { send: false } }));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {t('previewDigest')}
+        </button>
+        <button
+          className="btn btn-quiet btn-sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const r = await api<{ text: string; empty: boolean }>('/me/whatsapp/digest', { method: 'POST', body: { send: true } });
+              setPreview(r);
+              onSent();
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {t('sendDigestNow')}
+        </button>
+      </div>
+      {preview && (
+        <div className="wa-preview">
+          {preview.empty && <div className="faint" style={{ fontSize: 13, marginBottom: 8 }}>{t('digestEmpty')}</div>}
+          <div className="wa-bubble-text">{waText(preview.text)}</div>
+        </div>
+      )}
     </div>
   );
 }

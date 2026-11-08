@@ -15,7 +15,7 @@ import {
   type AgentAction,
   type Tx,
 } from '@boh/db';
-import { findLinkCode, inServiceWindow, linkCode, normalizePhone, parseApprovalPayload, waId } from '@boh/domain';
+import { findLinkCode, inServiceWindow, linkCode, normalizePhone, parseApprovalPayload, parseDigestPayload, waId } from '@boh/domain';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { DbService } from '../common/db.service.js';
 import { AccessContext } from '../common/access.js';
@@ -34,6 +34,9 @@ export const DEFAULT_WHATSAPP_APPROVAL_MAX = 5000;
 const LINK_CODE_TTL_MIN = 15;
 const MAX_ATTEMPTS = 5;
 const MAX_RECIPIENTS = 10;
+const SHOW_DECISIONS_MAX = 5;
+/** Messages BOH starts itself: free-form only inside the 24-hour window, a template otherwise. */
+const SCHEDULED_KINDS = new Set(['approval_card', 'digest']);
 
 /** One message as the webhook delivers it (the parts BOH uses). */
 export interface InboundMessage {
@@ -100,7 +103,15 @@ export class ChannelsService {
     return {
       ...this.status(),
       linked: row
-        ? { address: row.address, verifiedAt: row.verifiedAt, approvalsEnabled: row.approvalsEnabled, windowOpen: inServiceWindow(row.lastInboundAt) }
+        ? {
+            address: row.address,
+            verifiedAt: row.verifiedAt,
+            approvalsEnabled: row.approvalsEnabled,
+            digestEnabled: row.digestEnabled,
+            digestHour: row.digestHour,
+            timeZone: row.timeZone,
+            windowOpen: inServiceWindow(row.lastInboundAt),
+          }
         : null,
     };
   }
@@ -116,9 +127,9 @@ export class ChannelsService {
     return { code, expiresAt, waLink: `https://wa.me/${waId(this.config.WHATSAPP_BUSINESS_NUMBER)}?text=${encodeURIComponent(code)}`, businessNumber: this.config.WHATSAPP_BUSINESS_NUMBER };
   }
 
-  async updateMine(userId: string, dto: { approvalsEnabled: boolean }) {
+  async updateMine(userId: string, dto: { approvalsEnabled?: boolean; digestEnabled?: boolean; digestHour?: number; timeZone?: string }) {
     const [row] = await this.db.user(userId, (tx) =>
-      tx.update(userChannels).set({ approvalsEnabled: dto.approvalsEnabled }).where(and(eq(userChannels.userId, userId), eq(userChannels.channel, 'whatsapp'))).returning(),
+      tx.update(userChannels).set(dto).where(and(eq(userChannels.userId, userId), eq(userChannels.channel, 'whatsapp'))).returning(),
     );
     if (!row) throw new NotFoundException('WhatsApp is not linked');
     return this.myChannel(userId);
@@ -189,14 +200,7 @@ export class ChannelsService {
         .for('update', { of: agentTasks, skipLocked: true });
       for (const { task, agent, org } of tasks) {
         await tx.update(agentTasks).set({ notifiedAt: new Date() }).where(eq(agentTasks.id, task.id));
-        const action = task.actions.find((x) => x.autonomy === 'approve');
-        const def = getDefinition(agent.kind);
-        if (!action || !def || agent.status !== 'active') continue;
-        const requires = def.actionTypes.find((t) => t.type === action.type)?.requires;
-        const siteId = siteOf(task.evidence, action);
-        const cap = org.settings.whatsappApprovalMax ?? DEFAULT_WHATSAPP_APPROVAL_MAX;
-        const canApprove = taskValue(task, action) <= cap;
-
+        if (!decisionAction(task, agent)) continue;
         const people = await tx
           .select({ user: users, channel: userChannels })
           .from(memberships)
@@ -207,43 +211,97 @@ export class ChannelsService {
         for (const { user, channel } of people) {
           if (sent >= MAX_RECIPIENTS) break;
           const access = new AccessContext(task.orgId, user.id, await loadGrants(tx, task.orgId, user.id), 'whatsapp-notify', undefined);
-          if (!access.can('task:decide', siteId) || (requires && !access.can(requires, siteId))) continue;
-          const [prompt] = await tx
-            .insert(approvalPrompts)
-            .values({
-              orgId: task.orgId,
-              userId: user.id,
-              taskId: task.id,
-              actionId: action.id,
-              canApprove,
-              expiresAt: new Date(Date.now() + this.config.WHATSAPP_PROMPT_TTL_HOURS * 3600_000),
-            })
-            .onConflictDoNothing()
-            .returning();
-          if (!prompt) continue;
-          const content = approvalCard({
-            lang: lang(user.locale),
-            task,
-            action,
-            agentName: agent.name,
-            agentNameAr: agent.nameAr ?? agent.name,
-            orgName: lang(user.locale) === 'ar' ? (org.nameAr ?? org.name) : org.name,
-            promptId: prompt.id,
-            canApprove,
-            cap,
-            webUrl: this.config.PUBLIC_WEB_URL,
-            templates: { approval: this.config.WHATSAPP_TEMPLATE_APPROVAL, notice: this.config.WHATSAPP_TEMPLATE_NOTICE },
-          });
-          await this.queue(tx, { orgId: task.orgId, userId: user.id, to: channel.address, kind: 'approval_card', taskId: task.id, content });
-          sent++;
-          prompts++;
+          if (!canDecide(access, task, agent)) continue;
+          if (await this.queueCard(tx, { task, agent, org, user, channel, refresh: false })) {
+            sent++;
+            prompts++;
+          }
         }
       }
     });
     return prompts;
   }
 
-  private async queue(tx: Tx, m: { orgId: string | null; userId: string | null; to: string; kind: string; taskId?: string | null; content: MessageContent }) {
+  /** Open tasks in an org this person may decide, oldest first. */
+  async waitingFor(tx: Tx, access: AccessContext) {
+    const rows = await tx
+      .select({ task: agentTasks, agent: agents })
+      .from(agentTasks)
+      .innerJoin(agents, eq(agents.id, agentTasks.agentId))
+      .where(and(eq(agentTasks.orgId, access.orgId), eq(agentTasks.status, 'proposed')))
+      .orderBy(asc(agentTasks.priority), asc(agentTasks.createdAt));
+    return rows.filter((r) => canDecide(access, r.task, r.agent));
+  }
+
+  /**
+   * Queue an approval card for one person (creating its prompt). With refresh, an unused
+   * prompt from earlier gets a new expiry and the card is sent again.
+   */
+  async queueCard(
+    tx: Tx,
+    p: { task: TaskRowLike; agent: AgentRowLike; org: OrgRowLike; user: UserRowLike; channel: { address: string }; refresh: boolean },
+  ): Promise<string | null> {
+    const action = decisionAction(p.task, p.agent);
+    if (!action) return null;
+    const cap = p.org.settings.whatsappApprovalMax ?? DEFAULT_WHATSAPP_APPROVAL_MAX;
+    const canApprove = taskValue(p.task, action) <= cap;
+    const expiresAt = new Date(Date.now() + this.config.WHATSAPP_PROMPT_TTL_HOURS * 3600_000);
+    const insert = tx.insert(approvalPrompts).values({ orgId: p.task.orgId, userId: p.user.id, taskId: p.task.id, actionId: action.id, canApprove, expiresAt });
+    const [prompt] = p.refresh
+      ? await insert
+          .onConflictDoUpdate({ target: [approvalPrompts.taskId, approvalPrompts.userId], set: { expiresAt, canApprove, actionId: action.id }, where: isNull(approvalPrompts.usedAt) })
+          .returning()
+      : await insert.onConflictDoNothing().returning();
+    if (!prompt) return null;
+    const l = lang(p.user.locale);
+    const content = approvalCard({
+      lang: l,
+      task: p.task,
+      action,
+      agentName: p.agent.name,
+      agentNameAr: p.agent.nameAr ?? p.agent.name,
+      orgName: l === 'ar' ? (p.org.nameAr ?? p.org.name) : p.org.name,
+      promptId: prompt.id,
+      canApprove,
+      cap,
+      webUrl: this.config.PUBLIC_WEB_URL,
+      templates: { approval: this.config.WHATSAPP_TEMPLATE_APPROVAL, notice: this.config.WHATSAPP_TEMPLATE_NOTICE },
+    });
+    return this.queue(tx, { orgId: p.task.orgId, userId: p.user.id, to: p.channel.address, kind: 'approval_card', taskId: p.task.id, content });
+  }
+
+  /** "Show decisions" on a digest: re-send cards for what is waiting (the tap opened the 24-hour window). */
+  private async showDecisions(
+    orgId: string,
+    from: string,
+    reply: (to: string, userId: string | null, orgId: string | null, kind: string, text: string) => Promise<unknown>,
+    queued: string[],
+  ) {
+    const result = await this.db.system(async (tx) => {
+      const [channel] = await tx.select().from(userChannels).where(and(eq(userChannels.channel, 'whatsapp'), eq(userChannels.address, from)));
+      if (!channel) return { outcome: 'unknown_sender' as const };
+      const [user] = await tx.select().from(users).where(eq(users.id, channel.userId));
+      const [org] = await tx.select().from(organizations).where(eq(organizations.id, orgId));
+      const grants = await loadGrants(tx, orgId, channel.userId);
+      if (!user || !org || grants.length === 0) return { outcome: 'not_member' as const, user };
+      const access = new AccessContext(orgId, user.id, grants, 'whatsapp-digest', undefined);
+      const waiting = (await this.waitingFor(tx, access)).slice(0, SHOW_DECISIONS_MAX);
+      const ids: string[] = [];
+      for (const { task, agent } of waiting) {
+        const msgId = await this.queueCard(tx, { task, agent, org, user, channel, refresh: true });
+        if (msgId) ids.push(msgId);
+      }
+      return { outcome: ids.length ? ('cards_sent' as const) : ('nothing_waiting' as const), user, ids };
+    });
+    if (result.outcome === 'cards_sent') queued.push(...result.ids);
+    const l = lang(result.user?.locale);
+    if (result.outcome === 'nothing_waiting') await reply(from, result.user!.id, orgId, 'help', replies.nothingWaiting(l));
+    else if (result.outcome === 'not_member') await reply(from, result.user?.id ?? null, null, 'help', replies.refused(l, l === 'ar' ? 'لم تعد عضوًا في هذه المؤسسة' : 'you are no longer a member of this organisation'));
+    else if (result.outcome === 'unknown_sender') await reply(from, null, null, 'help', replies.unknown());
+    return result.outcome;
+  }
+
+  async queue(tx: Tx, m: { orgId: string | null; userId: string | null; to: string; kind: string; taskId?: string | null; content: MessageContent }) {
     const [row] = await tx
       .insert(outboundMessages)
       .values({ orgId: m.orgId, userId: m.userId, channel: 'whatsapp', toAddress: m.to, kind: m.kind, taskId: m.taskId ?? null, content: m.content as unknown as Record<string, unknown> })
@@ -267,8 +325,9 @@ export class ChannelsService {
         .for('update', { of: outboundMessages, skipLocked: true });
       for (const { msg, lastInboundAt } of due) {
         const content = msg.content as unknown as MessageContent;
-        // Replies to someone who just wrote are always inside the window, linked or not.
-        const windowOpen = msg.kind !== 'approval_card' || inServiceWindow(lastInboundAt);
+        // Replies to someone who just wrote are always inside the window, linked or not;
+        // messages BOH starts (cards, digests) check it.
+        const windowOpen = !SCHEDULED_KINDS.has(msg.kind) || inServiceWindow(lastInboundAt);
         const form: SendForm | null = windowOpen ? (content.buttons?.length ? 'interactive' : 'text') : content.template ? 'template' : null;
         if (!form) {
           await tx.update(outboundMessages).set({ status: 'failed', error: 'Outside the 24-hour window and no template', attempts: msg.attempts + 1 }).where(eq(outboundMessages.id, msg.id));
@@ -388,8 +447,11 @@ export class ChannelsService {
     const code = !payload ? findLinkCode(text) : null;
     const word = text.trim().toLowerCase();
 
+    const digestOrg = payload ? parseDigestPayload(payload) : null;
     if (approval) {
       outcome = await this.decide(approval.promptId, approval.decision, from, m.id, reply);
+    } else if (digestOrg) {
+      outcome = await this.showDecisions(digestOrg, from, reply, replyIds);
     } else if (code) {
       outcome = await this.link(code, from, reply, recorded.user?.locale);
     } else if (!recorded.channel) {
@@ -579,6 +641,26 @@ export class ChannelsService {
   private assertSimulator() {
     if (!this.simulatorEnabled) throw new NotFoundException();
   }
+}
+
+type TaskRowLike = typeof agentTasks.$inferSelect;
+type AgentRowLike = typeof agents.$inferSelect;
+type OrgRowLike = typeof organizations.$inferSelect;
+type UserRowLike = typeof users.$inferSelect;
+
+/** The action a card asks about: the first one set to "ask me", on an active agent. */
+function decisionAction(task: TaskRowLike, agent: AgentRowLike): AgentAction | null {
+  if (agent.status !== 'active' || !getDefinition(agent.kind)) return null;
+  return task.actions.find((x) => x.autonomy === 'approve') ?? null;
+}
+
+/** Same rule as approving in the web inbox: task:decide plus the action's permission, for the task's site. */
+export function canDecide(access: AccessContext, task: TaskRowLike, agent: AgentRowLike): boolean {
+  const action = decisionAction(task, agent);
+  if (!action) return false;
+  const requires = getDefinition(agent.kind)!.actionTypes.find((t) => t.type === action.type)?.requires;
+  const siteId = siteOf(task.evidence, action);
+  return access.can('task:decide', siteId) && (!requires || access.can(requires, siteId));
 }
 
 function siteOf(evidence: Record<string, unknown>, action: AgentAction): string | undefined {

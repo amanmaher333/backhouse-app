@@ -5,6 +5,7 @@ import { AppModule } from './app.module.js';
 import { loadConfig } from './config.js';
 import { AgentRuntime } from './agents/runtime.js';
 import { ChannelsService } from './channels/channels.service.js';
+import { DigestService } from './channels/digest.js';
 
 /**
  * Agent worker: polls for agents with unprocessed events (and daily scans) and runs them.
@@ -14,6 +15,7 @@ const config = loadConfig();
 const app = await NestFactory.createApplicationContext(AppModule.forRoot(config), { logger: ['error', 'warn', 'log'] });
 const runtime = app.get(AgentRuntime);
 const channels = app.get(ChannelsService);
+const digests = app.get(DigestService);
 const logger = new Logger('Worker');
 let stopping = false;
 process.on('SIGINT', () => (stopping = true));
@@ -30,8 +32,9 @@ while (!stopping) {
     }
     // WhatsApp: approval cards for new tasks, then anything queued (retries included).
     const cards = await channels.notifyPending();
+    const daily = await digests.runDue();
     const sent = await channels.deliver();
-    if (cards || sent) logger.log(`whatsapp (${channels.mode}): ${cards} cards queued, ${sent} messages sent`);
+    if (cards || daily || sent) logger.log(`whatsapp (${channels.mode}): ${cards} cards and ${daily} digests queued, ${sent} messages sent`);
   } catch (err) {
     logger.error((err as Error).message);
   }
