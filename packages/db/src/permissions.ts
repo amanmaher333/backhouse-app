@@ -59,7 +59,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Site Manager',
     nameAr: 'مدير الفرع',
     scope: 'site',
-    permissions: ['site:read', 'location:read', 'location:manage', 'cost_centre:read', 'member:read'],
+    permissions: ['site:read', 'location:read', 'location:manage', 'cost_centre:read'],
   },
   { key: 'staff', name: 'Staff', nameAr: 'موظف', scope: 'site', permissions: ['site:read', 'location:read'] },
   { key: 'drafter', name: 'Drafter', nameAr: 'محرر مسودات', scope: 'site', permissions: ['site:read', 'location:read'] },

@@ -1,0 +1,24 @@
+import 'reflect-metadata';
+import { NestFactory } from '@nestjs/core';
+import type { INestApplication } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
+import { cleanupOpenApiDoc } from 'nestjs-zod';
+import { AppModule } from './app.module.js';
+import type { AppConfig } from './config.js';
+
+export async function createApp(config: AppConfig, opts: { logger?: boolean } = {}): Promise<INestApplication> {
+  const app = await NestFactory.create(AppModule.forRoot(config), { logger: opts.logger === false ? false : undefined });
+  app.setGlobalPrefix('v1', { exclude: ['health'] });
+  app.enableShutdownHooks();
+  return app;
+}
+
+export function buildOpenApi(app: INestApplication): OpenAPIObject {
+  const doc = new DocumentBuilder()
+    .setTitle('BOH API')
+    .setDescription('Restaurant back-of-house platform API')
+    .setVersion('0.1.0')
+    .addBearerAuth()
+    .build();
+  return cleanupOpenApiDoc(SwaggerModule.createDocument(app, doc));
+}
