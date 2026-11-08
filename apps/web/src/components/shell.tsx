@@ -6,7 +6,10 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import {
+  IconBot,
   IconBox,
+  IconInbox,
+  IconPlug,
   IconBuilding,
   IconChevron,
   IconHome,
@@ -32,6 +35,7 @@ interface NavItem {
 }
 
 const MAIN: NavItem[] = [
+  { href: '/inbox', label: 'inbox', icon: IconInbox, perm: 'agent:read' },
   { href: '/overview', label: 'overview', icon: IconHome },
   { href: '/items', label: 'items', icon: IconBox, perm: 'item:read' },
   { href: '/suppliers', label: 'suppliers', icon: IconTruck, perm: 'supplier:read' },
@@ -39,10 +43,12 @@ const MAIN: NavItem[] = [
   { href: '/insights', label: 'insights', icon: IconSpark },
 ];
 const ADMIN: NavItem[] = [
+  { href: '/agents', label: 'agents', icon: IconBot, perm: 'agent:read' },
   { href: '/members', label: 'members', icon: IconUsers, perm: 'member:read' },
   { href: '/roles', label: 'roles', icon: IconShield, perm: 'role:read' },
   { href: '/audit', label: 'audit', icon: IconList, perm: 'audit:read' },
   { href: '/settings', label: 'settings', icon: IconSettings, perm: 'org:read' },
+  { href: '/developers', label: 'developers', icon: IconPlug, perm: 'token:manage' },
 ];
 
 function isActive(path: string, href: string) {
@@ -51,8 +57,22 @@ function isActive(path: string, href: string) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, pick } = useI18n();
-  const { status, me, can, switchOrg, signOut } = useSession();
+  const { status, me, can, switchOrg, signOut, api } = useSession();
   const path = usePathname();
+  const [inboxCount, setInboxCount] = useState(0);
+  const canInbox = status === 'authenticated' && can('agent:read');
+  // Inbox badge: refresh on navigation and every minute.
+  useEffect(() => {
+    if (!canInbox) return;
+    const load = () => api<{ open: number }>('/agent-tasks/count').then((r) => setInboxCount(r.open)).catch(() => {});
+    load();
+    const id = setInterval(load, 60_000);
+    window.addEventListener('boh:inbox-changed', load);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('boh:inbox-changed', load);
+    };
+  }, [api, canInbox, path]);
   const router = useRouter();
   const [drawer, setDrawer] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -101,6 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Link key={i.href} href={i.href} className="nav-row" aria-current={isActive(path, i.href) ? 'page' : undefined} title={t(i.label)}>
         <i.icon />
         <span className="hide-collapsed">{t(i.label)}</span>
+        {i.href === '/inbox' && inboxCount > 0 && <span className="nav-badge num hide-collapsed">{inboxCount}</span>}
       </Link>
     ));
 
@@ -193,9 +214,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav className="bottombar" aria-label={t('menu')}>
         {bottom.map((i) => (
-          <Link key={i.href} href={i.href} aria-current={isActive(path, i.href) ? 'page' : undefined}>
+          <Link key={i.href} href={i.href} aria-current={isActive(path, i.href) ? 'page' : undefined} style={{ position: 'relative' }}>
             <i.icon />
             {t(i.label)}
+            {i.href === '/inbox' && inboxCount > 0 && <span className="bottom-badge num">{inboxCount}</span>}
           </Link>
         ))}
         <button onClick={() => setDrawer(true)}>

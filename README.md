@@ -27,7 +27,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - "Ask BOH" agent preview: the chat UI only, with clearly labelled sample data (the agent arrives in phase 8)
   - The refresh token is kept in an httpOnly cookie through a Next.js backend-for-frontend; API calls go through a same-origin proxy
   - Manifest, service worker for the app shell, install button, online/offline pill
-- CI (GitHub Actions) with Postgres; 47 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices and CSV import
+- CI (GitHub Actions) with Postgres; 57 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices, CSV import, the agent runtime (autonomy, guardrails, pause, dedup, permissions), access tokens and MCP
 
 **Phase 1 (catalogue and shared ingredient map) done:**
 
@@ -38,6 +38,17 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
 - **Prices:** supplier catalogue lines per pack, append-only price history, cost per kg / L / each, the preferred supplier per item, and a recent price changes feed (on the overview). Prices are hidden from roles without `price:read`.
 - **CSV:** import and export for items and supplier price lists. Imports run as a dry run first, then commit all-or-nothing; empty cells mean "leave unchanged". Files include a BOM so Excel opens Arabic correctly.
 - **Web:** items list with filters, item detail, suppliers list, supplier detail with inline price editing and history, the CSV import preview, and the overview price changes, all in Arabic and English.
+
+**Phase A (agent platform) done:**
+
+- **Agents as members:** hiring an agent creates an agent identity (a user that cannot log in) with its own agent role. Agents appear in Members, act under the same row-level security and permissions, and their changes are audited as `actor_type = agent`.
+- **Events:** domain changes emit append-only events in the same transaction (`price.changed` today).
+- **Runtime:** a worker (`pnpm --filter @boh/api worker`) runs agents on new events, a daily scan and "run now". Postgres is the queue (per-agent advisory locks). Every run records events processed, tasks created and updated, actions executed, model, tokens and cost.
+- **Tasks and autonomy:** agents propose tasks with evidence and typed actions, one open task per subject. Autonomy is set per action type (suggest, ask me, do it), with guardrails enforced in code and a pause switch. Approve, reject and dismiss each check permissions, and every decision is stored as a correction for evaluation and tuning.
+- **Price Watch agent:** flags supplier price rises above a threshold, computes cost per kg / L / each, finds cheaper suppliers for the same item or shared ingredient, and drafts a bilingual message to the supplier. It scans existing history when first hired.
+- **Language model:** Claude (`claude-opus-5-5`, structured JSON output, low effort, refusal fallback) writes titles, summaries and messages from evidence the code computes. Without `ANTHROPIC_API_KEY`, agents use bilingual templates.
+- **Open access:** personal access tokens (`boh_pat_…`) and an **MCP server** at `/mcp` (stateless Streamable HTTP; tools filtered by permission: items, ingredient matching, suppliers, price changes, set price, agent inbox, approve and reject).
+- **Web:** the Inbox is home (approve, reject or dismiss, with evidence, cheaper options and the supplier message), plus an Agents page (hire, pause, autonomy, limits, runs and AI cost) and an API & MCP page (tokens and client config).
 
 ## Layout
 
@@ -97,6 +108,17 @@ pnpm test
 - Permissions are `resource:action` strings. Org-scoped roles apply everywhere; site-scoped roles apply only to the sites on the membership.
 - Schema changes: edit `packages/db/src/schema.ts`, then run `pnpm --filter @boh/db generate --name <change>`. New tenant tables need RLS policies; add a custom migration (see `0001_rls_audit_roles.sql`).
 
-## Next: Phase 2 (procurement)
+## Running the agents locally
 
-Requisitions, purchase orders, approval chains and spend limits, sending POs (email/WhatsApp/portal link), receiving (GRN) and the stock ledger. See `docs/SPEC.md` §8.
+```bash
+pnpm --filter @boh/api worker
+```
+
+Set `ANTHROPIC_API_KEY` in `.env` for Claude-written text (optional; `AGENTS_LLM=template` forces templates, `AGENTS_MODEL` overrides the model).
+
+## Next
+
+- **Phase B (channels):** WhatsApp approval cards, daily digest, direct supplier messaging.
+- **Phase 2 (procurement) with the Purchasing agent:** POs, approvals, receiving, stock ledger.
+
+See `docs/SPEC.md` §10.

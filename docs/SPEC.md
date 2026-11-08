@@ -11,7 +11,7 @@ This is an original product. No Supy code, branding, copy or UI is used.
 **Status:**
 - Phase 0 (foundation) ✅
 - Phase 1 (catalogue and shared ingredient map) ✅
-- Phase A (agent platform and Price Watch) is in progress; see §10.
+- Phase A (agent platform and Price Watch) ✅; see §10.
 
 ---
 
@@ -81,7 +81,7 @@ Each agent is a product: a clear job, the tools it may use, the actions it may p
   - on new events
   - on schedules (e.g. daily 06:00 Riyadh time)
   - on demand ("run now")
-- Phase A uses a **Postgres-backed queue** (row locks with `SKIP LOCKED`, no extra infrastructure). Redis/BullMQ is added only if volume needs it.
+- Phase A uses a **Postgres-backed queue** (per-agent advisory locks, no extra infrastructure). Redis/BullMQ is added only if volume needs it.
 - Each run records an **agent run**: trigger, events processed, tasks created, model, input/output tokens, cost (USD), duration, errors. This drives usage-based pricing and the cost-per-job metric.
 
 ### 4.4 Tasks, actions and autonomy
@@ -247,7 +247,7 @@ infra/        docker-compose (postgres, redis, minio), CI
 |---|---|---|
 | 0 Foundation | Monorepo, auth, tenancy/RLS, roles, audit, units engine, CI, web shell | ✅ |
 | 1 Catalogue | Shared ingredient map and matching, items, packs, par levels, suppliers, prices, CSV | ✅ |
-| **A Agent platform** | Agent identities, events, runtime, tasks/actions/autonomy/guardrails, usage tracking, inbox, access tokens, MCP server, **Price Watch agent** | **in progress** |
+| A Agent platform | Agent identities, events, runtime, tasks/actions/autonomy/guardrails, usage tracking, inbox, access tokens, MCP server, **Price Watch agent** | ✅ |
 | B Channels | WhatsApp approval cards, digest, push; direct supplier messaging | next |
 | 2 Procurement + **Purchasing agent** | Requisitions, POs, approvals and limits, sending, receiving (GRN), stock ledger. Built agent-first (core actions and review screens, few hand-entry forms) | |
 | 3 Invoices + **Invoice agent** | Email/e-invoice intake, AI extraction, three-way matching, credit notes, ZATCA | |

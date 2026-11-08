@@ -89,3 +89,12 @@ export const IconStar = (p: SVGProps<SVGSVGElement> & { filled?: boolean }) => {
 export const IconSearch = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
 );
+export const IconInbox = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 13h4l1.5 3h5L16 13h4M4 13l2.5-8h11L20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" /></svg>
+);
+export const IconBot = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="4" y="8" width="16" height="12" rx="3" /><path d="M12 4v4M9 13h.01M15 13h.01M9.5 17h5" /></svg>
+);
+export const IconPlug = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0zM12 16v5" /></svg>
+);

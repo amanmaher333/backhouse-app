@@ -12,7 +12,7 @@ function LoginForm() {
   const { t } = useI18n();
   const { begin, status } = useSession();
   const router = useRouter();
-  const next = useSearchParams().get('next') || '/overview';
+  const next = useSearchParams().get('next') || '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);

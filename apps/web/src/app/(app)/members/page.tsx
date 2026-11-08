@@ -19,6 +19,8 @@ export default function MembersPage() {
   const [error, setError] = useState<string | null>(null);
 
   const roleById = new Map(roles?.map((r) => [r.id, r]));
+  // Agent roles belong to hired agents only (managed on the Agents page).
+  const personRoles = roles?.filter((r) => !r.key.startsWith('agent_'));
   const siteNames = (ids: string[] | null) =>
     ids === null ? t('allSites') : ids.map((id) => sites?.find((s) => s.id === id)).filter(Boolean).map((s) => pick(s!)).join('، ');
 
@@ -54,15 +56,19 @@ export default function MembersPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span className="avatar">{initials(m.fullName)}</span>
                     <div>
-                      <div style={{ fontWeight: 500 }}>{m.fullName}</div>
-                      <div className="faint" style={{ fontSize: 12 }} dir="ltr">
-                        {m.email}
+                      <div style={{ fontWeight: 500 }}>
+                        {m.fullName} {m.kind === 'agent' && <span className="tag tag-accent">{t('agentMember')}</span>}
                       </div>
+                      {m.kind !== 'agent' && (
+                        <div className="faint" style={{ fontSize: 12 }} dir="ltr">
+                          {m.email}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
                 <td>
-                  {canManage && m.userId !== me?.user.id ? (
+                  {canManage && m.userId !== me?.user.id && m.kind !== 'agent' ? (
                     <select
                       className="select"
                       style={{ minHeight: 44, width: 'auto' }}
@@ -82,7 +88,7 @@ export default function MembersPage() {
                         reload();
                       }}
                     >
-                      {roles?.map((r) => (
+                      {personRoles?.map((r) => (
                         <option key={r.id} value={r.id}>
                           {pick(r)}
                         </option>
@@ -95,7 +101,7 @@ export default function MembersPage() {
                 <td className="muted">{m.scope === 'org' ? t('scopeOrg') : siteNames(m.siteIds)}</td>
                 {canManage && (
                   <td className="end">
-                    {m.userId !== me?.user.id && (
+                    {m.userId !== me?.user.id && m.kind !== 'agent' && (
                       <ArmButton
                         label={t('remove')}
                         onConfirm={async () => {
@@ -153,7 +159,7 @@ export default function MembersPage() {
 
       {inviting && roles && (
         <InviteDialog
-          roles={roles}
+          roles={personRoles ?? []}
           sites={sites ?? []}
           onClose={() => {
             setInviting(false);

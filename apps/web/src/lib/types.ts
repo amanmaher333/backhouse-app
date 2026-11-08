@@ -57,6 +57,7 @@ export interface Member {
   roleName: string;
   scope: 'org' | 'site';
   siteIds: string[] | null;
+  kind: 'human' | 'agent';
 }
 export interface Invitation {
   id: string;

@@ -715,3 +715,108 @@ a {
 input[type='time'].inline-input {
   width: 150px;
 }
+
+/* ---------- Agent inbox ---------- */
+.task-list {
+  display: grid;
+  gap: 16px;
+  max-width: 920px;
+}
+.task-card {
+  gap: 14px;
+}
+.task-high {
+  border-inline-start: 3px solid var(--late);
+}
+.task-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.evidence {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--tile);
+}
+.evidence .table-wrap {
+  background: var(--card);
+}
+.evidence-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.task-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.link-btn {
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font-weight: 600;
+  padding: 0;
+  min-height: 44px;
+  cursor: pointer;
+}
+.message-draft {
+  margin: 0;
+  padding: 12px 14px;
+  border-inline-start: 3px solid var(--line-2);
+  background: var(--tile);
+  border-radius: 8px;
+  color: var(--t2);
+  white-space: pre-wrap;
+}
+.agent-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 56px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.code-block {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--tile);
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  font-size: 13px;
+  overflow-x: auto;
+  white-space: pre;
+}
+@media (max-width: 760px) {
+  .task-actions .btn {
+    flex: 1 1 100%;
+  }
+}
+/* Agent action labels can be long ("Make X the preferred supplier (15% less per L)"): let them wrap. */
+.task-actions .btn {
+  white-space: normal;
+  text-align: start;
+  min-height: 44px;
+  height: auto;
+  padding-block: 10px;
+  line-height: 20px;
+}
+.task-card,
+.task-card .evidence {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -62,7 +62,7 @@ export default function SignupPage() {
             return setError(data?.issues ? null : (data?.message ?? t('error')));
           }
           await begin(data);
-          router.replace('/overview');
+          router.replace('/');
         }}
       >
         {error && <div className="notice notice-error">{error}</div>}

@@ -2,11 +2,13 @@
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { arCatalog, enCatalog } from './i18n-catalog';
+import { arAgents, enAgents } from './i18n-agents';
 
 export type Lang = 'en' | 'ar';
 
 const en = {
   ...enCatalog,
+  ...enAgents,
   appName: 'BOH',
   appSub: 'Back of house',
   // nav
@@ -171,6 +173,7 @@ type Dict = typeof en;
 
 const ar: Dict = {
   ...arCatalog,
+  ...arAgents,
   appName: 'BOH',
   appSub: 'إدارة المطبخ',
   navMain: 'مساحة العمل',

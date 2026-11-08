@@ -34,7 +34,7 @@ function InviteForm() {
           setBusy(false);
           if (!res.ok) return setError(data?.message ?? t('error'));
           await begin(data);
-          router.replace('/overview');
+          router.replace('/');
         }}
       >
         <div className="notice">{t('acceptInviteHint')}</div>
