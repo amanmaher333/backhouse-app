@@ -10,6 +10,7 @@ import {
   memberships,
   roles,
   users,
+  subscriptions,
   type AgentAction,
   type AutonomyLevel,
   type Tx,
@@ -18,6 +19,7 @@ import { DbService } from '../common/db.service.js';
 import { AccessContext } from '../common/access.js';
 import { audit, auditRaw } from '../common/audit.js';
 import { LlmWriter } from './llm.js';
+import { ENTITLED_STATUSES } from '../billing/billing.service.js';
 import { AGENT_DEFINITIONS, getDefinition } from './registry.js';
 import type { AgentDefinition, AgentOutput, AgentRow, AgentServices, RunContext, TaskProposal, TaskRow } from './types.js';
 import { ProcurementService } from '../modules/procurement.js';
@@ -336,7 +338,13 @@ export class AgentRuntime {
   /** Called by the worker: run every active agent that has unprocessed events, plus daily scans. */
   async runDue(): Promise<RunSummary[]> {
     const due = await this.db.system(async (tx) => {
-      const active = await tx.select().from(agents).where(eq(agents.status, 'active'));
+      // Agents of organisations without an active subscription do not run.
+      const active = await tx
+        .select({ agent: agents })
+        .from(agents)
+        .innerJoin(subscriptions, eq(subscriptions.orgId, agents.orgId))
+        .where(and(eq(agents.status, 'active'), inArray(subscriptions.status, [...ENTITLED_STATUSES])))
+        .then((rows) => rows.map((r) => r.agent));
       const out: { id: string; scan: boolean }[] = [];
       for (const ag of active) {
         const def = getDefinition(ag.kind);

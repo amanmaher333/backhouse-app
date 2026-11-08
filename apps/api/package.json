@@ -10,7 +10,8 @@
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch dist/main.js",
     "openapi": "node dist/openapi.js",
     "test": "vitest run",
-    "worker": "node dist/worker.js"
+    "worker": "node dist/worker.js",
+    "platform:admin": "node dist/scripts/platform-admin.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",

@@ -6,4 +6,5 @@ export * from './catalog.js';
 export * from './delivery.js';
 export * from './stock.js';
 export * from './channels.js';
+export * from './billing.js';
 export { Decimal } from 'decimal.js';

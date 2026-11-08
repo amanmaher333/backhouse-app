@@ -30,6 +30,7 @@ import { audit, auditRaw } from '../common/audit.js';
 import { Public } from '../common/auth.js';
 import { emitEvent } from '../agents/events.js';
 import type { MessageContent } from './transport.js';
+import { VerificationService } from '../verification/verification.js';
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 const LINK_TTL_DAYS = 45;
@@ -85,6 +86,7 @@ export class SupplierMessenger {
   constructor(
     private readonly db: DbService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly verification: VerificationService,
   ) {}
 
   orderUrl(token: string) {
@@ -100,6 +102,10 @@ export class SupplierMessenger {
   async sendOrder(tx: Tx, a: AccessContext, po: OrderToSend, message: string) {
     const to = this.supplierAddress(po.supplier.contactPhone);
     if (!to) throw new BadRequestException('This supplier has no valid WhatsApp number');
+    // BOH's number speaks for the restaurant: only verified companies may use it (keeps spam off it).
+    if (!(await this.verification.isVerified(tx, a.orgId))) {
+      throw new BadRequestException('Verify your company (CR) under Settings before BOH sends orders to suppliers for you');
+    }
     const [org] = await tx.select().from(organizations).where(eq(organizations.id, a.orgId));
     const token = randomBytes(24).toString('base64url');
     const [link] = await tx
@@ -138,6 +144,7 @@ export class SupplierMessenger {
     const [rel] = await tx.select().from(tradingRelationships).where(eq(tradingRelationships.id, p.relationshipId));
     const to = this.supplierAddress(rel?.contactPhone);
     if (!rel || !to) return null;
+    if (!(await this.verification.isVerified(tx, a.orgId))) return null; // falls back to a prepared message
     const [org] = await tx.select().from(organizations).where(eq(organizations.id, a.orgId));
     const orgName = org?.nameAr ?? org?.name ?? '';
     const content: MessageContent = {

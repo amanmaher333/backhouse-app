@@ -107,3 +107,6 @@ export const IconLayers = (p: SVGProps<SVGSVGElement>) => (
 export const IconChat = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M4 18.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8.5z" /><path d="m9 10 2 2 4-4" /></svg>
 );
+export const IconCard = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="3" y="5.5" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></svg>
+);

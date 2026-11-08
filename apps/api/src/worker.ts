@@ -6,6 +6,8 @@ import { loadConfig } from './config.js';
 import { AgentRuntime } from './agents/runtime.js';
 import { ChannelsService } from './channels/channels.service.js';
 import { DigestService } from './channels/digest.js';
+import { BillingService } from './billing/billing.service.js';
+import { VerificationService } from './verification/verification.js';
 
 /**
  * Agent worker: polls for agents with unprocessed events (and daily scans) and runs them.
@@ -16,6 +18,8 @@ const app = await NestFactory.createApplicationContext(AppModule.forRoot(config)
 const runtime = app.get(AgentRuntime);
 const channels = app.get(ChannelsService);
 const digests = app.get(DigestService);
+const billing = app.get(BillingService);
+const verification = app.get(VerificationService);
 const logger = new Logger('Worker');
 let stopping = false;
 process.on('SIGINT', () => (stopping = true));
@@ -30,6 +34,11 @@ while (!stopping) {
         `run ${r.runId}: ${r.status}, events ${r.eventsProcessed}, tasks +${r.tasksCreated}/~${r.tasksUpdated}, auto ${r.actionsExecuted}, $${r.costUsd.toFixed(4)}`,
       );
     }
+    // Billing: end trials, renew, retry failed payments.
+    const b = await billing.runDue();
+    if (b.trialsEnded || b.renewed || b.failed) logger.log(`billing: ${b.trialsEnded} trials ended, ${b.renewed} paid, ${b.failed} failed`);
+    // Company checks that could not reach the register.
+    await verification.retryPending();
     // WhatsApp: approval cards for new tasks, then anything queued (retries included).
     const cards = await channels.notifyPending();
     const daily = await digests.runDue();

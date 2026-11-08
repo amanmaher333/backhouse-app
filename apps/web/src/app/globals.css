@@ -1112,3 +1112,78 @@ input[type='time'].inline-input {
   margin: 2px 0 0;
   font-weight: 500;
 }
+
+/* ---------- Billing ---------- */
+.billing-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.card-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--tile);
+}
+.card-brand {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--accent-text);
+}
+.invoice-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 700px) {
+  .invoice-parties {
+    grid-template-columns: 1fr;
+  }
+}
+.invoice-qr svg {
+  display: block;
+  width: 148px;
+  height: 148px;
+  background: #fff;
+  border-radius: 8px;
+}
+.trial-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: var(--page-max, 1180px);
+  margin: 0 auto 16px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.trial-banner.is-blocked {
+  background: var(--late-soft);
+  color: var(--late);
+}
+.trial-banner a {
+  color: inherit;
+  font-weight: 600;
+}
+@media print {
+  .sidebar,
+  .topbar-sticky,
+  .bottombar,
+  .trial-banner,
+  .no-print {
+    display: none !important;
+  }
+  .main {
+    margin: 0 !important;
+  }
+}

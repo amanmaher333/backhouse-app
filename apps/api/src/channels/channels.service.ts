@@ -196,7 +196,15 @@ export class ChannelsService {
         .from(agentTasks)
         .innerJoin(agents, eq(agents.id, agentTasks.agentId))
         .innerJoin(organizations, eq(organizations.id, agentTasks.orgId))
-        .where(and(eq(agentTasks.status, 'proposed'), isNull(agentTasks.notifiedAt), gt(agentTasks.createdAt, sql`now() - interval '7 days'`)))
+        .where(
+          and(
+            eq(agentTasks.status, 'proposed'),
+            isNull(agentTasks.notifiedAt),
+            gt(agentTasks.createdAt, sql`now() - interval '7 days'`),
+            // No cards for organisations whose subscription is inactive.
+            sql`exists (select 1 from subscriptions s where s.org_id = ${agentTasks.orgId} and s.status in ('free','trialing','active','past_due'))`,
+          ),
+        )
         .orderBy(asc(agentTasks.createdAt))
         .limit(50)
         .for('update', { of: agentTasks, skipLocked: true });

@@ -27,7 +27,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - "Ask BOH" agent preview: the chat UI only, with clearly labelled sample data (the agent arrives in phase 8)
   - The refresh token is kept in an httpOnly cookie through a Next.js backend-for-frontend; API calls go through a same-origin proxy
   - Manifest, service worker for the app shell, install button, online/offline pill
-- CI (GitHub Actions) with Postgres; 108 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices, CSV import, the agent runtime (autonomy, guardrails, pause, dedup, permissions), access tokens, MCP, delivery dates, stock costing, the PO lifecycle, spend limits, the Purchasing agent, and WhatsApp linking, routing, signed webhooks, button decisions, the daily digest and supplier messaging (orders, confirmations, problems, the order link, direct chasers)
+- CI (GitHub Actions) with Postgres; 126 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices, CSV import, the agent runtime (autonomy, guardrails, pause, dedup, permissions), access tokens, MCP, delivery dates, stock costing, the PO lifecycle, spend limits, the Purchasing agent, and WhatsApp linking, routing, signed webhooks, button decisions, the daily digest and supplier messaging (orders, confirmations, problems, the order link, direct chasers), billing (trial, renewals, retries, read-only mode, 3-D Secure, webhooks) and company verification
 
 **Phase 1 (catalogue and shared ingredient map) done:**
 
@@ -86,6 +86,20 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - Once a person approves them, the Purchasing agent's late-delivery chasers and Price Watch's supplier messages are also sent directly. Suppliers on email still get the prepared message and links.
 - **Simulated mode** (default without Meta credentials): nothing leaves the machine, and the WhatsApp page includes a phone simulator for trying the whole flow.
 - **Web:** the WhatsApp page (link your number, approvals on/off, org approval limit, message log, simulator). The inbox shows "on WhatsApp" on decisions made there, and opens the right task from card links.
+
+**Billing and company verification done** (see [`docs/billing-and-verification.md`](docs/billing-and-verification.md)):
+
+- **Self-serve subscriptions:**
+  - restaurants get a 30-day trial at sign-up, then a monthly or annual plan in SAR (platform fee plus each agent per active site, plus 15% VAT), charged to a saved card;
+  - suppliers are free.
+- **Renewals:** handled by the worker, with retries after 1 and 3 days. An organisation that doesn't pay becomes read-only (`402`), its agents and WhatsApp pause, and paying restores it at once.
+- **Payments:** simulated by default; Moyasar adapter for mada, Visa, Mastercard and Apple Pay.
+- **Invoices:** every charge issues a tax invoice with ZATCA's phase-1 QR code.
+- **Company checks:** the CR is checked against the Ministry of Commerce register (Wathq adapter, simulated by default) at sign-up and on changes.
+  - An active CR with a matching name is verified automatically; a missing or expired CR is rejected with the reason.
+  - Only a name mismatch reaches BOH's review queue.
+  - A verified company is required before BOH messages suppliers for it.
+- **Web:** Billing page (trial, plan choice with live estimate, card, cancel/resume, pay now, invoices), printable invoice with QR, trial and read-only banner, verification badges and "Check now" in Settings.
 
 ## Layout
 

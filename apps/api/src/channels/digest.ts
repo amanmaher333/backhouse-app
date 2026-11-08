@@ -212,7 +212,13 @@ export class DigestService {
           .select({ org: organizations })
           .from(memberships)
           .innerJoin(organizations, eq(organizations.id, memberships.orgId))
-          .where(and(eq(memberships.userId, user.id), eq(organizations.isActive, true))),
+          .where(
+            and(
+              eq(memberships.userId, user.id),
+              eq(organizations.isActive, true),
+              sql`exists (select 1 from subscriptions s where s.org_id = ${organizations.id} and s.status in ('free','trialing','active','past_due'))`,
+            ),
+          ),
       );
       for (const { org } of orgs) {
         try {

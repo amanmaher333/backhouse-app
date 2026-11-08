@@ -4,6 +4,7 @@ import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { brands, costCentres, legalEntities, organizations, sites, storageLocations } from '@boh/db';
+import { VerificationService } from '../verification/verification.js';
 import { DbService } from '../common/db.service.js';
 import { Access, Requires } from '../common/auth.js';
 import type { AccessContext } from '../common/access.js';
@@ -92,7 +93,10 @@ const uuid = new ParseUUIDPipe({ version: '4' });
 
 @Injectable()
 export class OrgStructureService {
-  constructor(private readonly db: DbService) {}
+  constructor(
+    private readonly db: DbService,
+    private readonly verification: VerificationService,
+  ) {}
 
   getOrg(a: AccessContext) {
     return this.db.tenant(a.tenant, async (tx) => {
@@ -144,8 +148,17 @@ export class OrgStructureService {
   listLegalEntities(a: AccessContext) {
     return this.db.tenant(a.tenant, (tx) => tx.select().from(legalEntities).orderBy(asc(legalEntities.name)));
   }
-  createLegalEntity(a: AccessContext, dto: CreateLegalEntityDto) {
-    return this.create(a, 'legal_entity', (tx) => tx.insert(legalEntities).values({ ...dto, orgId: a.orgId }).returning());
+  async createLegalEntity(a: AccessContext, dto: CreateLegalEntityDto) {
+    const row = await this.create<typeof legalEntities.$inferSelect>(a, 'legal_entity', (tx) => tx.insert(legalEntities).values({ ...dto, orgId: a.orgId }).returning());
+    return this.recheck(a, row);
+  }
+
+  /** A new or changed CR or name is checked against the commercial register straight away. */
+  private async recheck(a: AccessContext, row: typeof legalEntities.$inferSelect) {
+    if (!row.crNumber && row.verificationStatus === 'unverified') return row;
+    await this.verification.verifyLegalEntity(a.orgId, row.id, a.userId);
+    const [fresh] = await this.db.tenant(a.tenant, (tx) => tx.select().from(legalEntities).where(eq(legalEntities.id, row.id)));
+    return fresh!;
   }
   async updateLegalEntity(a: AccessContext, id: string, dto: UpdateLegalEntityDto) {
     const current = await this.db.tenant(a.tenant, (tx) => tx.select().from(legalEntities).where(eq(legalEntities.id, id)));
@@ -153,7 +166,9 @@ export class OrgStructureService {
       if (dto.vatNumber && !ksaVat.safeParse(dto.vatNumber).success) throw new BadRequestException('Invalid KSA VAT number');
       if (dto.crNumber && !ksaCr.safeParse(dto.crNumber).success) throw new BadRequestException('Invalid KSA CR number');
     }
-    return this.update(a, 'legal_entity', id, legalEntities, dto);
+    const after = await this.update<typeof legalEntities.$inferSelect>(a, 'legal_entity', id, legalEntities, dto);
+    const changed = (['crNumber', 'name', 'nameAr'] as const).some((k) => k in dto && (dto as Record<string, unknown>)[k] !== current[0]?.[k]);
+    return changed ? this.recheck(a, after) : after;
   }
 
   // Brands

@@ -10,6 +10,7 @@ import {
   invitations,
   legalEntities,
   memberships,
+  subscriptions,
   organizations,
   refreshTokens,
   roles,
@@ -18,6 +19,8 @@ import {
 } from '@boh/db';
 import { isValidKsaCrNumber, isValidKsaVatNumber } from '@boh/domain';
 import { APP_CONFIG, type AppConfig } from '../config.js';
+import { BillingService } from '../billing/billing.service.js';
+import { VerificationService } from '../verification/verification.js';
 import { DbService } from '../common/db.service.js';
 import { CurrentAuth, Public, RequestMeta, type AccessTokenClaims } from '../common/auth.js';
 import { auditRaw } from '../common/audit.js';
@@ -81,6 +84,7 @@ export class AuthService {
     private readonly db: DbService,
     private readonly jwt: JwtService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly verification: VerificationService,
   ) {}
 
   private async issue(tx: Tx, userId: string, orgId: string | null, familyId: string = randomUUID()): Promise<TokenPair> {
@@ -114,6 +118,16 @@ export class AuthService {
   }
 
   async signup(dto: SignupDto, meta: { requestId: string; ip?: string }) {
+    const result = await this.signupTx(dto, meta);
+    // Check the CR with the commercial register right away (after the account exists, so a slow register never blocks sign-up).
+    if (result.legalEntity?.crNumber) {
+      const v = await this.verification.verifyLegalEntity(result.organization!.id, result.legalEntity.id, result.user.id).catch(() => null);
+      if (v) result.legalEntity = { ...result.legalEntity, verificationStatus: v.status };
+    }
+    return result;
+  }
+
+  private async signupTx(dto: SignupDto, meta: { requestId: string; ip?: string }) {
     const passwordHash = await hash(dto.password);
     return this.db.system(async (tx) => {
       const existing = await tx.select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${dto.email}`);
@@ -135,6 +149,8 @@ export class AuthService {
       const [admin] = await tx.select().from(roles).where(and(isNull(roles.orgId), eq(roles.key, 'org_admin')));
       if (!admin) throw new Error('System roles not seeded; run migrations');
       await tx.insert(memberships).values({ orgId: org!.id, userId: user!.id, roleId: admin.id });
+      // Restaurants start a free trial; suppliers are free. No one at BOH has to set anything up.
+      await tx.insert(subscriptions).values(BillingService.initialSubscription(org!.id, dto.organization.type));
 
       const base = { orgId: org!.id, userId: user!.id, requestId: meta.requestId, ip: meta.ip };
       await auditRaw(tx, { ...base, action: 'org.created', entityType: 'organization', entityId: org!.id, after: org });

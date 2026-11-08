@@ -20,6 +20,8 @@ import { StockModule } from './modules/stock.js';
 import { ProcurementModule } from './modules/procurement.js';
 import { AccessTokenVerifier } from './common/access-tokens.js';
 import { ChannelsModule } from './channels/channels.module.js';
+import { BillingModule, EntitlementGuard } from './billing/billing.module.js';
+import { VerificationModule } from './verification/verification.js';
 
 @ApiTags('health')
 @Controller('health')
@@ -58,7 +60,7 @@ export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forRoot(config), AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, StockModule, ProcurementModule, AgentsModule, ChannelsModule, McpModule],
+      imports: [CoreModule.forRoot(config), BillingModule, VerificationModule, AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, StockModule, ProcurementModule, AgentsModule, ChannelsModule, McpModule],
       controllers: [HealthController],
       providers: [
         { provide: APP_PIPE, useClass: ZodValidationPipe },
@@ -66,6 +68,8 @@ export class AppModule {
         // Order matters: authenticate first, then authorise.
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_GUARD, useClass: PermissionsGuard },
+        // Then: inactive subscriptions are read-only.
+        { provide: APP_GUARD, useClass: EntitlementGuard },
       ],
     };
   }

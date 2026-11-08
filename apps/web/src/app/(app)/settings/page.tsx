@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog, Field, PageHead, Toast } from '@/components/ui';
 import { IconPlus } from '@/components/icons';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
 import type { LegalEntity, Organization } from '@/lib/types';
 
@@ -70,6 +70,9 @@ export default function SettingsPage() {
             </button>
           )}
         </div>
+        <p className="faint" style={{ fontSize: 13, marginTop: 0 }}>
+          {t('verificationHint')}
+        </p>
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -77,6 +80,7 @@ export default function SettingsPage() {
                 <th>{t('legalName')}</th>
                 <th>{t('vatNumber')}</th>
                 <th>{t('crNumber')}</th>
+                <th>{t('verification')}</th>
                 <th className="end" />
               </tr>
             </thead>
@@ -90,7 +94,31 @@ export default function SettingsPage() {
                   <td className="num" dir="ltr" style={{ textAlign: 'start' }}>
                     {e.crNumber ?? '–'}
                   </td>
-                  <td className="end">
+                  <td>
+                    <span
+                      className={`tag ${e.verificationStatus === 'verified' ? 'tag-accent' : e.verificationStatus === 'rejected' ? 'tag-late' : ''}`}
+                      title={e.registryName ? `${t('registryName')}: ${e.registryName}` : undefined}
+                    >
+                      {t(`ver_${e.verificationStatus ?? 'unverified'}` as TKey)}
+                    </span>
+                    {e.registryName && e.verificationStatus === 'verified' && (
+                      <div className="faint" style={{ fontSize: 12 }}>
+                        {e.registryName}
+                      </div>
+                    )}
+                  </td>
+                  <td className="end" style={{ whiteSpace: 'nowrap' }}>
+                    {can('legal_entity:manage') && e.crNumber && e.verificationStatus !== 'verified' && (
+                      <button
+                        className="btn btn-sm btn-quiet"
+                        onClick={async () => {
+                          await api(`/legal-entities/${e.id}/verify`, { method: 'POST' });
+                          reloadEntities();
+                        }}
+                      >
+                        {t('verifyNow')}
+                      </button>
+                    )}
                     {can('legal_entity:manage') && (
                       <button className="btn btn-sm btn-quiet" onClick={() => setEditing(e)}>
                         {t('edit')}

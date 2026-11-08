@@ -26,6 +26,7 @@ import {
   IconTruck,
   IconUsers,
   IconChat,
+  IconCard,
 } from './icons';
 import { InstallButton, LangButton, SyncPill, ThemeButton } from './toolbar';
 import { initials } from './ui';
@@ -54,6 +55,7 @@ const ADMIN: NavItem[] = [
   { href: '/roles', label: 'roles', icon: IconShield, perm: 'role:read' },
   { href: '/audit', label: 'audit', icon: IconList, perm: 'audit:read' },
   { href: '/settings', label: 'settings', icon: IconSettings, perm: 'org:read' },
+  { href: '/billing', label: 'billing', icon: IconCard, perm: 'billing:read' },
   { href: '/developers', label: 'developers', icon: IconPlug, perm: 'token:manage' },
 ];
 
@@ -215,7 +217,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
         </div>
 
-        <main className="content">{children}</main>
+        <main className="content">
+          <TrialBanner />
+          {children}
+        </main>
       </div>
 
       <nav className="bottombar" aria-label={t('menu')}>
@@ -233,4 +238,55 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
     </div>
   );
+}
+
+/** Trial ending soon, failed payment, or read-only: one line under the top bar for every member. */
+/** "5 days" / "5 أيام" (Arabic counts take different noun forms). */
+export function daysLabel(n: number, lang: string) {
+  if (lang !== 'ar') return `${n} ${n === 1 ? 'day' : 'days'}`;
+  if (n === 1) return 'يوم واحد';
+  if (n === 2) return 'يومين';
+  return `${n} ${n <= 10 ? 'أيام' : 'يومًا'}`;
+}
+
+function TrialBanner() {
+  const { t, fmtDate, lang } = useI18n();
+  const { api, can, me } = useSession();
+  const [st, setSt] = useState<{ status: string; entitled: boolean; trialEndsAt: string | null; interval?: string | null } | null>(null);
+  const path = usePathname();
+  useEffect(() => {
+    if (!me?.currentOrgId) return;
+    api<typeof st>('/billing/status').then(setSt).catch(() => setSt(null));
+  }, [api, me?.currentOrgId, path]);
+  if (!st) return null;
+  const link = can('billing:read') ? <Link href="/billing">{t('billing')} →</Link> : null;
+  if (!st.entitled) {
+    return (
+      <div className="trial-banner is-blocked" role="status">
+        <span>{t('readOnlyNotice')}</span>
+        {link}
+      </div>
+    );
+  }
+  if (st.status === 'past_due') {
+    return (
+      <div className="trial-banner is-blocked" role="status">
+        <span>{t('sub_past_due')}</span>
+        {link}
+      </div>
+    );
+  }
+  if (st.status === 'trialing' && st.trialEndsAt && !st.interval) {
+    const days = Math.max(0, Math.ceil((new Date(st.trialEndsAt).getTime() - Date.now()) / 86400_000));
+    if (days > 7) return null;
+    return (
+      <div className="trial-banner" role="status">
+        <span>
+          {days === 0 ? t('trialEndsToday') : t('trialEndsIn').replace('{n}', daysLabel(days, lang))} · {fmtDate(st.trialEndsAt)}
+        </span>
+        {link}
+      </div>
+    );
+  }
+  return null;
 }

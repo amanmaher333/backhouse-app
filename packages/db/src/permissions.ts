@@ -41,6 +41,8 @@ export const PERMISSIONS = [
   'po:manage',
   'po:approve',
   'spend_limit:manage',
+  'billing:read',
+  'billing:manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -53,7 +55,8 @@ export interface SystemRoleDef {
   permissions: string[];
 }
 
-const READ_ALL = PERMISSIONS.filter((p) => p.endsWith(':read'));
+// Billing is not part of "read everything": only admins and finance see the subscription.
+const READ_ALL = PERMISSIONS.filter((p) => p.endsWith(':read') && p !== 'billing:read');
 
 export const SYSTEM_ROLES: SystemRoleDef[] = [
   { key: 'org_admin', name: 'Org Admin', nameAr: 'مدير المؤسسة', scope: 'org', permissions: ['*'] },
@@ -85,7 +88,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Accountant',
     nameAr: 'محاسب',
     scope: 'org',
-    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read', 'item:read', 'supplier:read', 'price:read', 'agent:read', 'stock:read', 'po:read'],
+    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read', 'item:read', 'supplier:read', 'price:read', 'agent:read', 'stock:read', 'po:read', 'billing:read'],
   },
   // Agent roles: assigned only to agent identities, never to people.
   {

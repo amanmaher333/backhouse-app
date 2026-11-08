@@ -42,8 +42,8 @@ async function link(token: string) {
 }
 
 /** A restaurant whose supplier takes orders on WhatsApp, an approved order to it, and the owner's WhatsApp linked. */
-async function setup(opts: { channel?: 'whatsapp' | 'email'; deliveryDate?: string; hidePrices?: boolean } = {}) {
-  const s = await http.post('/v1/auth/signup').send({ email: `${uniq()}@t.sa`, password: PASSWORD, fullName: 'Sara', locale: 'en', organization: { name: 'Najd Kitchens', nameAr: 'مطابخ نجد' } }).expect(201);
+async function setup(opts: { channel?: 'whatsapp' | 'email'; deliveryDate?: string; hidePrices?: boolean; cr?: string } = {}) {
+  const s = await http.post('/v1/auth/signup').send({ email: `${uniq()}@t.sa`, password: PASSWORD, fullName: 'Sara', locale: 'en', organization: { name: 'Najd Kitchens', nameAr: 'مطابخ نجد' }, legalEntity: { name: 'Najd Kitchens Co.', nameAr: 'شركة مطابخ نجد', crNumber: opts.cr ?? `101${String(Math.floor(Math.random() * 1e7)).padStart(7, '1')}` } }).expect(201);
   const token = s.body.accessToken as string;
   const site = (await http.post('/v1/sites').set(auth(token)).send({ legalEntityId: s.body.legalEntity.id, name: 'Olaya', nameAr: 'العليا' }).expect(201)).body;
   const chicken = (await http.post('/v1/items').set(auth(token)).send({ name: 'Chicken breast', nameAr: 'صدور دجاج' }).expect(201)).body;
@@ -195,6 +195,14 @@ describe('Sending orders to suppliers on WhatsApp', () => {
     const y = await setup();
     await http.patch(`/v1/suppliers/${y.wat.id}`).set(auth(y.token)).send({ contactPhone: null, orderChannel: 'email' }).expect(200);
     await http.post(`/v1/purchase-orders/${y.po.id}/send`).set(auth(y.token)).send({ direct: true }).expect(400);
+  });
+
+  it('only lets verified companies send through BOH’s number', async () => {
+    const x = await setup({ cr: '1010120000' }); // not in the register: rejected
+    const res = await http.post(`/v1/purchase-orders/${x.po.id}/send`).set(auth(x.token)).send({ direct: true }).expect(400);
+    expect(res.body.message).toContain('Verify your company');
+    // Sending it themselves still works.
+    expect((await http.post(`/v1/purchase-orders/${x.po.id}/send`).set(auth(x.token)).send({ direct: false }).expect(200)).body.direct).toBeNull();
   });
 
   it('sends the Purchasing agent’s late-delivery chaser directly once approved', async () => {

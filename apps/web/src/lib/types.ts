@@ -16,6 +16,9 @@ export interface LegalEntity {
   crNumber: string | null;
   isVatRegistered: boolean;
   address: Address;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'needs_review' | 'rejected';
+  registryName?: string | null;
+  verifiedAt?: string | null;
 }
 export type SiteType = 'restaurant' | 'central_kitchen' | 'warehouse';
 export interface Site {

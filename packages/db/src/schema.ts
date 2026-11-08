@@ -109,6 +109,11 @@ export const legalEntities = pgTable(
     address: jsonb('address').$type<Address>().notNull().default({}),
     /** ZATCA / Peppol settings, filled in a later phase. */
     einvoicing: jsonb('einvoicing').$type<Record<string, unknown>>().notNull().default({}),
+    /** Commercial register check: unverified, pending, verified, needs_review, rejected. */
+    verificationStatus: text('verification_status').notNull().default('unverified'),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    /** The name as registered (what the check found), for display and invoices. */
+    registryName: text('registry_name'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -1137,5 +1142,108 @@ export const supplierOrderLinks = pgTable(
     uniqueIndex('supplier_order_links_token_uq').on(t.tokenHash),
     index('supplier_order_links_to_idx').on(t.toAddress, t.createdAt),
     foreignKey({ columns: [t.orgId, t.poId], foreignColumns: [purchaseOrders.orgId, purchaseOrders.id] }).onDelete('cascade'),
+  ],
+);
+
+// ---------- Billing ----------
+
+export const subscriptionStatus = pgEnum('subscription_status', ['free', 'trialing', 'active', 'past_due', 'suspended', 'canceled', 'expired']);
+
+/**
+ * One subscription per organisation. Restaurants start on a trial; suppliers and the
+ * platform org are free. "interval" set during a trial means "start paying when it ends".
+ */
+export const subscriptions = pgTable('subscriptions', {
+  orgId: uuid('org_id')
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  plan: text('plan').notNull(),
+  status: subscriptionStatus('status').notNull(),
+  interval: text('interval'),
+  trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+  currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
+  currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+  /** Saved card: provider token plus display details. The token only works with BOH's secret key. */
+  paymentMethod: jsonb('payment_method').$type<{ provider: string; token: string; brand: string; last4: string; expMonth?: number; expYear?: number } | null>(),
+  failedAttempts: integer('failed_attempts').notNull().default(0),
+  nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** BOH's own tax invoices to its customers (simplified ZATCA phase-1 fields until the ZATCA integration). */
+export const billingInvoices = pgTable(
+  'billing_invoices',
+  {
+    id: id(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    number: text('number').notNull(),
+    /** open (awaiting payment), paid, failed (payment declined; may be retried), void. */
+    status: text('status').notNull().default('open'),
+    interval: text('interval').notNull(),
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+    lines: jsonb('lines').$type<Record<string, unknown>[]>().notNull(),
+    subtotal: numeric('subtotal', { precision: 14, scale: 2 }).notNull(),
+    vat: numeric('vat', { precision: 14, scale: 2 }).notNull(),
+    total: numeric('total', { precision: 14, scale: 2 }).notNull(),
+    currency: text('currency').notNull().default('SAR'),
+    seller: jsonb('seller').$type<Record<string, unknown>>().notNull(),
+    buyer: jsonb('buyer').$type<Record<string, unknown>>().notNull(),
+    qr: text('qr').notNull(),
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    providerPaymentId: text('provider_payment_id'),
+    attempts: integer('attempts').notNull().default(0),
+    failureMessage: text('failure_message'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('billing_invoices_number_uq').on(t.number), uniqueIndex('billing_invoices_payment_uq').on(t.providerPaymentId), index('billing_invoices_org_idx').on(t.orgId, t.issuedAt)],
+);
+
+/** Payment provider webhooks, deduplicated by event id. */
+export const billingEvents = pgTable(
+  'billing_events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    provider: text('provider').notNull(),
+    eventId: text('event_id').notNull(),
+    type: text('type').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('billing_events_provider_event_uq').on(t.provider, t.eventId)],
+);
+
+// ---------- Company verification ----------
+
+/** Each check of a legal entity against the commercial register, and any manual decision on it. */
+export const companyVerifications = pgTable(
+  'company_verifications',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    legalEntityId: uuid('legal_entity_id').notNull(),
+    kind: text('kind').notNull().default('cr'),
+    number: text('number').notNull(),
+    /** verified, needs_review, rejected, pending (registry unreachable), approved / denied (after review). */
+    status: text('status').notNull(),
+    reason: text('reason'),
+    provider: text('provider').notNull(),
+    registry: jsonb('registry').$type<Record<string, unknown> | null>(),
+    nameScore: numeric('name_score', { precision: 4, scale: 3 }),
+    decidedBy: uuid('decided_by'),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    decisionNote: text('decision_note'),
+    attempts: integer('attempts').notNull().default(1),
+    checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.legalEntityId], foreignColumns: [legalEntities.orgId, legalEntities.id] }).onDelete('cascade'),
+    index('company_verifications_status_idx').on(t.status, t.createdAt),
   ],
 );

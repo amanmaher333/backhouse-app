@@ -40,6 +40,22 @@ const schema = z.object({
   WHATSAPP_TEMPLATE_SUPPLIER_FOLLOWUP: z.string().default('boh_supplier_followup'),
   WHATSAPP_TEMPLATE_SUPPLIER_UPDATE: z.string().default('boh_supplier_update'),
   /** Approval cards stop working after this many hours (the task stays in the inbox). */
+  /** Payments: 'moyasar' charges real cards (needs keys); 'simulated' (default) accepts test tokens. */
+  BILLING_PROVIDER: z.enum(['simulated', 'moyasar']).default('simulated'),
+  MOYASAR_SECRET_KEY: z.string().optional(),
+  MOYASAR_PUBLISHABLE_KEY: z.string().optional(),
+  /** The secret_token set on the Moyasar webhook; every webhook must carry it. */
+  MOYASAR_WEBHOOK_SECRET: z.string().optional(),
+  /** BOH as the seller on its own tax invoices. */
+  BOH_SELLER_NAME: z.string().default('BOH Technologies'),
+  BOH_SELLER_NAME_AR: z.string().default('شركة بوه للتقنية'),
+  BOH_SELLER_VAT: z.string().default('300000000000003'),
+  BOH_SELLER_CR: z.string().default('1010000000'),
+  BOH_SELLER_ADDRESS: z.string().default('Riyadh, Saudi Arabia'),
+  /** Company checks: 'wathq' queries the Ministry of Commerce register (needs WATHQ_API_KEY); 'simulated' (default) follows test rules. */
+  REGISTRY_PROVIDER: z.enum(['simulated', 'wathq']).default('simulated'),
+  WATHQ_API_KEY: z.string().optional(),
+  WATHQ_BASE_URL: z.string().url().default('https://api.wathq.sa/v5/commercialregistration'),
   WHATSAPP_PROMPT_TTL_HOURS: z.coerce.number().int().positive().default(72),
 });
 
