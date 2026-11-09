@@ -1,3 +1,4 @@
+import { currencyAr } from '@boh/domain';
 import { approvalPayload, clip, templateParam, WA_LIMITS } from '@boh/domain';
 import type { AgentAction } from '@boh/db';
 import type { MessageContent } from './transport.js';
@@ -36,7 +37,9 @@ export interface CardInput {
 }
 
 const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-export const money = (n: number, lang: Lang) => (lang === 'ar' ? `${fmt(n)} ر.س` : `SAR ${fmt(n)}`);
+export const money = (n: number, lang: Lang, currency = 'SAR') => (lang === 'ar' ? `${fmt(n)} ${currencyAr(currency)}` : `${currency.toUpperCase()} ${fmt(n)}`);
+/** The currency an agent put in its evidence (SAR when it didn't say). */
+const currencyOf = (evidence: Record<string, unknown>) => (typeof evidence.currency === 'string' && evidence.currency ? evidence.currency : 'SAR');
 
 /** A task's money value for the WhatsApp cap: the order total incl. VAT when there is one. */
 export function taskValue(task: { evidence: Record<string, unknown> }, action: AgentAction): number {
@@ -64,7 +67,7 @@ function lineBullets(evidence: Record<string, unknown>, lang: Lang): string[] {
   const out = lines.slice(0, 5).map((l) => {
     const name = lang === 'ar' ? (l.itemAr ?? l.item) : l.item;
     const pack = lang === 'ar' ? (l.packAr ?? l.pack) : l.pack;
-    const total = l.lineTotal !== undefined ? ` = ${money(Number(l.lineTotal), lang)}` : '';
+    const total = l.lineTotal !== undefined ? ` = ${money(Number(l.lineTotal), lang, currencyOf(evidence))}` : '';
     return `• ${name}: ${l.qty} × ${pack}${total}`;
   });
   if (lines.length > 5) out.push(lang === 'ar' ? `• و${lines.length - 5} أصناف أخرى` : `• and ${lines.length - 5} more`);
@@ -73,7 +76,7 @@ function lineBullets(evidence: Record<string, unknown>, lang: Lang): string[] {
 
 function facts(evidence: Record<string, unknown>, lang: Lang): string[] {
   const out: string[] = [];
-  if (evidence.total !== undefined) out.push(lang === 'ar' ? `الإجمالي: ${money(Number(evidence.total), lang)} شامل الضريبة` : `Total: ${money(Number(evidence.total), lang)} incl. VAT`);
+  if (evidence.total !== undefined) out.push(lang === 'ar' ? `الإجمالي: ${money(Number(evidence.total), lang, currencyOf(evidence))} شامل الضريبة` : `Total: ${money(Number(evidence.total), lang, currencyOf(evidence))} incl. VAT`);
   if (typeof evidence.deliveryDate === 'string') out.push(lang === 'ar' ? `التوصيل: ⁦${evidence.deliveryDate}⁩` : `Delivery: ${evidence.deliveryDate}`);
   return out;
 }
@@ -89,8 +92,8 @@ export function approvalCard(i: CardInput): MessageContent {
   const f = facts(i.task.evidence, i.lang);
 
   const capNote = ar
-    ? `هذا أعلى من حد الاعتماد عبر واتساب (${money(i.cap, i.lang)}). اعتمده من Backhouse.`
-    : `This is above the ${money(i.cap, i.lang)} limit for approving on WhatsApp. Approve it in Backhouse.`;
+    ? `هذا أعلى من حد الاعتماد عبر واتساب (${money(i.cap, i.lang, currencyOf(i.task.evidence))}). اعتمده من Backhouse.`
+    : `This is above the ${money(i.cap, i.lang, currencyOf(i.task.evidence))} limit for approving on WhatsApp. Approve it in Backhouse.`;
   const tail = [i.canApprove ? (ar ? `✅ اعتماد يعني: ${actionLabel}` : `✅ Approve means: ${actionLabel}`) : `⚠️ ${capNote}`, link];
 
   const head = ar ? `🤖 *${agent}* يحتاج قرارك` : `🤖 *${agent}* needs your decision`;

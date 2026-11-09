@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { XMLParser } from 'fast-xml-parser';
 import { normalizeName } from './text.js';
+import { currencyAr } from './countries.js';
 
 /*
  * Supplier invoices: what an invoice says (from a ZATCA e-invoice, AI extraction
@@ -274,6 +275,8 @@ export interface MatchInput {
   tolerance?: MatchTolerance;
   /** Ref of an earlier invoice with the same supplier and number. */
   duplicateOf?: string | null;
+  /** Currency of the amounts (for messages). Default SAR. */
+  currency?: string | null;
   /** The VAT number on the invoice differs from the supplier's. */
   supplierVatMismatch?: { invoice: string; supplier: string } | null;
 }
@@ -346,6 +349,8 @@ export function pairLines(inv: MatchInvoiceLine[], po: MatchPoLine[]): { poLineI
  */
 export function matchInvoice(input: MatchInput): MatchResult {
   const tol = input.tolerance ?? DEFAULT_TOLERANCE;
+  const cur = (input.currency ?? 'SAR').toUpperCase();
+  const curAr = currencyAr(cur);
   const vatRate = D(input.expectedTaxRate ?? input.po?.taxRate ?? '0.15');
   const out: Discrepancy[] = [];
   const add = (d: Omit<Discrepancy, 'amount'> & { amount?: Decimal.Value }) => out.push({ ...d, amount: m2(d.amount ?? 0) });
@@ -358,8 +363,8 @@ export function matchInvoice(input: MatchInput): MatchResult {
       add({
         kind: 'line_total',
         lineIndex: i,
-        message: `Line ${i + 1} (${l.description}): ${q(l.qty)} × SAR ${m2(l.unitPrice)} is SAR ${m2(expected)}, but the line says SAR ${m2(l.lineTotal)}`,
-        messageAr: `السطر ${i + 1} (${l.description}): ${ltr(q(l.qty))} × ${m2(l.unitPrice)} ر.س = ${m2(expected)} ر.س، لكن السطر يذكر ${m2(l.lineTotal)} ر.س`,
+        message: `Line ${i + 1} (${l.description}): ${q(l.qty)} × ${cur} ${m2(l.unitPrice)} is ${cur} ${m2(expected)}, but the line says ${cur} ${m2(l.lineTotal)}`,
+        messageAr: `السطر ${i + 1} (${l.description}): ${ltr(q(l.qty))} × ${m2(l.unitPrice)} ${curAr} = ${m2(expected)} ${curAr}، لكن السطر يذكر ${m2(l.lineTotal)} ${curAr}`,
         amount: Decimal.max(diff, 0),
         blocking: true,
       });
@@ -378,8 +383,8 @@ export function matchInvoice(input: MatchInput): MatchResult {
   if (input.subtotal !== null && sumLines.minus(D(input.subtotal)).abs().gt(tol.totalAbs)) {
     add({
       kind: 'totals',
-      message: `The lines add up to SAR ${m2(sumLines)}, but the subtotal is SAR ${m2(input.subtotal)}`,
-      messageAr: `مجموع الأسطر ${m2(sumLines)} ر.س، لكن المجموع قبل الضريبة ${m2(input.subtotal)} ر.س`,
+      message: `The lines add up to ${cur} ${m2(sumLines)}, but the subtotal is ${cur} ${m2(input.subtotal)}`,
+      messageAr: `مجموع الأسطر ${m2(sumLines)} ${curAr}، لكن المجموع قبل الضريبة ${m2(input.subtotal)} ${curAr}`,
       amount: Decimal.max(D(input.subtotal).minus(sumLines), 0),
       blocking: true,
     });
@@ -391,16 +396,16 @@ export function matchInvoice(input: MatchInput): MatchResult {
     if (diff.abs().gt(tol.totalAbs)) {
       add({
         kind: 'vat',
-        message: `VAT is SAR ${m2(input.taxTotal)}; ${vatRate.mul(100).toString()}% of SAR ${m2(base)} is SAR ${m2(expectedTax)}`,
-        messageAr: `الضريبة ${m2(input.taxTotal)} ر.س؛ و${ltr(`${vatRate.mul(100).toString()}%`)} من ${m2(base)} ر.س = ${m2(expectedTax)} ر.س`,
+        message: `VAT is ${cur} ${m2(input.taxTotal)}; ${vatRate.mul(100).toString()}% of ${cur} ${m2(base)} is ${cur} ${m2(expectedTax)}`,
+        messageAr: `الضريبة ${m2(input.taxTotal)} ${curAr}؛ و${ltr(`${vatRate.mul(100).toString()}%`)} من ${m2(base)} ${curAr} = ${m2(expectedTax)} ${curAr}`,
         blocking: true,
       });
     }
     if (input.total !== null && base.plus(D(input.taxTotal)).minus(D(input.total)).abs().gt(tol.totalAbs)) {
       add({
         kind: 'totals',
-        message: `Subtotal SAR ${m2(base)} plus VAT SAR ${m2(input.taxTotal)} is not the total of SAR ${m2(input.total)}`,
-        messageAr: `المجموع ${m2(base)} ر.س مع الضريبة ${m2(input.taxTotal)} ر.س لا يساوي الإجمالي ${m2(input.total)} ر.س`,
+        message: `Subtotal ${cur} ${m2(base)} plus VAT ${cur} ${m2(input.taxTotal)} is not the total of ${cur} ${m2(input.total)}`,
+        messageAr: `المجموع ${m2(base)} ${curAr} مع الضريبة ${m2(input.taxTotal)} ${curAr} لا يساوي الإجمالي ${m2(input.total)} ${curAr}`,
         amount: Decimal.max(D(input.total).minus(base.plus(D(input.taxTotal))), 0),
         blocking: true,
       });
@@ -443,8 +448,8 @@ export function matchInvoice(input: MatchInput): MatchResult {
       add({
         kind: 'not_on_order',
         lineIndex: i,
-        message: `“${l.description}” (SAR ${m2(l.lineTotal)}) is not on the order`,
-        messageAr: `«${l.description}» (${m2(l.lineTotal)} ر.س) ليس في الطلب`,
+        message: `“${l.description}” (${cur} ${m2(l.lineTotal)}) is not on the order`,
+        messageAr: `«${l.description}» (${m2(l.lineTotal)} ${curAr}) ليس في الطلب`,
         amount: l.lineTotal,
         blocking: true,
       });
@@ -465,8 +470,8 @@ export function matchInvoice(input: MatchInput): MatchResult {
         kind: 'price_higher',
         lineIndex: i,
         poLineId: p.id,
-        message: `${p.itemName}: billed at SAR ${m2(price)}, agreed SAR ${m2(expected)} (${q(units)} × SAR ${m2(price.minus(expected))} over)`,
-        messageAr: `${p.itemNameAr ?? p.itemName}: السعر في الفاتورة ${m2(price)} ر.س، والمتفق عليه ${m2(expected)} ر.س (زيادة ${m2(price.minus(expected))} ر.س × ${ltr(q(units))})`,
+        message: `${p.itemName}: billed at ${cur} ${m2(price)}, agreed ${cur} ${m2(expected)} (${q(units)} × ${cur} ${m2(price.minus(expected))} over)`,
+        messageAr: `${p.itemNameAr ?? p.itemName}: السعر في الفاتورة ${m2(price)} ${curAr}، والمتفق عليه ${m2(expected)} ${curAr} (زيادة ${m2(price.minus(expected))} ${curAr} × ${ltr(q(units))})`,
         amount: price.minus(expected).mul(units),
         blocking: true,
       });
@@ -475,8 +480,8 @@ export function matchInvoice(input: MatchInput): MatchResult {
         kind: 'price_lower',
         lineIndex: i,
         poLineId: p.id,
-        message: `${p.itemName}: billed at SAR ${m2(price)}, below the agreed SAR ${m2(expected)}`,
-        messageAr: `${p.itemNameAr ?? p.itemName}: السعر في الفاتورة ${m2(price)} ر.س، أقل من المتفق عليه ${m2(expected)} ر.س`,
+        message: `${p.itemName}: billed at ${cur} ${m2(price)}, below the agreed ${cur} ${m2(expected)}`,
+        messageAr: `${p.itemNameAr ?? p.itemName}: السعر في الفاتورة ${m2(price)} ${curAr}، أقل من المتفق عليه ${m2(expected)} ${curAr}`,
         blocking: false,
       });
     }

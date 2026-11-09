@@ -8,7 +8,7 @@ import {
   type AgentAction,
   type Tx,
 } from '@boh/db';
-import { Decimal } from '@boh/domain';
+import { Decimal, currencyAr } from '@boh/domain';
 import { audit } from '../common/audit.js';
 import type { TaskText } from './llm.js';
 import type { AgentDefinition, EventRow, ExecuteContext, RunContext, TaskProposal } from './types.js';
@@ -56,6 +56,8 @@ async function buildProposal(ctx: RunContext, rise: PriceRise): Promise<TaskProp
     .innerJoin(tradingRelationships, eq(tradingRelationships.id, supplierItems.relationshipId))
     .where(eq(supplierItems.id, rise.supplierItemId));
   if (!line || !line.si.isActive || !line.rel.isActive) return null;
+  const cur = line.si.currency;
+  const curAr = currencyAr(cur);
   // The price may have moved again since the event; always reason about the current price.
   const current = new Decimal(line.si.currentPrice);
   if (current.lte(oldP)) return null;
@@ -123,6 +125,7 @@ async function buildProposal(ctx: RunContext, rise: PriceRise): Promise<TaskProp
     item: { id: line.item.id, code: line.item.code, name: itemName, nameAr: itemNameAr, baseUnit: line.item.baseUnit },
     supplier: { id: line.rel.id, name: supplierName, nameAr: supplierNameAr, channel: line.rel.orderChannel, email: line.rel.contactEmail, phone: line.rel.contactPhone },
     supplierItemId: line.si.id,
+    currency: cur,
     pack: { name: line.pack.name, nameAr: line.pack.nameAr },
     previousPrice: money(oldP.toString()),
     newPrice: money(current.toString()),
@@ -148,18 +151,18 @@ async function buildProposal(ctx: RunContext, rise: PriceRise): Promise<TaskProp
     const t = `${itemName}: ${supplierName} raised the price ${pct1(realPct)}%`;
     const ta = `${itemNameAr}: رفع ${supplierNameAr} السعر ${pct1(realPct)}٪`;
     const alt = best
-      ? ` ${best.supplierName} sells it for SAR ${evidence.alternatives[0]!.costPerUnit} per ${u.en}, ${pct1(best.savingPct)}% less.`
+      ? ` ${best.supplierName} sells it for ${cur} ${evidence.alternatives[0]!.costPerUnit} per ${u.en}, ${pct1(best.savingPct)}% less.`
       : ' No cheaper supplier for this item is in your catalogue yet.';
     const altAr = best
-      ? ` يبيعه ${best.supplierNameAr ?? best.supplierName} بسعر ${evidence.alternatives[0]!.costPerUnit} ر.س لكل ${u.ar}، أقل بنسبة ${pct1(best.savingPct)}٪.`
+      ? ` يبيعه ${best.supplierNameAr ?? best.supplierName} بسعر ${evidence.alternatives[0]!.costPerUnit} ${curAr} لكل ${u.ar}، أقل بنسبة ${pct1(best.savingPct)}٪.`
       : ' لا يوجد مورد أرخص لهذا الصنف في قائمتك بعد.';
     return {
       title: t,
       title_ar: ta,
-      summary: `${supplierName} now charges SAR ${money(current.toString())} for ${line.pack.name}, up from SAR ${money(oldP.toString())} (SAR ${evidence.costPerUnit.current} per ${u.en} vs SAR ${evidence.costPerUnit.previous}).${alt}`,
-      summary_ar: `يتقاضى ${supplierNameAr} الآن ${money(current.toString())} ر.س مقابل ${line.pack.nameAr ?? line.pack.name}، بعد أن كان ${money(oldP.toString())} ر.س (${evidence.costPerUnit.current} ر.س لكل ${u.ar} مقارنة بـ ${evidence.costPerUnit.previous} ر.س).${altAr}`,
-      message: `Hello ${supplierName} team, we noticed the price of ${itemName} (${line.pack.name}) changed from SAR ${money(oldP.toString())} to SAR ${money(current.toString())}. Could you confirm the reason for the increase, or let us know if you can keep the previous price? Thank you.`,
-      message_ar: `مرحبًا فريق ${supplierNameAr}، لاحظنا أن سعر ${itemNameAr} (${line.pack.nameAr ?? line.pack.name}) تغيّر من ${money(oldP.toString())} ر.س إلى ${money(current.toString())} ر.س. نرجو توضيح سبب الزيادة، أو إفادتنا إن كان بالإمكان الإبقاء على السعر السابق. شكرًا لكم.`,
+      summary: `${supplierName} now charges ${cur} ${money(current.toString())} for ${line.pack.name}, up from ${cur} ${money(oldP.toString())} (${cur} ${evidence.costPerUnit.current} per ${u.en} vs ${cur} ${evidence.costPerUnit.previous}).${alt}`,
+      summary_ar: `يتقاضى ${supplierNameAr} الآن ${money(current.toString())} ${curAr} مقابل ${line.pack.nameAr ?? line.pack.name}، بعد أن كان ${money(oldP.toString())} ${curAr} (${evidence.costPerUnit.current} ${curAr} لكل ${u.ar} مقارنة بـ ${evidence.costPerUnit.previous} ${curAr}).${altAr}`,
+      message: `Hello ${supplierName} team, we noticed the price of ${itemName} (${line.pack.name}) changed from ${cur} ${money(oldP.toString())} to ${cur} ${money(current.toString())}. Could you confirm the reason for the increase, or let us know if you can keep the previous price? Thank you.`,
+      message_ar: `مرحبًا فريق ${supplierNameAr}، لاحظنا أن سعر ${itemNameAr} (${line.pack.nameAr ?? line.pack.name}) تغيّر من ${money(oldP.toString())} ${curAr} إلى ${money(current.toString())} ${curAr}. نرجو توضيح سبب الزيادة، أو إفادتنا إن كان بالإمكان الإبقاء على السعر السابق. شكرًا لكم.`,
     };
   };
 

@@ -408,7 +408,7 @@ describe('Daily digest', () => {
     const x = await setup();
     await link(x.token);
     await http.patch('/v1/me/whatsapp').set(auth(x.token)).send({ digestHour: 25 }).expect(400);
-    await http.patch('/v1/me/whatsapp').set(auth(x.token)).send({ timeZone: 'Europe/London' }).expect(400);
+    await http.patch('/v1/me/whatsapp').set(auth(x.token)).send({ timeZone: 'Mars/Olympus' }).expect(400); // any real IANA zone is fine; made-up ones are not
     const ok = (await http.patch('/v1/me/whatsapp').set(auth(x.token)).send({ digestHour: 7, timeZone: 'Asia/Dubai' }).expect(200)).body;
     expect(ok.linked).toMatchObject({ digestEnabled: true, digestHour: 7, timeZone: 'Asia/Dubai' });
   });

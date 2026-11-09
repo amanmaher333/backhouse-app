@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { purchaseOrders, sites, supplierInvoices, tradingRelationships, type AgentAction } from '@boh/db';
-import { Decimal } from '@boh/domain';
+import { Decimal, formatMoney } from '@boh/domain';
 import type { TaskText } from './llm.js';
 import type { AgentDefinition, EventRow, ExecuteContext, RunContext, TaskProposal } from './types.js';
 
@@ -18,6 +18,9 @@ type Inv = typeof supplierInvoices.$inferSelect;
 interface Discrepancy { kind: string; message: string; messageAr: string; amount: string; blocking: boolean }
 
 const money = (v: Decimal.Value | null | undefined) => new Decimal(v ?? 0).toFixed(2);
+const fmt = (v: Decimal.Value | null | undefined, c: string) => formatMoney(v, c, 'en');
+const fmtAr = (v: Decimal.Value | null | undefined, c: string) => formatMoney(v, c, 'ar');
+
 const ltr = (v: string | null | undefined) => `⁦${v ?? '—'}⁩`;
 
 const REASONS: Record<string, [string, string]> = {
@@ -51,6 +54,7 @@ function evidenceOf(inv: Inv, c: Awaited<ReturnType<typeof context>>, discrepanc
     taxTotal: inv.taxTotal,
     total: inv.total,
     claimTotal: inv.claimTotal,
+    currency: inv.currency,
     source: inv.source,
     extractedBy: inv.extractedBy,
     reviewReasons: inv.reviewReasons,
@@ -70,6 +74,7 @@ function track(ctx: RunContext, w: { inputTokens: number; outputTokens: number; 
 
 async function proposalFor(ctx: RunContext, inv: Inv, creditNote?: Inv): Promise<TaskProposal | null> {
   const c = await context(ctx, inv);
+  const cur = inv.currency;
   const match = (inv.match ?? {}) as { discrepancies?: Discrepancy[] };
   const blocking = (match.discrepancies ?? []).filter((d) => d.blocking);
   const evidence = evidenceOf(inv, c, blocking);
@@ -89,18 +94,18 @@ async function proposalFor(ctx: RunContext, inv: Inv, creditNote?: Inv): Promise
       ...base,
       kind: 'invoice_credit_note',
       priority: 2,
-      title: `${c.sup} sent credit note ${creditNote.number ?? creditNote.ref} (SAR ${money(creditNote.total)}) for invoice ${c.no}`,
-      titleAr: `${c.supAr} أرسل إشعارًا دائنًا ${ltr(creditNote.number ?? creditNote.ref)} (${money(creditNote.total)} ر.س) للفاتورة ${ltr(c.no)}`,
+      title: `${c.sup} sent credit note ${creditNote.number ?? creditNote.ref} (${fmt(creditNote.total, cur)}) for invoice ${c.no}`,
+      titleAr: `${c.supAr} أرسل إشعارًا دائنًا ${ltr(creditNote.number ?? creditNote.ref)} (${fmtAr(creditNote.total, cur)}) للفاتورة ${ltr(c.no)}`,
       summary: covers
-        ? `It covers the SAR ${money(inv.claimTotal)} we asked for. The invoice can now be approved for payment, less the credit note.`
-        : `We asked for SAR ${money(inv.claimTotal)}; the credit note is for SAR ${money(creditNote.total)}. Check before approving.`,
+        ? `It covers the ${fmt(inv.claimTotal, cur)} we asked for. The invoice can now be approved for payment, less the credit note.`
+        : `We asked for ${fmt(inv.claimTotal, cur)}; the credit note is for ${fmt(creditNote.total, cur)}. Check before approving.`,
       summaryAr: covers
-        ? `يغطي مبلغ ${money(inv.claimTotal)} ر.س الذي طلبناه. يمكن الآن اعتماد الفاتورة للدفع بعد خصم الإشعار الدائن.`
-        : `طلبنا ${money(inv.claimTotal)} ر.س، والإشعار الدائن بمبلغ ${money(creditNote.total)} ر.س. راجع قبل الاعتماد.`,
+        ? `يغطي مبلغ ${fmtAr(inv.claimTotal, cur)} الذي طلبناه. يمكن الآن اعتماد الفاتورة للدفع بعد خصم الإشعار الدائن.`
+        : `طلبنا ${fmtAr(inv.claimTotal, cur)}، والإشعار الدائن بمبلغ ${fmtAr(creditNote.total, cur)}. راجع قبل الاعتماد.`,
       evidence: { ...evidence, creditNote: { id: creditNote.id, ref: creditNote.ref, number: creditNote.number, total: creditNote.total }, covers },
       actions: [
         approve(
-          `Credit note ${creditNote.number ?? creditNote.ref} (SAR ${money(creditNote.total)}) received`,
+          `Credit note ${creditNote.number ?? creditNote.ref} (${fmt(creditNote.total, cur)}) received`,
           `Approve invoice ${c.no} with the credit note`,
           `اعتمد الفاتورة ${ltr(c.no)} مع الإشعار الدائن`,
         ),
@@ -116,29 +121,29 @@ async function proposalFor(ctx: RunContext, inv: Inv, creditNote?: Inv): Promise
       kind: 'invoice_approve',
       priority: 3,
       title: isCredit
-        ? `Credit note ${c.no} from ${c.sup}: SAR ${money(inv.total)}`
-        : `Approve invoice ${c.no} from ${c.sup}: SAR ${money(inv.total)}`,
+        ? `Credit note ${c.no} from ${c.sup}: ${fmt(inv.total, cur)}`
+        : `Approve invoice ${c.no} from ${c.sup}: ${fmt(inv.total, cur)}`,
       titleAr: isCredit
-        ? `إشعار دائن ${ltr(c.no)} من ${c.supAr}: ${money(inv.total)} ر.س`
-        : `اعتماد الفاتورة ${ltr(c.no)} من ${c.supAr}: ${money(inv.total)} ر.س`,
+        ? `إشعار دائن ${ltr(c.no)} من ${c.supAr}: ${fmtAr(inv.total, cur)}`
+        : `اعتماد الفاتورة ${ltr(c.no)} من ${c.supAr}: ${fmtAr(inv.total, cur)}`,
       summary: isCredit
         ? `The credit note adds up. Accept it to record it against the supplier's account.`
         : `It matches order ${c.po?.number ?? '—'} and what was received${c.site ? ` at ${c.site.name}` : ''}: prices, quantities and VAT. Due ${inv.dueDate ?? 'on receipt'}.`,
       summaryAr: isCredit
         ? 'الإشعار الدائن سليم حسابيًا. اقبله لتسجيله في حساب المورد.'
         : `تطابق أمر الشراء ${ltr(c.po?.number)} والكميات المستلمة${c.site ? ` في ${c.site.nameAr ?? c.site.name}` : ''}: الأسعار والكميات والضريبة. تاريخ الاستحقاق ${ltr(inv.dueDate)}.`,
-      actions: [approve(null, isCredit ? 'Accept the credit note' : `Approve for payment (SAR ${money(inv.total)})`, isCredit ? 'اقبل الإشعار الدائن' : `اعتمد للدفع (${money(inv.total)} ر.س)`)],
+      actions: [approve(null, isCredit ? 'Accept the credit note' : `Approve for payment (${fmt(inv.total, cur)})`, isCredit ? 'اقبل الإشعار الدائن' : `اعتمد للدفع (${fmtAr(inv.total, cur)})`)],
       writtenBy: 'template',
     };
   }
 
   if (inv.status === 'mismatch') {
     const claim = new Decimal(inv.claimTotal);
-    const tpl = ctx.services.invoices.disputeMessage({ number: inv.number, ref: inv.ref, poNumber: c.po?.number ?? null, supplierName: c.sup, supplierNameAr: c.supAr, discrepancies: blocking, claimTotal: inv.claimTotal });
+    const tpl = ctx.services.invoices.disputeMessage({ number: inv.number, ref: inv.ref, poNumber: c.po?.number ?? null, supplierName: c.sup, supplierNameAr: c.supAr, discrepancies: blocking, claimTotal: inv.claimTotal, currency: inv.currency });
     const first = blocking[0];
     const template = (): TaskText => ({
-      title: claim.gt(0) ? `Invoice ${c.no} from ${c.sup} is SAR ${money(claim)} more than it should be` : `Invoice ${c.no} from ${c.sup} doesn't match`,
-      title_ar: claim.gt(0) ? `الفاتورة ${ltr(c.no)} من ${c.supAr} تزيد ${money(claim)} ر.س عن المستحق` : `الفاتورة ${ltr(c.no)} من ${c.supAr} غير مطابقة`,
+      title: claim.gt(0) ? `Invoice ${c.no} from ${c.sup} is ${fmt(claim, cur)} more than it should be` : `Invoice ${c.no} from ${c.sup} doesn't match`,
+      title_ar: claim.gt(0) ? `الفاتورة ${ltr(c.no)} من ${c.supAr} تزيد ${fmtAr(claim, cur)} عن المستحق` : `الفاتورة ${ltr(c.no)} من ${c.supAr} غير مطابقة`,
       summary: `${blocking.slice(0, 3).map((d) => d.message).join('; ')}${blocking.length > 3 ? `; and ${blocking.length - 3} more` : ''}.`,
       summary_ar: `${blocking.slice(0, 3).map((d) => d.messageAr).join('؛ ')}${blocking.length > 3 ? `؛ و${blocking.length - 3} أخرى` : ''}.`,
       message: tpl.en,
@@ -165,8 +170,8 @@ async function proposalFor(ctx: RunContext, inv: Inv, creditNote?: Inv): Promise
               {
                 id: 'credit_note',
                 type: 'request_credit_note',
-                label: claim.gt(0) ? `Ask ${c.sup} for a credit note (SAR ${money(claim)})` : `Ask ${c.sup} to correct the invoice`,
-                labelAr: claim.gt(0) ? `اطلب من ${c.supAr} إشعارًا دائنًا (${money(claim)} ر.س)` : `اطلب من ${c.supAr} تصحيح الفاتورة`,
+                label: claim.gt(0) ? `Ask ${c.sup} for a credit note (${fmt(claim, cur)})` : `Ask ${c.sup} to correct the invoice`,
+                labelAr: claim.gt(0) ? `اطلب من ${c.supAr} إشعارًا دائنًا (${fmtAr(claim, cur)})` : `اطلب من ${c.supAr} تصحيح الفاتورة`,
                 params: { invoiceId: inv.id, claimTotal: inv.claimTotal, message: written.text.message || tpl.en, messageAr: written.text.message_ar || tpl.ar },
               },
             ]
@@ -250,11 +255,12 @@ export const invoice: AgentDefinition = {
       if (p.expectStatus && inv.status !== p.expectStatus) return `The invoice is now ${inv.status}`;
       if (inv.total !== (p.total ?? inv.total)) return 'The invoice changed after this suggestion';
       if (ctx.automatic) {
+        const cur = inv.currency;
         if (inv.status !== 'matched') return 'Only invoices that match are approved without a person';
         if (inv.reviewReasons.length) return 'The invoice needs a person to check it';
         if (inv.type !== 'invoice') return 'Credit notes are accepted by a person';
         const max = Number(ctx.settings.maxAutoApproveSar ?? 5000);
-        if (new Decimal(inv.total ?? 0).gt(max)) return `Invoice total SAR ${money(inv.total)} is above the SAR ${money(max)} allowed without approval`;
+        if (new Decimal(inv.total ?? 0).gt(max)) return `Invoice total ${fmt(inv.total, cur)} is above the ${fmt(max, cur)} allowed without approval`;
       }
     }
     if (action.type === 'request_credit_note' && !['mismatch', 'needs_review', 'matched'].includes(inv.status)) return `The invoice is now ${inv.status}`;

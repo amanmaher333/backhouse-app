@@ -9,6 +9,7 @@ import {
   items,
   legalEntities,
   orgCounters,
+  organizations,
   packs,
   purchaseOrderLines,
   purchaseOrders,
@@ -23,6 +24,8 @@ import {
 import {
   Decimal,
   addDays,
+  country,
+  formatMoney,
   matchInvoice,
   normalizeName,
   type InvoiceDraft,
@@ -99,6 +102,17 @@ export class InvoicesService {
 
   private emit(tx: Tx, actor: Actor, type: EventType, inv: InvoiceRow, extra: Record<string, unknown> = {}) {
     return emitEvent(tx, actor, type, { type: 'supplier_invoice', id: inv.id }, { invoiceId: inv.id, ref: inv.ref, siteId: inv.siteId, relationshipId: inv.relationshipId, poId: inv.poId, status: inv.status, ...extra });
+  }
+
+  private async orgCurrency(tx: Tx, orgId: string) {
+    const [o] = await tx.select({ c: organizations.defaultCurrency }).from(organizations).where(eq(organizations.id, orgId));
+    return o?.c ?? 'SAR';
+  }
+
+  /** Standard VAT rate of the organisation's country. */
+  private async orgVat(tx: Tx, orgId: string) {
+    const [o] = await tx.select({ c: organizations.country }).from(organizations).where(eq(organizations.id, orgId));
+    return country(o?.c).vatRate;
   }
 
   private async nextRef(tx: Tx, orgId: string): Promise<string> {
@@ -297,7 +311,7 @@ export class InvoicesService {
         zatcaUuid: d?.uuid ?? null,
         issueDate,
         dueDate,
-        currency: d?.currency ?? rel?.currency ?? 'SAR',
+        currency: d?.currency || rel?.currency || (await this.orgCurrency(tx, actor.orgId)),
         subtotal: d?.subtotal ? money(d.subtotal) : null,
         taxTotal: d?.taxTotal ? money(d.taxTotal) : null,
         total: d?.total ? money(d.total) : null,
@@ -489,7 +503,8 @@ export class InvoicesService {
       taxTotal: inv.taxTotal,
       total: inv.total,
       po: po ? { lines: await this.poMatchLines(tx, po.id, inv.id), taxRate: po.taxRate } : null,
-      expectedTaxRate: rel?.r.taxRate ?? po?.taxRate ?? '0.15',
+      expectedTaxRate: rel?.r.taxRate ?? po?.taxRate ?? (await this.orgVat(tx, inv.orgId)),
+      currency: inv.currency,
       duplicateOf: dup?.ref ?? null,
       supplierVatMismatch: inv.supplierVat && rel?.vat && digits(inv.supplierVat) !== digits(rel.vat) ? { invoice: inv.supplierVat, supplier: rel.vat } : null,
     });
@@ -600,7 +615,7 @@ export class InvoicesService {
         const [rel] = relationshipId ? await tx.select().from(tradingRelationships).where(eq(tradingRelationships.id, relationshipId)) : [];
         // Totals not given: keep the printed ones unless the lines changed.
         const keep = (k: 'subtotal' | 'taxTotal' | 'total') => (dto[k] !== undefined ? dto[k] : dto.lines ? null : inv[k]);
-        Object.assign(set, this.totals(rows, rel?.taxRate ?? '0.15', { subtotal: keep('subtotal'), taxTotal: keep('taxTotal'), total: keep('total') }));
+        Object.assign(set, this.totals(rows, rel?.taxRate ?? (await this.orgVat(tx, a.orgId)), { subtotal: keep('subtotal'), taxTotal: keep('taxTotal'), total: keep('total') }));
       }
       if (dto.acknowledge) set.reviewReasons = [];
       if (Object.keys(set).length) await tx.update(supplierInvoices).set(set).where(eq(supplierInvoices.id, inv.id));
@@ -655,21 +670,21 @@ export class InvoicesService {
   }
 
   /** The credit-note request for an invoice's differences, Arabic first. */
-  disputeMessage(d: { number: string | null; ref: string; poNumber: string | null; supplierName: string; supplierNameAr: string; discrepancies: { message: string; messageAr: string; blocking: boolean }[]; claimTotal: string }) {
+  disputeMessage(d: { number: string | null; ref: string; poNumber: string | null; supplierName: string; supplierNameAr: string; discrepancies: { message: string; messageAr: string; blocking: boolean }[]; claimTotal: string; currency?: string | null }) {
     const items = d.discrepancies.filter((x) => x.blocking);
     const no = d.number ?? d.ref;
     const ar = [
       `مرحبًا فريق ${d.supplierNameAr}،`,
       `بخصوص فاتورتكم رقم ${ltr(no)}${d.poNumber ? ` لطلبنا ${ltr(d.poNumber)}` : ''}، وجدنا الفروقات التالية:`,
       ...items.map((x) => `• ${x.messageAr}`),
-      new Decimal(d.claimTotal).gt(0) ? `نرجو إرسال إشعار دائن بمبلغ ${money(d.claimTotal)} ر.س شامل الضريبة، أو فاتورة مصححة.` : 'نرجو مراجعة الفاتورة وإرسال نسخة مصححة.',
+      new Decimal(d.claimTotal).gt(0) ? `نرجو إرسال إشعار دائن بمبلغ ${formatMoney(d.claimTotal, d.currency, 'ar')} شامل الضريبة، أو فاتورة مصححة.` : 'نرجو مراجعة الفاتورة وإرسال نسخة مصححة.',
       'شكرًا لكم.',
     ].join('\n');
     const en = [
       `Hello ${d.supplierName} team,`,
       `About your invoice ${no}${d.poNumber ? ` for our order ${d.poNumber}` : ''}, we found these differences:`,
       ...items.map((x) => `• ${x.message}`),
-      new Decimal(d.claimTotal).gt(0) ? `Please send a credit note for SAR ${money(d.claimTotal)} including VAT, or a corrected invoice.` : 'Please review the invoice and send a corrected copy.',
+      new Decimal(d.claimTotal).gt(0) ? `Please send a credit note for ${formatMoney(d.claimTotal, d.currency, 'en')} including VAT, or a corrected invoice.` : 'Please review the invoice and send a corrected copy.',
       'Thank you.',
     ].join('\n');
     return { ar, en };
@@ -687,7 +702,7 @@ export class InvoicesService {
     const [rel] = await tx.select().from(tradingRelationships).where(eq(tradingRelationships.id, inv.relationshipId));
     const [po] = inv.poId ? await tx.select({ number: purchaseOrders.number }).from(purchaseOrders).where(eq(purchaseOrders.id, inv.poId)) : [];
     const match = inv.match as { discrepancies?: { message: string; messageAr: string; blocking: boolean }[] } | null;
-    const tpl = this.disputeMessage({ number: inv.number, ref: inv.ref, poNumber: po?.number ?? null, supplierName: rel!.displayName, supplierNameAr: rel!.displayNameAr ?? rel!.displayName, discrepancies: match?.discrepancies ?? [], claimTotal: inv.claimTotal });
+    const tpl = this.disputeMessage({ number: inv.number, ref: inv.ref, poNumber: po?.number ?? null, supplierName: rel!.displayName, supplierNameAr: rel!.displayNameAr ?? rel!.displayName, discrepancies: match?.discrepancies ?? [], claimTotal: inv.claimTotal, currency: inv.currency });
     const en = opts.message?.trim() || tpl.en;
     const ar = opts.messageAr?.trim() || (opts.message?.trim() ? '' : tpl.ar);
     const body = [ar, en].filter(Boolean).join('\n\n');
@@ -734,7 +749,8 @@ export class InvoicesService {
       const inv = await this.load(tx, id);
       this.must(a, 'invoice:approve', inv);
       if (inv.status !== 'approved') throw new BadRequestException('Only approved invoices can be marked as paid');
-      const paidAt = dto.paidOn ? new Date(`${dto.paidOn}T12:00:00+03:00`) : new Date();
+      // A date the person picked: noon UTC keeps it on that day in every Gulf and nearby time zone.
+      const paidAt = dto.paidOn ? new Date(`${dto.paidOn}T12:00:00Z`) : new Date();
       const [after] = await tx.update(supplierInvoices).set({ status: 'paid', paidAt, paymentReference: dto.reference?.trim() || null }).where(eq(supplierInvoices.id, inv.id)).returning();
       await audit(tx, a, { action: 'supplier_invoice.paid', entityType: 'supplier_invoice', entityId: inv.id, before: { status: inv.status }, after: { status: 'paid', paidAt, reference: after!.paymentReference } });
       await this.emit(tx, a, 'invoice.paid', after!);

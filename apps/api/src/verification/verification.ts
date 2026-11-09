@@ -21,7 +21,7 @@ import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { companyVerifications, legalEntities, memberships, organizations, type Tx } from '@boh/db';
-import { companyNameSimilarity } from '@boh/domain';
+import { companyNameSimilarity, country } from '@boh/domain';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { DbService } from '../common/db.service.js';
 import { Access, CurrentAuth, Requires } from '../common/auth.js';
@@ -56,7 +56,13 @@ export class VerificationService {
       return { status: 'unverified' as const, reason: 'No CR number' };
     }
     let decision: { status: 'verified' | 'needs_review' | 'rejected' | 'pending'; reason: string | null; registry: Record<string, unknown> | null; score: number | null };
-    try {
+    const profile = country(le.country);
+    let provider: string = this.registry.name;
+    // Only Saudi CRs can be checked automatically (Wathq); elsewhere Backhouse reviews the licence.
+    if (profile.registry !== 'wathq') {
+      provider = 'manual';
+      decision = { status: 'needs_review', reason: `No automatic register check for ${profile.name}; Backhouse reviews the commercial registration`, registry: null, score: null };
+    } else try {
       const rec = await this.registry.lookupCr(le.crNumber, le.name);
       if (!rec.found) decision = { status: 'rejected', reason: 'CR number not found in the commercial register', registry: null, score: null };
       else if (rec.status !== 'active') decision = { status: 'rejected', reason: `The CR is ${rec.status}`, registry: rec, score: null };
@@ -80,7 +86,7 @@ export class VerificationService {
         number: le.crNumber!,
         status: decision.status,
         reason: decision.reason,
-        provider: this.registry.name,
+        provider,
         registry: decision.registry,
         nameScore: decision.score === null ? null : decision.score.toFixed(3),
       });

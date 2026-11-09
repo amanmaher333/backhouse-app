@@ -21,7 +21,7 @@ import {
   users,
   type Tx,
 } from '@boh/db';
-import { clip, normalizePhone, supplierPayload, templateParam, WA_LIMITS } from '@boh/domain';
+import { clip, formatMoney, normalizePhone, supplierPayload, templateParam, WA_LIMITS } from '@boh/domain';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { DbService } from '../common/db.service.js';
 import { AccessContext } from '../common/access.js';
@@ -71,6 +71,7 @@ export interface OrderToSend {
   number: string;
   deliveryDate: string | null;
   total: string;
+  currency?: string;
   site: { name: string; nameAr: string | null };
   supplier: { id: string; contactPhone: string | null; hidePricesOnPo: boolean };
   lines: unknown[];
@@ -94,19 +95,19 @@ export class SupplierMessenger {
   }
 
   /** The supplier's WhatsApp number, if usable. */
-  supplierAddress(phone: string | null | undefined): string | null {
-    return phone ? normalizePhone(phone) : null;
+  supplierAddress(phone: string | null | undefined, defaultCountry = 'SA'): string | null {
+    return phone ? normalizePhone(phone, defaultCountry) : null;
   }
 
   /** Send an order to the supplier's WhatsApp, inside the caller's transaction (the order is marked sent with it). */
   async sendOrder(tx: Tx, a: AccessContext, po: OrderToSend, message: string) {
-    const to = this.supplierAddress(po.supplier.contactPhone);
+    const [org] = await tx.select().from(organizations).where(eq(organizations.id, a.orgId));
+    const to = this.supplierAddress(po.supplier.contactPhone, org?.country);
     if (!to) throw new BadRequestException('This supplier has no valid WhatsApp number');
     // Backhouse's number speaks for the restaurant: only verified companies may use it (keeps spam off it).
     if (!(await this.verification.isVerified(tx, a.orgId))) {
       throw new BadRequestException('Verify your company (CR) under Settings before Backhouse sends orders to suppliers for you');
     }
-    const [org] = await tx.select().from(organizations).where(eq(organizations.id, a.orgId));
     const token = randomBytes(24).toString('base64url');
     const [link] = await tx
       .insert(supplierOrderLinks)
@@ -118,7 +119,7 @@ export class SupplierMessenger {
     const count = po.lines.length;
     const summary = po.supplier.hidePricesOnPo
       ? `${count} ${count === 1 ? 'صنف' : 'أصناف'}`
-      : `${count} ${count === 1 ? 'صنف' : 'أصناف'} · ${Number(po.total).toFixed(2)} ر.س شامل الضريبة`;
+      : `${count} ${count === 1 ? 'صنف' : 'أصناف'} · ${formatMoney(po.total, po.currency ?? 'SAR', 'ar')} شامل الضريبة`;
     const content: MessageContent = {
       lang: 'ar',
       text: `${clip(message, WA_LIMITS.body - tail.length - 2)}\n\n${tail}`,
@@ -142,10 +143,10 @@ export class SupplierMessenger {
   /** A follow-up to a supplier (late delivery, price question), after a person approved it. */
   async sendFollowUp(tx: Tx, a: Pick<AccessContext, 'orgId'>, p: { relationshipId: string; poId?: string | null; about: string; message: string; messageAr: string }) {
     const [rel] = await tx.select().from(tradingRelationships).where(eq(tradingRelationships.id, p.relationshipId));
-    const to = this.supplierAddress(rel?.contactPhone);
+    const [org] = await tx.select().from(organizations).where(eq(organizations.id, a.orgId));
+    const to = this.supplierAddress(rel?.contactPhone, org?.country);
     if (!rel || !to) return null;
     if (!(await this.verification.isVerified(tx, a.orgId))) return null; // falls back to a prepared message
-    const [org] = await tx.select().from(organizations).where(eq(organizations.id, a.orgId));
     const orgName = org?.nameAr ?? org?.name ?? '';
     const content: MessageContent = {
       lang: 'ar',

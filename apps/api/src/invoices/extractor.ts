@@ -36,7 +36,7 @@ export const ExtractionSchema = z.object({
   invoice_number: z.string().describe("The supplier's invoice number, else empty string"),
   issue_date: z.string().describe('Issue date as YYYY-MM-DD (convert Hijri dates only if a Gregorian date is not printed), else empty string'),
   due_date: z.string().describe('Due date as YYYY-MM-DD, else empty string'),
-  currency: z.string().describe('ISO currency code, usually SAR'),
+  currency: z.string().describe('ISO 4217 currency code as printed (SAR, AED, BHD, KWD, OMR, QAR, EGP, JOD, …); empty string if not printed'),
   supplier_name: z.string(),
   supplier_vat_number: z.string().describe('15-digit VAT registration number of the supplier (seller), digits only, else empty string'),
   supplier_cr_number: z.string().describe('Commercial registration number of the supplier, digits only, else empty string'),
@@ -53,7 +53,7 @@ export const ExtractionSchema = z.object({
 });
 export type Extraction = z.infer<typeof ExtractionSchema>;
 
-const SYSTEM = `You read supplier invoices for Backhouse, a back-office platform for restaurant groups in Saudi Arabia.
+const SYSTEM = `You read supplier invoices for Backhouse, a back-office platform for restaurant groups in Saudi Arabia, the Gulf and the wider Middle East.
 Invoices may be in Arabic, English or both, typed, printed or photographed. Extract the fields into the given structure.
 Rules:
 - Copy numbers exactly as printed. Do not calculate values that are not printed, and do not correct the supplier's arithmetic: mismatches are checked separately.
@@ -108,7 +108,7 @@ export function draftFromExtraction(e: Extraction): InvoiceDraft {
     number: e.invoice_number.trim(),
     issueDate: /^\d{4}-\d{2}-\d{2}$/.test(e.issue_date) ? e.issue_date : null,
     dueDate: /^\d{4}-\d{2}-\d{2}$/.test(e.due_date) ? e.due_date : null,
-    currency: (e.currency || 'SAR').toUpperCase().slice(0, 3),
+    currency: /^[A-Za-z]{3}$/.test(e.currency.trim()) ? e.currency.trim().toUpperCase() : '',
     supplier: { name: str(e.supplier_name), vatNumber: str(e.supplier_vat_number.replace(/\D/g, '')), crNumber: str(e.supplier_cr_number.replace(/\D/g, '')) },
     buyer: { name: str(e.buyer_name), vatNumber: str(e.buyer_vat_number.replace(/\D/g, '')) },
     orderReference: str(e.purchase_order_number),

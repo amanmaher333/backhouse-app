@@ -21,6 +21,7 @@ import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { and, asc, desc, eq, gte, isNotNull, ne, sql } from 'drizzle-orm';
 import {
+  organizations,
   items,
   packs,
   supplierItemPrices,
@@ -30,7 +31,8 @@ import {
   tradingRelationships,
   type Tx,
 } from '@boh/db';
-import { Decimal, ORDER_CHANNELS, isValidKsaCrNumber, isValidKsaVatNumber, normalizeName, parseCsvObjects, pctChange, writeCsv } from '@boh/domain';
+import { Decimal, ORDER_CHANNELS, country, normalizeName, parseCsvObjects, pctChange, writeCsv } from '@boh/domain';
+import { checkCompanyNumbers, countryCode } from './auth.js';
 import { DbService } from '../common/db.service.js';
 import { Access, Requires } from '../common/auth.js';
 import type { AccessContext } from '../common/access.js';
@@ -43,7 +45,7 @@ const money = z.coerce
   .min(0)
   .max(10_000_000)
   .transform((n) => new Decimal(n).toDecimalPlaces(4).toString());
-const phone = z.string().regex(/^\+[1-9]\d{6,14}$/, 'Phone must be E.164, e.g. +9665XXXXXXXX');
+const phone = z.string().regex(/^\+[1-9]\d{6,14}$/, 'Phone must be in international format, e.g. +9665XXXXXXXX');
 
 const RelationshipFields = {
   displayName: z.string().trim().min(1).max(200),
@@ -67,16 +69,17 @@ const CreateSupplierSchema = z
     ...RelationshipFields,
     orderChannel: RelationshipFields.orderChannel.default('email'),
     paymentTermsDays: RelationshipFields.paymentTermsDays.default(30),
-    taxRate: RelationshipFields.taxRate.default(0.15),
+    /** Defaults to the VAT rate of the supplier's country when it is yours; 0 for suppliers abroad. */
+    taxRate: RelationshipFields.taxRate.optional(),
+    /** Where the supplier is registered; defaults to your organisation's country. */
+    country: countryCode.optional(),
+    currency: z.string().length(3).optional(),
     hidePricesOnPo: RelationshipFields.hidePricesOnPo.default(false),
     invoiceSenderWhitelist: RelationshipFields.invoiceSenderWhitelist.default([]),
     vatNumber: z.string().trim().nullish(),
     crNumber: z.string().trim().nullish(),
   })
   .superRefine((v, ctx) => {
-    if (v.vatNumber && !isValidKsaVatNumber(v.vatNumber))
-      ctx.addIssue({ code: 'custom', path: ['vatNumber'], message: 'KSA VAT number must be 15 digits starting and ending with 3' });
-    if (v.crNumber && !isValidKsaCrNumber(v.crNumber)) ctx.addIssue({ code: 'custom', path: ['crNumber'], message: 'KSA CR number must be 10 digits' });
     if (v.orderChannel === 'email' && !v.contactEmail) ctx.addIssue({ code: 'custom', path: ['contactEmail'], message: 'Email ordering needs a contact email' });
     if (v.orderChannel === 'whatsapp' && !v.contactPhone) ctx.addIssue({ code: 'custom', path: ['contactPhone'], message: 'WhatsApp ordering needs a mobile number' });
   });
@@ -171,24 +174,34 @@ export class SuppliersService {
    * then create this org's trading relationship with it.
    */
   async create(a: AccessContext, dto: CreateSupplierDto) {
-    const { vatNumber, crNumber, ...rel } = dto;
+    const { vatNumber, crNumber, country: supplierCountry, currency, taxRate, ...fields } = dto;
+    const [org] = await this.db.tenant(a.tenant, (tx) => tx.select({ country: organizations.country, currency: organizations.defaultCurrency }).from(organizations).where(eq(organizations.id, a.orgId)));
+    const code = supplierCountry ?? org!.country;
+    const issues: string[] = [];
+    checkCompanyNumbers(code, { vatNumber, crNumber }, { addIssue: (i: { message?: string }) => issues.push(i.message ?? 'Invalid') } as unknown as z.RefinementCtx);
+    if (issues.length) throw new BadRequestException(issues.join('; '));
+    const rel = {
+      ...fields,
+      currency: currency ?? (code === org!.country ? org!.currency : country(code).currency),
+      taxRate: taxRate ?? (code === org!.country ? country(code).vatRate : '0'),
+    };
     // Owner connection: profiles are shared across tenants and written only here.
     const profileId = await this.db.system(async (tx) => {
       if (vatNumber) {
         const [found] = await tx
           .select({ id: supplierProfiles.id })
           .from(supplierProfiles)
-          .where(and(eq(supplierProfiles.country, 'SA'), eq(supplierProfiles.vatNumber, vatNumber)));
+          .where(and(eq(supplierProfiles.country, code), eq(supplierProfiles.vatNumber, vatNumber)));
         if (found) return found.id;
       }
       const [p] = await tx
         .insert(supplierProfiles)
-        .values({ name: dto.displayName, nameAr: dto.displayNameAr ?? null, vatNumber: vatNumber ?? null, crNumber: crNumber ?? null, createdByOrgId: a.orgId })
+        .values({ name: dto.displayName, nameAr: dto.displayNameAr ?? null, country: code, vatNumber: vatNumber ?? null, crNumber: crNumber ?? null, createdByOrgId: a.orgId })
         .onConflictDoNothing()
         .returning({ id: supplierProfiles.id });
       if (p) return p.id;
       // Lost a race with another org creating the same VAT number.
-      const [again] = await tx.select({ id: supplierProfiles.id }).from(supplierProfiles).where(eq(supplierProfiles.vatNumber, vatNumber!));
+      const [again] = await tx.select({ id: supplierProfiles.id }).from(supplierProfiles).where(and(eq(supplierProfiles.country, code), eq(supplierProfiles.vatNumber, vatNumber!)));
       return again!.id;
     });
 

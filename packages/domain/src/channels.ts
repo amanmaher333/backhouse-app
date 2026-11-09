@@ -1,31 +1,32 @@
 /*
  * Messaging channel helpers (WhatsApp). Pure: no I/O.
  */
+import { COUNTRIES, country } from './countries.js';
 
 const AR_DIGITS: Record<string, string> = {
   '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4', '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
   '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4', '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9',
 };
 
-const COUNTRY_CODES: Record<string, string> = { SA: '966', AE: '971' };
-
 /**
  * Normalise a phone number to E.164. Accepts Arabic-Indic digits, spaces, dashes,
- * "00" prefixes and local mobile formats for Saudi Arabia (05XXXXXXXX) and the UAE (05XXXXXXXX).
- * Returns null when the result is not a plausible number.
+ * "00" prefixes and local formats for the default country (05XXXXXXXX in Saudi
+ * Arabia and the UAE, 8-digit numbers in Bahrain, Kuwait, Oman and Qatar, 01XXXXXXXXX
+ * in Egypt, 07XXXXXXXX in Jordan). Returns null when the result is not plausible.
  */
-export function normalizePhone(input: string, defaultCountry: 'SA' | 'AE' = 'SA'): string | null {
+export function normalizePhone(input: string, defaultCountry = 'SA'): string | null {
+  const home = country(defaultCountry);
   let s = [...input.trim()].map((c) => AR_DIGITS[c] ?? c).join('');
   const plus = s.startsWith('+');
   s = s.replace(/[^\d]/g, '');
   if (!s) return null;
   if (!plus) {
     if (s.startsWith('00')) s = s.slice(2);
-    else if (s.startsWith('0')) s = COUNTRY_CODES[defaultCountry] + s.slice(1);
-    else if (s.length === 9 && s.startsWith('5')) s = COUNTRY_CODES[defaultCountry] + s;
+    else if (home.trunkZero && s.startsWith('0')) s = home.phoneCode + s.slice(1);
+    else if (home.mobile.test(s)) s = home.phoneCode + s;
   }
-  // Saudi and UAE mobiles: 9 digits after the country code, starting with 5.
-  if ((s.startsWith('966') || s.startsWith('971')) && !/^9(66|71)5\d{8}$/.test(s)) return null;
+  // Saudi and UAE numbers are checked strictly (mobiles: 9 digits after the code, starting with 5).
+  for (const p of [COUNTRIES.SA!, COUNTRIES.AE!]) if (s.startsWith(p.phoneCode) && !p.mobile.test(s.slice(p.phoneCode.length))) return null;
   if (!/^[1-9]\d{7,14}$/.test(s)) return null;
   return `+${s}`;
 }

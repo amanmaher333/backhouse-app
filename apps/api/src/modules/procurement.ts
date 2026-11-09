@@ -24,6 +24,7 @@ import {
   goodsReceipts,
   items,
   orgCounters,
+  organizations,
   packs,
   purchaseOrderLines,
   purchaseOrders,
@@ -34,7 +35,7 @@ import {
   tradingRelationships,
   type Tx,
 } from '@boh/db';
-import { Decimal, localParts, nextDeliveryDate, orderTotals } from '@boh/domain';
+import { Decimal, formatMoney, localParts, nextDeliveryDate, orderTotals, zonedTimeToUtc } from '@boh/domain';
 import { DbService } from '../common/db.service.js';
 import { Access, Requires } from '../common/auth.js';
 import type { AccessContext } from '../common/access.js';
@@ -265,13 +266,16 @@ export class ProcurementService {
         ),
       );
     const total = new Decimal(po.total);
+    const en = (v: Decimal.Value) => formatMoney(v, po.currency, 'en');
+    const ar = (v: Decimal.Value) => formatMoney(v, po.currency, 'ar');
     for (const l of limits.filter((x) => x.period === 'order')) {
-      if (total.gt(l.amount)) return `Order total SAR ${total.toFixed(2)} is above the per-order limit of SAR ${new Decimal(l.amount).toFixed(2)}\nإجمالي الطلب ${total.toFixed(2)} ر.س أعلى من حد الطلب الواحد ${new Decimal(l.amount).toFixed(2)} ر.س`;
+      if (total.gt(l.amount)) return `Order total ${en(total)} is above the per-order limit of ${en(new Decimal(l.amount))}\nإجمالي الطلب ${ar(total)} أعلى من حد الطلب الواحد ${ar(new Decimal(l.amount))}`;
     }
     const monthly = limits.filter((x) => x.period === 'month');
     if (monthly.length) {
       const [site] = await tx.select({ tz: sites.timezone }).from(sites).where(eq(sites.id, po.siteId));
-      const monthStart = `${localParts(new Date(), site?.tz ?? 'Asia/Riyadh').date.slice(0, 7)}-01`;
+      const tz = site?.tz ?? 'Asia/Riyadh';
+      const monthStart = `${localParts(new Date(), tz).date.slice(0, 7)}-01`;
       for (const l of monthly) {
         const [spent] = await tx
           .select({ s: sql<string>`coalesce(sum(${purchaseOrders.total}), 0)::text` })
@@ -281,12 +285,12 @@ export class ProcurementService {
               eq(purchaseOrders.siteId, po.siteId),
               l.relationshipId ? eq(purchaseOrders.relationshipId, l.relationshipId) : undefined,
               inArray(purchaseOrders.status, ['approved', 'sent', 'partially_received', 'received', 'closed']),
-              gte(purchaseOrders.approvedAt, new Date(`${monthStart}T00:00:00+03:00`)),
+              gte(purchaseOrders.approvedAt, zonedTimeToUtc(monthStart, '00:00', tz)),
               ne(purchaseOrders.id, po.id),
             ),
           );
         const after = new Decimal(spent?.s ?? 0).plus(total);
-        if (after.gt(l.amount)) return `This order takes month-to-date spend to SAR ${after.toFixed(2)}, above the monthly limit of SAR ${new Decimal(l.amount).toFixed(2)}\nهذا الطلب يرفع إنفاق الشهر إلى ${after.toFixed(2)} ر.س، أعلى من الحد الشهري ${new Decimal(l.amount).toFixed(2)} ر.س`;
+        if (after.gt(l.amount)) return `This order takes month-to-date spend to ${en(after)}, above the monthly limit of ${en(new Decimal(l.amount))}\nهذا الطلب يرفع إنفاق الشهر إلى ${ar(after)}، أعلى من الحد الشهري ${ar(new Decimal(l.amount))}`;
       }
     }
     return null;
@@ -339,7 +343,8 @@ export class ProcurementService {
       if (po.status !== 'approved') throw new BadRequestException(po.status === 'pending_approval' ? 'This order is waiting for approval' : `Order is ${po.status}`);
       const detail = await this.detailInTx(tx, a, po.id);
       const message = this.orderMessage(detail);
-      const hasNumber = Boolean(this.messenger.supplierAddress(detail.supplier.contactPhone));
+      const [org] = await tx.select({ country: organizations.country }).from(organizations).where(eq(organizations.id, a.orgId));
+      const hasNumber = Boolean(this.messenger.supplierAddress(detail.supplier.contactPhone, org?.country));
       const sendDirect = direct ?? (detail.supplier.orderChannel === 'whatsapp' && hasNumber);
       if (sendDirect && !hasNumber) throw new BadRequestException('This supplier has no valid WhatsApp number');
       const channel = sendDirect ? 'whatsapp' : (via ?? detail.supplier.orderChannel);
@@ -546,18 +551,20 @@ export class ProcurementService {
   /** Bilingual order message for the supplier (Arabic first). */
   orderMessage(d: Awaited<ReturnType<ProcurementService['detailInTx']>>) {
     const showPrices = !d.supplier.hidePricesOnPo;
+    const fmEn = (v: Decimal.Value) => formatMoney(v, d.currency, 'en');
+    const fmAr = (v: Decimal.Value) => formatMoney(v, d.currency, 'ar');
     const ar = [
       `طلب شراء ${d.number} من ${d.site.nameAr ?? d.site.name}`,
       `التوصيل المطلوب: ${d.deliveryDate ?? '—'}`,
-      ...d.lines.map((l) => `• ${l.itemNameAr ?? l.itemName} — ${Number(l.qty)} × ${l.packNameAr ?? l.packName}${l.supplierSku ? ` (${l.supplierSku})` : ''}${showPrices ? ` — ${new Decimal(l.unitPrice).toFixed(2)} ر.س` : ''}`),
-      showPrices ? `الإجمالي شامل الضريبة: ${new Decimal(d.total).toFixed(2)} ر.س` : '',
+      ...d.lines.map((l) => `• ${l.itemNameAr ?? l.itemName} — ${Number(l.qty)} × ${l.packNameAr ?? l.packName}${l.supplierSku ? ` (${l.supplierSku})` : ''}${showPrices ? ` — ${fmAr(l.unitPrice)}` : ''}`),
+      showPrices ? `الإجمالي شامل الضريبة: ${fmAr(d.total)}` : '',
       d.notes ? `ملاحظات: ${d.notes}` : '',
     ];
     const en = [
       `Purchase order ${d.number} from ${d.site.name}`,
       `Delivery requested: ${d.deliveryDate ?? '—'}`,
-      ...d.lines.map((l) => `• ${l.itemName} — ${Number(l.qty)} × ${l.packName}${l.supplierSku ? ` (${l.supplierSku})` : ''}${showPrices ? ` — SAR ${new Decimal(l.unitPrice).toFixed(2)}` : ''}`),
-      showPrices ? `Total incl. VAT: SAR ${new Decimal(d.total).toFixed(2)}` : '',
+      ...d.lines.map((l) => `• ${l.itemName} — ${Number(l.qty)} × ${l.packName}${l.supplierSku ? ` (${l.supplierSku})` : ''}${showPrices ? ` — ${fmEn(l.unitPrice)}` : ''}`),
+      showPrices ? `Total incl. VAT: ${fmEn(d.total)}` : '',
       d.notes ? `Notes: ${d.notes}` : '',
       'Please confirm receipt of this order. Thank you.',
     ];

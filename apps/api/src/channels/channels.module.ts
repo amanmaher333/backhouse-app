@@ -11,14 +11,15 @@ import { SupplierMessagingModule } from './supplier-messenger.js';
 import { ChannelsService } from './channels.service.js';
 import { DigestService } from './digest.js';
 import { createTransport, WHATSAPP_TRANSPORT } from './transport.js';
+import { isValidTimeZone } from '@boh/domain';
 
-const TIME_ZONES = ['Asia/Riyadh', 'Asia/Dubai', 'Asia/Qatar', 'Asia/Bahrain', 'Asia/Kuwait', 'Asia/Muscat'] as const;
 const PrefsSchema = z
   .object({
     approvalsEnabled: z.boolean().optional(),
     digestEnabled: z.boolean().optional(),
     digestHour: z.number().int().min(0).max(23).optional(),
-    timeZone: z.enum(TIME_ZONES).optional(),
+    /** Any IANA time zone (the digest's local hour). */
+    timeZone: z.string().max(64).refine(isValidTimeZone, 'Unknown time zone').optional(),
   })
   .refine((v) => Object.keys(v).length > 0, 'Nothing to update');
 class PrefsDto extends createZodDto(PrefsSchema) {}

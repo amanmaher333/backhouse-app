@@ -118,7 +118,7 @@ describe('org structure', () => {
     await http.get(`/v1/sites/${site.body.id}`).set(auth(b.token)).expect(404);
     await http.patch(`/v1/sites/${site.body.id}`).set(auth(b.token)).send({ name: 'pwned' }).expect(404);
     // B cannot attach a site to A's legal entity.
-    await http.post('/v1/sites').set(auth(b.token)).send({ legalEntityId: a.legalEntityId, name: 'x' }).expect(422);
+    await http.post('/v1/sites').set(auth(b.token)).send({ legalEntityId: a.legalEntityId, name: 'x' }).expect(404); // invisible to B (row-level security)
     // B cannot switch into A.
     await http.post('/v1/auth/switch-org').set(auth(b.token)).send({ orgId: a.orgId }).expect(403);
   });

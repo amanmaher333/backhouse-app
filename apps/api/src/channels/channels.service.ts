@@ -15,7 +15,7 @@ import {
   type AgentAction,
   type Tx,
 } from '@boh/db';
-import { findLinkCode, inServiceWindow, linkCode, normalizePhone, parseApprovalPayload, parseDigestPayload, parseSupplierPayload, waId } from '@boh/domain';
+import { COUNTRIES, findLinkCode, inServiceWindow, linkCode, normalizePhone, parseApprovalPayload, parseDigestPayload, parseSupplierPayload, waId } from '@boh/domain';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { DbService } from '../common/db.service.js';
 import { AccessContext } from '../common/access.js';
@@ -69,6 +69,15 @@ const START_WORDS = new Set(['start', 'تشغيل', 'ابدأ']);
  * carried out through the same runtime path as the web inbox, with that person's own
  * permissions, and recorded as decided via WhatsApp.
  */
+/** Time zone of a phone number's country (longest matching dialling code), else Riyadh. */
+function timeZoneForPhone(e164: string): string {
+  const digits = e164.replace(/^\+/, '');
+  const match = Object.values(COUNTRIES)
+    .filter((c) => digits.startsWith(c.phoneCode))
+    .sort((a, b) => b.phoneCode.length - a.phoneCode.length)[0];
+  return match?.timezone ?? 'Asia/Riyadh';
+}
+
 @Injectable()
 export class ChannelsService {
   private readonly logger = new Logger('WhatsApp');
@@ -517,7 +526,8 @@ export class ChannelsService {
       const now = new Date();
       await tx
         .insert(userChannels)
-        .values({ userId: row.userId, channel: 'whatsapp', address: from, verifiedAt: now, lastInboundAt: now })
+        // The digest's local hour starts in the time zone of the number's country (changeable in settings).
+        .values({ userId: row.userId, channel: 'whatsapp', address: from, verifiedAt: now, lastInboundAt: now, timeZone: timeZoneForPhone(from) })
         .onConflictDoUpdate({ target: [userChannels.userId, userChannels.channel], set: { address: from, verifiedAt: now, lastInboundAt: now, approvalsEnabled: true } });
       await tx
         .update(inboundMessages)

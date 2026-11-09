@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 import { legalEntities, orgCounters, salesInvoiceLines, salesInvoices, sites, zatcaUnits, type Address as LeAddress, type Tx } from '@boh/db';
-import { Decimal, isValidKsaVatNumber } from '@boh/domain';
+import { Decimal, country, isValidKsaVatNumber } from '@boh/domain';
 import { DbService } from '../common/db.service.js';
 import type { AccessContext } from '../common/access.js';
 import { audit, auditRaw } from '../common/audit.js';
@@ -124,7 +124,13 @@ export class ZatcaService {
     };
   }
 
+  /** ZATCA applies to companies registered in Saudi Arabia only. */
+  private requireZatcaCountry(le: LegalEntity) {
+    if (country(le.country).eInvoicing !== 'zatca') throw new BadRequestException(`ZATCA e-invoicing is for companies registered in Saudi Arabia; ${le.name} is registered in ${country(le.country).name}`);
+  }
+
   private requireSeller(le: LegalEntity) {
+    this.requireZatcaCountry(le);
     const s = this.seller(le);
     if (s.missing.length) throw new BadRequestException(`Complete the company details first: ${s.missing.join(', ')}`);
     return s.party;
@@ -337,6 +343,7 @@ export class ZatcaService {
     const id = await this.db.tenant(a.tenant, async (tx) => {
       const [le] = await tx.select().from(legalEntities).where(eq(legalEntities.id, dto.legalEntityId));
       if (!le) throw new NotFoundException('legal entity not found');
+      this.requireZatcaCountry(le);
       let original: Sale | undefined;
       if (dto.type !== 'invoice') {
         if (!dto.originalInvoiceId) throw new BadRequestException('Choose the invoice this note corrects');

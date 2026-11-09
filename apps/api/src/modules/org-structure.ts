@@ -9,7 +9,8 @@ import { DbService } from '../common/db.service.js';
 import { Access, Requires } from '../common/auth.js';
 import type { AccessContext } from '../common/access.js';
 import { audit } from '../common/audit.js';
-import { ksaCr, ksaVat } from './auth.js';
+import { checkCompanyNumbers, countryCode } from './auth.js';
+import { country, isValidTimeZone } from '@boh/domain';
 
 const name = z.string().min(1).max(200);
 const nameAr = z.string().max(200).nullish();
@@ -36,20 +37,13 @@ const LegalEntitySchema = z
   .object({
     name,
     nameAr,
-    country: z.string().length(2).default('SA'),
-    currency: z.string().length(3).default('SAR'),
-    vatNumber: z.string().max(20).nullish(),
-    crNumber: z.string().max(20).nullish(),
+    /** Defaults to the organisation's country, and the currency to that country's. */
+    country: countryCode.optional(),
+    currency: z.string().length(3).optional(),
+    vatNumber: z.string().max(30).nullish(),
+    crNumber: z.string().max(30).nullish(),
     isVatRegistered: z.boolean().default(true),
     address: address.default({}),
-  })
-  .superRefine((v, ctx) => {
-    if (v.country === 'SA') {
-      if (v.vatNumber && !ksaVat.safeParse(v.vatNumber).success)
-        ctx.addIssue({ code: 'custom', path: ['vatNumber'], message: 'KSA VAT number must be 15 digits starting and ending with 3' });
-      if (v.crNumber && !ksaCr.safeParse(v.crNumber).success)
-        ctx.addIssue({ code: 'custom', path: ['crNumber'], message: 'KSA CR number must be 10 digits' });
-    }
   });
 class CreateLegalEntityDto extends createZodDto(LegalEntitySchema) {}
 const UpdateLegalEntitySchema = z
@@ -72,7 +66,8 @@ const SiteSchema = z.object({
   name,
   nameAr,
   code: z.string().max(30).nullish(),
-  timezone: z.string().max(64).default('Asia/Riyadh'),
+  /** IANA time zone; defaults to the company's country. */
+  timezone: z.string().max(64).refine(isValidTimeZone, 'Unknown time zone').optional(),
   address: address.default({}),
 });
 class CreateSiteDto extends createZodDto(SiteSchema) {}
@@ -148,8 +143,18 @@ export class OrgStructureService {
   listLegalEntities(a: AccessContext) {
     return this.db.tenant(a.tenant, (tx) => tx.select().from(legalEntities).orderBy(asc(legalEntities.name)));
   }
+  private validateNumbers(countryCode: string, v: { vatNumber?: string | null; crNumber?: string | null }) {
+    const issues: string[] = [];
+    checkCompanyNumbers(countryCode, v, { addIssue: (i: { message?: string }) => issues.push(i.message ?? 'Invalid') } as unknown as z.RefinementCtx);
+    if (issues.length) throw new BadRequestException(issues.join('; '));
+  }
+
   async createLegalEntity(a: AccessContext, dto: CreateLegalEntityDto) {
-    const row = await this.create<typeof legalEntities.$inferSelect>(a, 'legal_entity', (tx) => tx.insert(legalEntities).values({ ...dto, orgId: a.orgId }).returning());
+    const [org] = await this.db.tenant(a.tenant, (tx) => tx.select().from(organizations).where(eq(organizations.id, a.orgId)));
+    const code = dto.country ?? org!.country;
+    this.validateNumbers(code, dto);
+    const values = { ...dto, country: code, currency: dto.currency ?? country(code).currency };
+    const row = await this.create<typeof legalEntities.$inferSelect>(a, 'legal_entity', (tx) => tx.insert(legalEntities).values({ ...values, orgId: a.orgId }).returning());
     return this.recheck(a, row);
   }
 
@@ -162,10 +167,7 @@ export class OrgStructureService {
   }
   async updateLegalEntity(a: AccessContext, id: string, dto: UpdateLegalEntityDto) {
     const current = await this.db.tenant(a.tenant, (tx) => tx.select().from(legalEntities).where(eq(legalEntities.id, id)));
-    if (current[0]?.country === 'SA') {
-      if (dto.vatNumber && !ksaVat.safeParse(dto.vatNumber).success) throw new BadRequestException('Invalid KSA VAT number');
-      if (dto.crNumber && !ksaCr.safeParse(dto.crNumber).success) throw new BadRequestException('Invalid KSA CR number');
-    }
+    if (current[0]) this.validateNumbers(current[0].country, dto);
     const after = await this.update<typeof legalEntities.$inferSelect>(a, 'legal_entity', id, legalEntities, dto);
     const changed = (['crNumber', 'name', 'nameAr'] as const).some((k) => k in dto && (dto as Record<string, unknown>)[k] !== current[0]?.[k]);
     return changed ? this.recheck(a, after) : after;
@@ -198,8 +200,11 @@ export class OrgStructureService {
     if (!site) throw new NotFoundException('site not found');
     return site;
   }
-  createSite(a: AccessContext, dto: CreateSiteDto) {
-    return this.create(a, 'site', (tx) => tx.insert(sites).values({ ...dto, orgId: a.orgId }).returning());
+  async createSite(a: AccessContext, dto: CreateSiteDto) {
+    const [le] = await this.db.tenant(a.tenant, (tx) => tx.select({ country: legalEntities.country }).from(legalEntities).where(eq(legalEntities.id, dto.legalEntityId)));
+    if (!le) throw new NotFoundException('legal entity not found');
+    const timezone = dto.timezone ?? country(le.country).timezone;
+    return this.create(a, 'site', (tx) => tx.insert(sites).values({ ...dto, timezone, orgId: a.orgId }).returning());
   }
   updateSite(a: AccessContext, id: string, dto: UpdateSiteDto) {
     return this.update(a, 'site', id, sites, dto);

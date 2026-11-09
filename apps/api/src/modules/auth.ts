@@ -17,7 +17,7 @@ import {
   users,
   type Tx,
 } from '@boh/db';
-import { isValidKsaCrNumber, isValidKsaVatNumber } from '@boh/domain';
+import { COUNTRY_CODES, country, validCrNumber, validVatNumber } from '@boh/domain';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { BillingService } from '../billing/billing.service.js';
 import { VerificationService } from '../verification/verification.js';
@@ -31,29 +31,45 @@ export const newToken = () => randomBytes(32).toString('base64url');
 const password = z.string().min(10, 'Password must be at least 10 characters').max(200);
 const email = z.string().email().max(254).transform((e) => e.trim().toLowerCase());
 
-export const ksaVat = z.string().refine(isValidKsaVatNumber, 'KSA VAT number must be 15 digits starting and ending with 3');
-export const ksaCr = z.string().refine(isValidKsaCrNumber, 'KSA CR number must be 10 digits');
+/** Tax and company numbers are checked against the rules of the company's country. */
+export function checkCompanyNumbers(countryCode: string | null | undefined, v: { vatNumber?: string | null; crNumber?: string | null }, ctx: z.RefinementCtx, path: (string | number)[] = []) {
+  const p = country(countryCode);
+  if (v.vatNumber && !validVatNumber(p.code, v.vatNumber)) ctx.addIssue({ code: 'custom', path: [...path, 'vatNumber'], message: `${p.vatLabel} for ${p.name}: ${p.vatNumber?.hint ?? 'up to 30 characters'}` });
+  if (v.crNumber && !validCrNumber(p.code, v.crNumber)) ctx.addIssue({ code: 'custom', path: [...path, 'crNumber'], message: `CR number for ${p.name}: ${p.crNumber.hint}` });
+}
 
-const SignupSchema = z.object({
-  email,
-  password,
-  fullName: z.string().min(1).max(200),
-  phone: z.string().regex(/^\+[1-9]\d{6,14}$/, 'Phone must be E.164, e.g. +9665XXXXXXXX').optional(),
-  locale: z.enum(['ar', 'en']).default('ar'),
-  organization: z.object({
-    name: z.string().min(1).max(200),
-    nameAr: z.string().max(200).optional(),
-    type: z.enum(['restaurant_group', 'supplier']).default('restaurant_group'),
-  }),
-  legalEntity: z
-    .object({
+export const countryCode = z
+  .string()
+  .length(2)
+  .transform((c) => c.toUpperCase())
+  .refine((c) => COUNTRY_CODES.includes(c), 'Backhouse does not support this country yet');
+
+const SignupSchema = z
+  .object({
+    email,
+    password,
+    fullName: z.string().min(1).max(200),
+    phone: z.string().regex(/^\+[1-9]\d{6,14}$/, 'Phone must be in international format, e.g. +9665XXXXXXXX or +9715XXXXXXXX').optional(),
+    locale: z.enum(['ar', 'en']).default('ar'),
+    organization: z.object({
       name: z.string().min(1).max(200),
       nameAr: z.string().max(200).optional(),
-      vatNumber: ksaVat.optional(),
-      crNumber: ksaCr.optional(),
-    })
-    .optional(),
-});
+      type: z.enum(['restaurant_group', 'supplier']).default('restaurant_group'),
+      /** Where the business is registered: sets currency, VAT, time zone and number formats. */
+      country: countryCode.default('SA'),
+    }),
+    legalEntity: z
+      .object({
+        name: z.string().min(1).max(200),
+        nameAr: z.string().max(200).optional(),
+        vatNumber: z.string().trim().max(30).optional(),
+        crNumber: z.string().trim().max(30).optional(),
+      })
+      .optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.legalEntity) checkCompanyNumbers(v.organization.country, v.legalEntity, ctx, ['legalEntity']);
+  });
 class SignupDto extends createZodDto(SignupSchema) {}
 
 const LoginSchema = z.object({ email, password: z.string().min(1) });
@@ -102,10 +118,17 @@ export class AuthService {
 
   private async orgsFor(tx: Tx, userId: string) {
     return tx
-      .selectDistinct({ id: organizations.id, name: organizations.name, nameAr: organizations.nameAr, type: organizations.type })
+      .selectDistinct({ id: organizations.id, name: organizations.name, nameAr: organizations.nameAr, type: organizations.type, country: organizations.country, currency: organizations.defaultCurrency })
       .from(memberships)
       .innerJoin(organizations, eq(organizations.id, memberships.orgId))
-      .where(and(eq(memberships.userId, userId), eq(organizations.isActive, true)));
+      .where(and(eq(memberships.userId, userId), eq(organizations.isActive, true)))
+      .then((rows) =>
+        rows.map((o) => {
+          const p = country(o.country);
+          // What the app needs to format and default things for this organisation's country.
+          return { ...o, vatRate: p.vatRate, timezone: p.timezone, phoneCode: p.phoneCode, eInvoicing: p.eInvoicing };
+        }),
+      );
   }
 
   private async isMember(tx: Tx, userId: string, orgId: string): Promise<boolean> {
@@ -139,12 +162,12 @@ export class AuthService {
         .returning();
       const [org] = await tx
         .insert(organizations)
-        .values({ type: dto.organization.type, name: dto.organization.name, nameAr: dto.organization.nameAr, defaultLocale: dto.locale })
+        .values({ type: dto.organization.type, name: dto.organization.name, nameAr: dto.organization.nameAr, defaultLocale: dto.locale, country: dto.organization.country, defaultCurrency: country(dto.organization.country).currency })
         .returning();
       const le = dto.legalEntity ?? { name: dto.organization.name, nameAr: dto.organization.nameAr };
       const [entity] = await tx
         .insert(legalEntities)
-        .values({ orgId: org!.id, ...le, isVatRegistered: Boolean(dto.legalEntity?.vatNumber) })
+        .values({ orgId: org!.id, ...le, country: org!.country, currency: org!.defaultCurrency, isVatRegistered: Boolean(dto.legalEntity?.vatNumber) })
         .returning();
       const [admin] = await tx.select().from(roles).where(and(isNull(roles.orgId), eq(roles.key, 'org_admin')));
       if (!admin) throw new Error('System roles not seeded; run migrations');

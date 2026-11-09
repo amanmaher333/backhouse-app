@@ -10,7 +10,7 @@ import {
   tradingRelationships,
   type AgentAction,
 } from '@boh/db';
-import { Decimal, daysBetween, localParts, orderTotals, packsToOrder } from '@boh/domain';
+import { Decimal, addDays, daysBetween, formatMoney, localParts, orderTotals, packsToOrder } from '@boh/domain';
 import type { TaskText } from './llm.js';
 import type { AgentDefinition, AgentOutput, EventRow, ExecuteContext, RunContext, TaskProposal } from './types.js';
 
@@ -45,6 +45,9 @@ interface SuggestedLine {
 }
 
 const money = (v: Decimal.Value) => new Decimal(v).toFixed(2);
+const fmt = (v: Decimal.Value | null | undefined, c: string) => formatMoney(v, c, 'en');
+const fmtAr = (v: Decimal.Value | null | undefined, c: string) => formatMoney(v, c, 'ar');
+
 const qtyLabel = (base: Decimal.Value, unit: string, ar = false) => {
   const n = new Decimal(base);
   const u = ar ? { kg: 'كجم', g: 'غ', L: 'لتر', ml: 'مل', each: 'حبة' } : { kg: 'kg', g: 'g', L: 'L', ml: 'ml', each: 'each' };
@@ -133,6 +136,7 @@ async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ prop
     }
 
     for (const g of groups.values()) {
+      const cur = g.rel.currency;
       const totals = orderTotals(g.lines.map((l) => ({ qty: l.qty, unitPrice: l.unitPrice })), g.rel.taxRate);
       const deliveryDate = await ctx.services.procurement.suggestDeliveryDate(tx, g.rel.id, site.id);
       const belowMinimum = g.rel.minOrderValue !== null && new Decimal(totals.subtotal).lt(g.rel.minOrderValue);
@@ -144,6 +148,7 @@ async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ prop
         site: { id: site.id, name: siteName, nameAr: siteNameAr },
         supplier: { id: g.rel.id, name: sup, nameAr: supAr, minOrderValue: g.rel.minOrderValue },
         deliveryDate,
+        currency: cur,
         lines: g.lines.map((l, i) => ({ ...l, lineTotal: totals.lineTotals[i] })),
         subtotal: totals.subtotal,
         tax: totals.tax,
@@ -152,16 +157,16 @@ async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ prop
         skipped: { uncounted, noSupplier },
       };
       const template = (): TaskText => ({
-        title: `Order for ${siteName} from ${sup}: ${g.lines.length} ${g.lines.length === 1 ? 'item' : 'items'}, SAR ${money(totals.total)}`,
-        title_ar: `طلب لفرع ${siteNameAr} من ${supAr}: ${g.lines.length} ${g.lines.length === 1 ? 'صنف' : 'أصناف'}، ${money(totals.total)} ر.س`,
+        title: `Order for ${siteName} from ${sup}: ${g.lines.length} ${g.lines.length === 1 ? 'item' : 'items'}, ${fmt(totals.total, cur)}`,
+        title_ar: `طلب لفرع ${siteNameAr} من ${supAr}: ${g.lines.length} ${g.lines.length === 1 ? 'صنف' : 'أصناف'}، ${fmtAr(totals.total, cur)}`,
         summary: `${g.lines
           .slice(0, 3)
           .map((l) => `${l.item} is at ${l.onHand} (reorder at ${l.reorderAt}, par ${l.par})`)
-          .join('; ')}${g.lines.length > 3 ? `; and ${g.lines.length - 3} more` : ''}. Suggested delivery ${deliveryDate}.${belowMinimum ? ` Below the supplier's minimum order of SAR ${money(g.rel.minOrderValue!)}.` : ''}`,
+          .join('; ')}${g.lines.length > 3 ? `; and ${g.lines.length - 3} more` : ''}. Suggested delivery ${deliveryDate}.${belowMinimum ? ` Below the supplier's minimum order of ${fmt(g.rel.minOrderValue!, cur)}.` : ''}`,
         summary_ar: `${g.lines
           .slice(0, 3)
           .map((l) => `${l.itemAr} عند ${l.onHandAr} (إعادة الطلب عند ${l.reorderAtAr}، المستهدف ${l.parAr})`)
-          .join('؛ ')}${g.lines.length > 3 ? `؛ و${g.lines.length - 3} أخرى` : ''}. التوصيل المقترح ${ltr(deliveryDate)}.${belowMinimum ? ` أقل من الحد الأدنى للطلب لدى المورد ${money(g.rel.minOrderValue!)} ر.س.` : ''}`,
+          .join('؛ ')}${g.lines.length > 3 ? `؛ و${g.lines.length - 3} أخرى` : ''}. التوصيل المقترح ${ltr(deliveryDate)}.${belowMinimum ? ` أقل من الحد الأدنى للطلب لدى المورد ${fmtAr(g.rel.minOrderValue!, cur)}.` : ''}`,
         message: '',
         message_ar: '',
       });
@@ -177,8 +182,8 @@ async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ prop
       const action: Omit<AgentAction, 'autonomy'> = {
         id: 'order',
         type: 'create_po',
-        label: `Create the order (SAR ${money(totals.total)}, delivery ${deliveryDate})`,
-        labelAr: `أنشئ الطلب (${money(totals.total)} ر.س، التوصيل ${ltr(deliveryDate)})`,
+        label: `Create the order (${fmt(totals.total, cur)}, delivery ${deliveryDate})`,
+        labelAr: `أنشئ الطلب (${fmtAr(totals.total, cur)}، التوصيل ${ltr(deliveryDate)})`,
         params: {
           siteId: site.id,
           relationshipId: g.rel.id,
@@ -208,15 +213,19 @@ async function siteProposals(ctx: RunContext, siteIds: string[]): Promise<{ prop
 /** Sent orders whose delivery date has passed without a full delivery. */
 async function overdueProposals(ctx: RunContext): Promise<{ proposals: TaskProposal[]; expirePrefixes: string[] }> {
   const { tx } = ctx;
-  const today = localParts(new Date(), 'Asia/Riyadh').date;
+  // "Late" is judged in each site's own time zone; the query takes anything due up to tomorrow (UTC).
+  const tomorrow = addDays(new Date().toISOString().slice(0, 10), 1);
   const rows = await tx
     .select({ po: purchaseOrders, rel: tradingRelationships, site: sites })
     .from(purchaseOrders)
     .innerJoin(tradingRelationships, eq(tradingRelationships.id, purchaseOrders.relationshipId))
     .innerJoin(sites, eq(sites.id, purchaseOrders.siteId))
-    .where(and(inArray(purchaseOrders.status, ['sent', 'partially_received']), isNotNull(purchaseOrders.deliveryDate), lt(purchaseOrders.deliveryDate, today)));
+    .where(and(inArray(purchaseOrders.status, ['sent', 'partially_received']), isNotNull(purchaseOrders.deliveryDate), lt(purchaseOrders.deliveryDate, tomorrow)));
   const proposals: TaskProposal[] = [];
   for (const { po, rel, site } of rows) {
+    const today = localParts(new Date(), site.timezone).date;
+    if (po.deliveryDate! >= today) continue;
+    const cur = po.currency;
     const late = daysBetween(po.deliveryDate!, today);
     const sup = rel.displayName;
     const supAr = rel.displayNameAr ?? rel.displayName;
@@ -228,8 +237,8 @@ async function overdueProposals(ctx: RunContext): Promise<{ proposals: TaskPropo
       priority: 1,
       title: `${po.number} from ${sup} is ${late} ${late === 1 ? 'day' : 'days'} late`,
       titleAr: `الطلب ${po.number} من ${supAr} متأخر ${late} ${late === 1 ? 'يوم' : 'أيام'}`,
-      summary: `The delivery for ${site.name} was due on ${po.deliveryDate} (SAR ${money(po.total)}). ${po.status === 'partially_received' ? 'Part of it has arrived.' : 'Nothing has been received yet.'}`,
-      summaryAr: `كان موعد التوصيل لفرع ${site.nameAr ?? site.name} في ${ltr(po.deliveryDate)} (${money(po.total)} ر.س). ${po.status === 'partially_received' ? 'وصل جزء منه.' : 'لم يُستلم شيء بعد.'}`,
+      summary: `The delivery for ${site.name} was due on ${po.deliveryDate} (${fmt(po.total, cur)}). ${po.status === 'partially_received' ? 'Part of it has arrived.' : 'Nothing has been received yet.'}`,
+      summaryAr: `كان موعد التوصيل لفرع ${site.nameAr ?? site.name} في ${ltr(po.deliveryDate)} (${fmtAr(po.total, cur)}). ${po.status === 'partially_received' ? 'وصل جزء منه.' : 'لم يُستلم شيء بعد.'}`,
       evidence: { poId: po.id, number: po.number, deliveryDate: po.deliveryDate, daysLate: late, total: po.total, status: po.status, site: { id: site.id, name: site.name, nameAr: site.nameAr }, supplier: { id: rel.id, name: sup, nameAr: supAr } },
       actions: rel.contactEmail || rel.contactPhone
         ? [{ id: 'contact', type: 'contact_supplier', label: `Ask ${sup} when it will arrive`, labelAr: `اسأل ${supAr} عن موعد الوصول`, params: { supplierId: rel.id, channel: rel.orderChannel, email: rel.contactEmail, phone: rel.contactPhone, message, messageAr } }]
@@ -322,8 +331,9 @@ export const purchasing: AgentDefinition = {
       .where(and(eq(purchaseOrders.siteId, p.siteId), eq(purchaseOrders.relationshipId, p.relationshipId), inArray(purchaseOrders.status, ['draft', 'pending_approval', 'approved']), sql`${purchaseOrders.createdAt} > ${ctx.task.createdAt}`));
     if ((recent?.n ?? 0) > 0) return 'An order to this supplier for this site was created after this suggestion';
     if (ctx.automatic) {
+      const cur = rel.currency;
       const max = Number(ctx.settings.maxAutoOrderSar ?? 1500);
-      if (new Decimal(p.total).gt(max)) return `Order total SAR ${money(p.total)} is above the SAR ${money(max)} allowed without approval`;
+      if (new Decimal(p.total).gt(max)) return `Order total ${fmt(p.total, cur)} is above the ${fmt(max, cur)} allowed without approval`;
       if (p.belowMinimum) return 'The order is below the supplier’s minimum';
     }
     return null;
