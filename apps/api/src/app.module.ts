@@ -22,6 +22,7 @@ import { WasteModule } from './modules/waste.js';
 import { TransfersModule } from './modules/transfers.js';
 import { FoodicsModule } from './integrations/foodics/foodics.module.js';
 import { RecipesModule } from './modules/recipes.js';
+import { FoodCostModule } from './modules/food-cost.js';
 import { ProcurementModule } from './modules/procurement.js';
 import { AccessTokenVerifier } from './common/access-tokens.js';
 import { ChannelsModule } from './channels/channels.module.js';
@@ -67,7 +68,7 @@ export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forRoot(config), BillingModule, VerificationModule, AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, StockModule, StockCountsModule, WasteModule, TransfersModule, FoodicsModule, RecipesModule, ProcurementModule, InvoicesModule, ZatcaModule, AgentsModule, ChannelsModule, McpModule],
+      imports: [CoreModule.forRoot(config), BillingModule, VerificationModule, AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, StockModule, StockCountsModule, WasteModule, TransfersModule, FoodicsModule, RecipesModule, FoodCostModule, ProcurementModule, InvoicesModule, ZatcaModule, AgentsModule, ChannelsModule, McpModule],
       controllers: [HealthController],
       providers: [
         { provide: APP_PIPE, useClass: ZodValidationPipe },

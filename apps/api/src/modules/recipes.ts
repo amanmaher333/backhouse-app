@@ -163,7 +163,13 @@ export class RecipesService {
     const pos = posIds.length ? await tx.select({ id: posProducts.id, name: posProducts.name, nameAr: posProducts.nameAr, price: posProducts.price }).from(posProducts).where(inArray(posProducts.id, posIds)) : [];
     const [org] = await tx.select({ country: organizations.country }).from(organizations);
     const vat = country(org?.country).vatRate;
-    return { rs, ls, itemRows, packRows, catalogue, costed, pos, vat };
+    return { rs, ls, itemRows, packRows, catalogue, costed, pos, vat, defs };
+  }
+
+  /** Active recipes as costing definitions, with their items (for food cost reports). */
+  async definitions(tx: Tx, basis: CostBasis = 'average') {
+    const { rs, defs, catalogue } = await this.costAll(tx, basis);
+    return { recipes: rs, defs, catalogue };
   }
 
   /** Price, cost per portion (or per yield unit) and food cost % for one recipe. */
