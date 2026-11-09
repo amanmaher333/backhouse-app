@@ -79,6 +79,16 @@ export class StockService {
     return values;
   }
 
+  /** Cost per base unit for an item with no cost history: its cheapest active supplier price. */
+  async fallbackCost(tx: Tx, itemId: string): Promise<Decimal | null> {
+    const [best] = await tx
+      .select({ cost: sql<string>`min(${supplierItems.currentPrice} / nullif(${packs.baseQty}, 0))::text` })
+      .from(supplierItems)
+      .innerJoin(packs, eq(packs.id, supplierItems.packId))
+      .where(and(eq(supplierItems.itemId, itemId), eq(supplierItems.isActive, true)));
+    return best?.cost ? new Decimal(best.cost) : null;
+  }
+
   /** Stock at one site: every stocked item with on-hand, par and reorder point. */
   async siteStock(a: AccessContext, siteId: string) {
     return this.db.tenant(a.tenant, async (tx) => {
@@ -131,15 +141,7 @@ export class StockService {
       const [bal] = await tx.select().from(stockBalances).where(and(eq(stockBalances.siteId, siteId), eq(stockBalances.itemId, item.id)));
       const diff = target.minus(bal?.qtyOnHand ?? 0);
       // First count of an item with no cost history: use its cheapest supplier cost, so stock value is meaningful.
-      let unitCost: Decimal | null = null;
-      if (diff.gt(0) && (!bal || new Decimal(bal.avgCost).isZero())) {
-        const [best] = await tx
-          .select({ cost: sql<string>`min(${supplierItems.currentPrice} / nullif(${packs.baseQty}, 0))::text` })
-          .from(supplierItems)
-          .innerJoin(packs, eq(packs.id, supplierItems.packId))
-          .where(and(eq(supplierItems.itemId, item.id), eq(supplierItems.isActive, true)));
-        if (best?.cost) unitCost = new Decimal(best.cost);
-      }
+      const unitCost = diff.gt(0) && (!bal || new Decimal(bal.avgCost).isZero()) ? await this.fallbackCost(tx, item.id) : null;
       const result = await this.post(tx, a, {
         siteId,
         itemId: item.id,

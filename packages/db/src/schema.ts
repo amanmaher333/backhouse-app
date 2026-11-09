@@ -60,6 +60,8 @@ export const organizations = pgTable('organizations', {
 export interface OrgSettings {
   /** Largest task value (SAR, incl. VAT) that can be approved from WhatsApp. Above it, the card links to Backhouse instead. */
   whatsappApprovalMax?: number;
+  /** Stock counts whose variances add up to more than this (absolute value, org currency) need someone with stock:approve to post them. Default 500. */
+  countApprovalValue?: number;
 }
 
 export const users = pgTable(
@@ -826,6 +828,84 @@ export const stockBalances = pgTable(
     primaryKey({ columns: [t.siteId, t.itemId] }),
     foreignKey({ columns: [t.orgId, t.siteId], foreignColumns: [sites.orgId, sites.id] }).onDelete('cascade'),
     foreignKey({ columns: [t.orgId, t.itemId], foreignColumns: [items.orgId, items.id] }).onDelete('cascade'),
+  ],
+);
+
+export const stockCountStatus = pgEnum('stock_count_status', ['open', 'submitted', 'posted', 'cancelled']);
+
+/**
+ * A stock count at one site. Lines are counted (in any order, by several people),
+ * then the count is submitted, reviewed and posted as adjustment movements.
+ */
+export const stockCounts = pgTable(
+  'stock_counts',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    siteId: uuid('site_id').notNull(),
+    ref: text('ref').notNull(),
+    status: stockCountStatus('status').notNull().default('open'),
+    /** 'full': every stocked item; 'partial': chosen items. */
+    scope: text('scope').notNull().default('full'),
+    /** Blind: counters don't see the expected quantity while the count is open. */
+    blind: boolean('blind').notNull().default(true),
+    note: text('note'),
+    source: text('source').notNull().default('app'),
+    /** Sum of the line variance values (org currency), set on submit and post. */
+    varianceValue: numeric('variance_value', { precision: 16, scale: 2 }),
+    /** Sum of the absolute line variance values, which decides whether approval is needed. */
+    absVarianceValue: numeric('abs_variance_value', { precision: 16, scale: 2 }),
+    needsApproval: boolean('needs_approval').notNull().default(false),
+    createdBy: uuid('created_by'),
+    createdAt: createdAt(),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    submittedBy: uuid('submitted_by'),
+    postedAt: timestamp('posted_at', { withTimezone: true }),
+    postedBy: uuid('posted_by'),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('stock_counts_org_id_id_uq').on(t.orgId, t.id),
+    unique('stock_counts_org_ref_uq').on(t.orgId, t.ref),
+    foreignKey({ columns: [t.orgId, t.siteId], foreignColumns: [sites.orgId, sites.id] }),
+    index('stock_counts_site_status_idx').on(t.siteId, t.status, t.createdAt),
+  ],
+);
+
+/**
+ * One item in a count. The expected quantity is the on-hand quantity at the moment the
+ * line was counted, so deliveries and waste during a long count don't show as variance.
+ */
+export const stockCountLines = pgTable(
+  'stock_count_lines',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    countId: uuid('count_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    /** On hand when the count started (or when the line was added). */
+    snapshotQty: numeric('snapshot_qty', { precision: 18, scale: 6 }).notNull().default('0'),
+    snapshotAt: timestamp('snapshot_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Counted quantity in the item's base unit; null until counted. */
+    countedQty: numeric('counted_qty', { precision: 18, scale: 6 }),
+    /** On hand at the moment it was counted. */
+    expectedQty: numeric('expected_qty', { precision: 18, scale: 6 }),
+    /** What the person entered, for display: quantity and unit or pack. */
+    entryQty: numeric('entry_qty', { precision: 18, scale: 6 }),
+    entryUnit: text('entry_unit'),
+    entryPackId: uuid('entry_pack_id'),
+    entryText: text('entry_text'),
+    countedAt: timestamp('counted_at', { withTimezone: true }),
+    countedBy: uuid('counted_by'),
+    unitCost: numeric('unit_cost', { precision: 18, scale: 8 }),
+    adjustmentQty: numeric('adjustment_qty', { precision: 18, scale: 6 }),
+    varianceValue: numeric('variance_value', { precision: 16, scale: 2 }),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.countId], foreignColumns: [stockCounts.orgId, stockCounts.id] }).onDelete('cascade'),
+    foreignKey({ columns: [t.orgId, t.itemId], foreignColumns: [items.orgId, items.id] }),
+    uniqueIndex('stock_count_lines_item_uq').on(t.countId, t.itemId),
   ],
 );
 

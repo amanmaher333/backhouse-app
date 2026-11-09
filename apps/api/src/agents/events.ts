@@ -9,7 +9,8 @@ export type EventType = 'price.changed' | 'supplier_item.created' | 'item.create
   | 'invoice.disputed'
   | 'invoice.rejected'
   | 'invoice.paid'
-  | 'invoice.credit_note_received';
+  | 'invoice.credit_note_received'
+  | 'stock.counted';
 
 /**
  * Emit a domain event in the caller's transaction, so the event exists
