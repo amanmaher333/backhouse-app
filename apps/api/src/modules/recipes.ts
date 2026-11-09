@@ -198,7 +198,13 @@ export class RecipesService {
 
   list(a: AccessContext, q: ListDto) {
     this.must(a, 'recipe:read');
-    return this.db.tenant(a.tenant, async (tx) => {
+    return this.db.tenant(a.tenant, (tx) => this.listInTx(tx, a, q));
+  }
+
+  /** Recipes with costs inside the caller's transaction (agents use this). */
+  async listInTx(tx: Tx, a: AccessContext, q: { kind?: 'menu' | 'prep'; q?: string; basis: CostBasis }) {
+    this.must(a, 'recipe:read');
+    {
       const { rs, ls, costed, pos, vat } = await this.costAll(tx, q.basis);
       const needle = q.q?.trim().toLowerCase();
       return rs
@@ -216,7 +222,7 @@ export class RecipesService {
           lines: ls.filter((l) => l.recipeId === r.id).length,
           ...this.summary(a, r, costed.get(r.id)!, pos, vat),
         }));
-    });
+    }
   }
 
   async detailInTx(tx: Tx, a: AccessContext, id: string, basis: CostBasis, draft?: Partial<RecipeInput>) {
