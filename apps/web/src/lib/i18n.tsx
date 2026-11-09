@@ -187,6 +187,9 @@ const en = {
   // generic
   loading: 'Loading',
   error: 'Something went wrong',
+  errorBody: 'This page hit a problem. We’ve been told about it. Try again, or go back to the inbox.',
+  tryAgain: 'Try again',
+  backToInbox: 'Back to the inbox',
   required: 'Required',
   optional: 'optional',
 };
@@ -353,6 +356,9 @@ const ar: Dict = {
   q4: 'ماذا يجب أن أطلب للغد؟',
   loading: 'جارٍ التحميل',
   error: 'حدث خطأ ما',
+  errorBody: 'واجهت هذه الصفحة مشكلة وتم إبلاغنا بها. حاول مرة أخرى أو ارجع إلى صندوق المهام.',
+  tryAgain: 'حاول مرة أخرى',
+  backToInbox: 'العودة إلى صندوق المهام',
   required: 'مطلوب',
   optional: 'اختياري',
 };

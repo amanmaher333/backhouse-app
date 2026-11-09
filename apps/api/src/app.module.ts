@@ -8,6 +8,7 @@ import { APP_CONFIG, type AppConfig } from './config.js';
 import { DbService } from './common/db.service.js';
 import { JwtAuthGuard, PermissionsGuard, Public } from './common/auth.js';
 import { ErrorFilter } from './common/errors.js';
+import { ClientErrorsController } from './common/client-errors.js';
 import { AuthModule } from './modules/auth.js';
 import { OrgStructureModule } from './modules/org-structure.js';
 import { MembersModule } from './modules/members.js';
@@ -69,7 +70,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [CoreModule.forRoot(config), BillingModule, VerificationModule, AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, StockModule, StockCountsModule, WasteModule, TransfersModule, FoodicsModule, RecipesModule, FoodCostModule, ProcurementModule, InvoicesModule, ZatcaModule, AgentsModule, ChannelsModule, McpModule],
-      controllers: [HealthController],
+      controllers: [HealthController, ClientErrorsController],
       providers: [
         { provide: APP_PIPE, useClass: ZodValidationPipe },
         { provide: APP_FILTER, useClass: ErrorFilter },

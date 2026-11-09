@@ -16,7 +16,7 @@ Each service's build and start settings are set on the service in Railway (Setti
 
 Each also has `RAILWAY_DOCKERFILE_PATH` set to its Dockerfile.
 
-Pushes to `main` redeploy automatically.
+Automatic deploys from `main` are not switched on yet: see `docs/operations.md` for the settings.
 
 ## Variables
 
@@ -27,11 +27,12 @@ Pushes to `main` redeploy automatically.
 | `DATABASE_URL` | `${{postgres.DATABASE_URL}}` |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | long random strings |
 | `ZATCA_SECRET_KEY` | 32+ random characters (encrypts e-invoicing keys) |
-| `PUBLIC_WEB_URL` | the web service's URL |
+| `PUBLIC_WEB_URL` | the web app's address: `https://app.kitchain.online` |
 | `NODE_ENV` | `production` |
 | `AGENTS_LLM` / `ANTHROPIC_API_KEY` | optional: AI-written task text and invoice reading |
 | `WHATSAPP_*`, `MOYASAR_*`, `WATHQ_API_KEY`, `INBOUND_EMAIL_SECRET`, `ZATCA_MODE=live` | when those integrations go live; until then everything runs in simulated mode |
 | `FOODICS_MODE`, `FOODICS_CLIENT_ID`, `FOODICS_CLIENT_SECRET`, `INTEGRATIONS_SECRET_KEY` | Foodics (see `docs/foodics.md`); simulated until set |
+| `SENTRY_DSN` | optional: error reporting (see `docs/operations.md`); off until set. `SENTRY_ENVIRONMENT` defaults to `NODE_ENV` |
 
 **web:**
 

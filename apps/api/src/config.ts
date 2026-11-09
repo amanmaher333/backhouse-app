@@ -73,6 +73,12 @@ const schema = z.object({
   FOODICS_REDIRECT_URI: z.string().url().optional(),
   /** Encrypts integration access tokens at rest (32+ characters). Falls back to ZATCA_SECRET_KEY. */
   INTEGRATIONS_SECRET_KEY: z.string().min(32).optional(),
+  /** Sentry error reporting. Unset = off. */
+  SENTRY_DSN: z.string().url().optional(),
+  /** Defaults to NODE_ENV. */
+  SENTRY_ENVIRONMENT: z.string().optional(),
+  /** Defaults to the Railway commit (RAILWAY_GIT_COMMIT_SHA). */
+  SENTRY_RELEASE: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof schema>;
