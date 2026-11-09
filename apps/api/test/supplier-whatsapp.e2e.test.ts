@@ -41,9 +41,14 @@ async function link(token: string) {
   return number;
 }
 
-/** A restaurant whose supplier takes orders on WhatsApp, an approved order to it, and the owner's WhatsApp linked. */
+/**
+ * The CR number always ends in 1, so it never hits the simulated register's special endings
+ * (0000 not found, 7777 unavailable, 8888 other name, 9999 expired), which would leave the
+ * company unverified and stop Backhouse messaging the supplier.
+ *
+ * A restaurant whose supplier takes orders on WhatsApp, an approved order to it, and the owner's WhatsApp linked. */
 async function setup(opts: { channel?: 'whatsapp' | 'email'; deliveryDate?: string; hidePrices?: boolean; cr?: string } = {}) {
-  const s = await http.post('/v1/auth/signup').send({ email: `${uniq()}@t.sa`, password: PASSWORD, fullName: 'Sara', locale: 'en', organization: { name: 'Najd Kitchens', nameAr: 'مطابخ نجد' }, legalEntity: { name: 'Najd Kitchens Co.', nameAr: 'شركة مطابخ نجد', crNumber: opts.cr ?? `101${String(Math.floor(Math.random() * 1e7)).padStart(7, '1')}` } }).expect(201);
+  const s = await http.post('/v1/auth/signup').send({ email: `${uniq()}@t.sa`, password: PASSWORD, fullName: 'Sara', locale: 'en', organization: { name: 'Najd Kitchens', nameAr: 'مطابخ نجد' }, legalEntity: { name: 'Najd Kitchens Co.', nameAr: 'شركة مطابخ نجد', crNumber: opts.cr ?? `101${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}1` } }).expect(201);
   const token = s.body.accessToken as string;
   const site = (await http.post('/v1/sites').set(auth(token)).send({ legalEntityId: s.body.legalEntity.id, name: 'Olaya', nameAr: 'العليا' }).expect(201)).body;
   const chicken = (await http.post('/v1/items').set(auth(token)).send({ name: 'Chicken breast', nameAr: 'صدور دجاج' }).expect(201)).body;
@@ -69,7 +74,9 @@ async function setup(opts: { channel?: 'whatsapp' | 'email'; deliveryDate?: stri
 }
 
 async function sendDirect(x: Awaited<ReturnType<typeof setup>>) {
-  const sent = (await http.post(`/v1/purchase-orders/${x.po.id}/send`).set(auth(x.token)).send({}).expect(200)).body;
+  const res = await http.post(`/v1/purchase-orders/${x.po.id}/send`).set(auth(x.token)).send({});
+  if (res.status !== 200) throw new Error(`send failed (${res.status}): ${JSON.stringify(res.body)}`);
+  const sent = res.body;
   await channels.deliver();
   const msg = lastTo(x.supplierPhone);
   const token = msg.content.template!.urlSuffix!;
@@ -188,7 +195,9 @@ describe('Sending orders to suppliers on WhatsApp', () => {
 
   it('keeps the old way for email suppliers, and refuses direct sending without a number', async () => {
     const x = await setup({ channel: 'email' });
-    const sent = (await http.post(`/v1/purchase-orders/${x.po.id}/send`).set(auth(x.token)).send({}).expect(200)).body;
+    const res = await http.post(`/v1/purchase-orders/${x.po.id}/send`).set(auth(x.token)).send({});
+  if (res.status !== 200) throw new Error(`send failed (${res.status}): ${JSON.stringify(res.body)}`);
+  const sent = res.body;
     expect(sent.direct).toBeNull();
     expect(sent.links.mailto).toContain('mailto:o@w.sa');
 
