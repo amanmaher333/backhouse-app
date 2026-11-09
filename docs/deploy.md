@@ -9,10 +9,12 @@ Four services in one Railway project, built from this repository's Dockerfiles:
 | `worker` | `Dockerfile.api` | `node dist/worker.js` | No domain. Runs agents, billing, WhatsApp delivery and ZATCA submissions |
 | `web` | `Dockerfile.web` | `next start` | Public domain; this is the app people open |
 
-Build and start settings are in the repo:
-- `railway.json` (repo root) is the **api** service: the default for any service from this repo.
-- `railway/worker.json` is the **worker**: in that service's Settings, set *Config-as-code → Railway config file* to `/railway/worker.json`.
-- `railway/web.json` is the **web** app: set that service's config file to `/railway/web.json`.
+Each service's build and start settings are set on the service in Railway (Settings), not in the repo; Railway has retired config files for this:
+- **api:** Dockerfile path `Dockerfile.api`; healthcheck `/health`.
+- **worker:** Dockerfile path `Dockerfile.api`; start command `node dist/worker.js`.
+- **web:** Dockerfile path `Dockerfile.web`; healthcheck `/login`.
+
+Each also has `RAILWAY_DOCKERFILE_PATH` set to its Dockerfile.
 
 Pushes to `main` redeploy automatically.
 
@@ -34,8 +36,8 @@ Pushes to `main` redeploy automatically.
 
 | Variable | Value |
 |---|---|
-| `BOH_API_URL` | `http://api.railway.internal:3000` (private network) or the API's public URL |
-| `PORT` | set by Railway |
+| `BOH_API_URL` | `http://${{api.RAILWAY_PRIVATE_DOMAIN}}:3000` (private network) |
+| `PORT` | `8080` (the domain's target port) |
 
 ## Data location
 
