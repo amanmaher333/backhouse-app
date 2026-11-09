@@ -5,6 +5,9 @@ import type { SupplierMessenger } from '../channels/supplier-messenger.js';
 import type { StockService } from '../modules/stock.js';
 import type { LlmWriter } from './llm.js';
 import type { InvoicesService } from '../invoices/invoices.service.js';
+import type { FoodCostService } from '../modules/food-cost.js';
+import type { RecipesService } from '../modules/recipes.js';
+import type { StockCountsService } from '../modules/stock-counts.js';
 
 export type AgentRow = typeof agents.$inferSelect;
 export type TaskRow = typeof agentTasks.$inferSelect;
@@ -51,6 +54,12 @@ export interface AgentServices {
   messenger: SupplierMessenger;
   /** Supplier invoices: matching, approval, credit-note requests. */
   invoices: InvoicesService;
+  /** Theoretical vs actual food cost. */
+  foodCost: FoodCostService;
+  /** Recipes and their costs. */
+  recipes: RecipesService;
+  /** Stock counts. */
+  stockCounts: StockCountsService;
 }
 
 export interface RunContext {

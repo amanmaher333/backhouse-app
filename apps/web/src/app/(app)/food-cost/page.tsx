@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Fragment, Suspense, useEffect, useMemo, useState } from 'react';
 import { Empty, PageHead } from '@/components/ui';
 import { RecipeTabs } from '@/components/stock';
 import { useI18n } from '@/lib/i18n';
@@ -14,13 +15,24 @@ const today = () => new Date().toISOString().slice(0, 10);
 const shift = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
 
 export default function FoodCostPage() {
+  return (
+    <Suspense>
+      <FoodCost />
+    </Suspense>
+  );
+}
+
+function FoodCost() {
   const { t, pick, fmtMoney, fmtQty, fmtDate } = useI18n();
   const { can } = useSession();
   const { data: sites } = useApi<Site[]>('/sites');
-  const [siteId, setSiteId] = useState('');
-  const [preset, setPreset] = useState<Preset>('7');
-  const [from, setFrom] = useState(shift(today(), -7));
-  const [to, setTo] = useState(shift(today(), -1));
+  // A link can open a site and dates (e.g. from the Cost Controller's weekly report).
+  const params = useSearchParams();
+  const linked = params.get('from') && params.get('to');
+  const [siteId, setSiteId] = useState(params.get('siteId') ?? '');
+  const [preset, setPreset] = useState<Preset>(linked ? 'custom' : '7');
+  const [from, setFrom] = useState(params.get('from') ?? shift(today(), -7));
+  const [to, setTo] = useState(params.get('to') ?? shift(today(), -1));
   const [endCountId, setEndCountId] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   useEffect(() => {

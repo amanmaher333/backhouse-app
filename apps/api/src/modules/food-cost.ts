@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { and, desc, eq, gte, inArray, isNotNull, lte, ne, sql } from 'drizzle-orm';
-import { items, posConnections, posLocations, posProducts, posSalesDaily, recipes, sites, stockCounts, stockMovements } from '@boh/db';
+import { type Tx, items, posConnections, posLocations, posProducts, posSalesDaily, recipes, sites, stockCounts, stockMovements } from '@boh/db';
 import { Decimal, foodCostReport, recipeUsage, zonedTimeToUtc, type LedgerTotals, type SoldProduct } from '@boh/domain';
 import { DbService } from '../common/db.service.js';
 import { Access, Requires } from '../common/auth.js';
@@ -63,7 +63,13 @@ export class FoodCostService {
 
   report(a: AccessContext, q: ReportDto) {
     this.must(a, q.siteId);
-    return this.db.tenant(a.tenant, async (tx) => {
+    return this.db.tenant(a.tenant, (tx) => this.reportInTx(tx, a, q));
+  }
+
+  /** The report inside the caller's transaction (agents use this). */
+  async reportInTx(tx: Tx, a: AccessContext, q: z.infer<typeof ReportSchema>) {
+    this.must(a, q.siteId);
+    {
       const [site] = await tx.select().from(sites).where(eq(sites.id, q.siteId));
       if (!site) throw new NotFoundException('site not found');
       const tz = site.timezone;
@@ -172,7 +178,7 @@ export class FoodCostService {
         noCost: r.noCost,
         recipesLinked: rs.filter((x) => x.posProductId).length,
       };
-    });
+    }
   }
 }
 
@@ -189,5 +195,6 @@ export class FoodCostController {
   periods(@Access() a: AccessContext, @Query() q: PeriodsDto) { return this.svc.periods(a, q.siteId); }
 }
 
-@Module({ imports: [RecipesModule], controllers: [FoodCostController], providers: [FoodCostService] })
+@Module({ imports: [RecipesModule], controllers: [FoodCostController], providers: [FoodCostService], exports: [FoodCostService] })
 export class FoodCostModule {}
+export { ReportSchema as FoodCostQuerySchema };

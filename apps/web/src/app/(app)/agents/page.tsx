@@ -210,14 +210,32 @@ function AgentCard({ agent, def, canManage, onChanged }: { agent: Installed; def
           .map(([k]) => (
             <div key={k} className="setting-row">
               <label htmlFor={`${agent.id}-${k}`}>{t(k as TKey)}</label>
-              <input
-                id={`${agent.id}-${k}`}
-                className="input inline-input num"
-                inputMode="numeric"
-                disabled={!canManage}
-                value={String(settings[k] ?? '')}
-                onChange={(e) => setSettings({ ...settings, [k]: e.target.value === '' ? '' : Number(e.target.value) })}
-              />
+              {k === 'weekEndsOn' ? (
+                <select
+                  id={`${agent.id}-${k}`}
+                  className="select inline-input"
+                  disabled={!canManage}
+                  value={String(settings[k] ?? 6)}
+                  onChange={(e) => setSettings({ ...settings, [k]: Number(e.target.value) })}
+                >
+                  {t('days')
+                    .split(',')
+                    .map((d, i) => (
+                      <option key={i} value={i}>
+                        {d}
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <input
+                  id={`${agent.id}-${k}`}
+                  className="input inline-input num"
+                  inputMode="numeric"
+                  disabled={!canManage}
+                  value={String(settings[k] ?? '')}
+                  onChange={(e) => setSettings({ ...settings, [k]: e.target.value === '' ? '' : Number(e.target.value) })}
+                />
+              )}
             </div>
           ))}
         {canManage && settingsDirty && (

@@ -123,6 +123,14 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     scope: 'org',
     permissions: ['item:read', 'supplier:read', 'price:read', 'site:read', 'po:read', 'invoice:read', 'invoice:manage', 'invoice:approve'],
   },
+  {
+    key: 'agent_cost_controller',
+    name: 'Cost Controller agent',
+    nameAr: 'وكيل مراقبة التكاليف',
+    scope: 'org',
+    // stock:manage only so it can start a stock count; the agent's guardrail allows nothing else.
+    permissions: ['site:read', 'item:read', 'price:read', 'stock:read', 'stock:manage', 'recipe:read', 'pos:read'],
+  },
 ];
 
 export const isAgentRoleKey = (key: string) => key.startsWith('agent_');

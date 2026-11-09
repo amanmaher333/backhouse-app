@@ -26,6 +26,9 @@ import { ProcurementService } from '../modules/procurement.js';
 import { StockService } from '../modules/stock.js';
 import { SupplierMessenger } from '../channels/supplier-messenger.js';
 import { InvoicesService } from '../invoices/invoices.service.js';
+import { FoodCostService } from '../modules/food-cost.js';
+import { RecipesService } from '../modules/recipes.js';
+import { StockCountsService } from '../modules/stock-counts.js';
 
 const OPEN = ['proposed', 'approved'] as const;
 
@@ -65,8 +68,11 @@ export class AgentRuntime {
     stock: StockService,
     messenger: SupplierMessenger,
     invoices: InvoicesService,
+    foodCost: FoodCostService,
+    recipes: RecipesService,
+    stockCounts: StockCountsService,
   ) {
-    this.services = { procurement, stock, messenger, invoices };
+    this.services = { procurement, stock, messenger, invoices, foodCost, recipes, stockCounts };
   }
 
   // ---------- identities ----------
