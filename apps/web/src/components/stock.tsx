@@ -74,3 +74,25 @@ export function useEntryLabel() {
     return `${Number(entryQty)} ${pack ? (lang === 'ar' && pack.nameAr ? pack.nameAr : pack.name) : unitLabel(entryUnit ?? baseUnit, lang)}`;
   };
 }
+
+/** Tabs across recipes and food cost. */
+export function RecipeTabs() {
+  const { t } = useI18n();
+  const path = usePathname();
+  const tabs: { href: string; label: TKey }[] = [
+    { href: '/recipes', label: 'recipesTab' },
+    { href: '/food-cost', label: 'foodCostTab' },
+  ];
+  return (
+    <nav className="segmented stock-tabs" aria-label={t('recipes')}>
+      {tabs.map((x) => {
+        const on = x.href === '/recipes' ? path === '/recipes' : path.startsWith(x.href);
+        return (
+          <Link key={x.href} href={x.href} aria-current={on ? 'page' : undefined} className={on ? 'on' : ''}>
+            {t(x.label)}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
