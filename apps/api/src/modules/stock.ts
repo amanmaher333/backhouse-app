@@ -236,7 +236,20 @@ export class StockController {
   movements(@Access() a: AccessContext, @Param('siteId', uuid) siteId: string, @Query() q: MovementsQueryDto) { return this.svc.movements(a, siteId, q); }
 }
 
-@Module({ controllers: [StockController], providers: [StockService], exports: [StockService] })
+/** Stockable items with their packs, for pickers (waste, transfers, counts). */
+@ApiTags('stock')
+@ApiBearerAuth()
+@Controller('stock-items')
+export class StockItemsController {
+  constructor(private readonly db: DbService) {}
+
+  @Get() @Requires('stock:read')
+  list(@Access() a: AccessContext) {
+    return this.db.tenant(a.tenant, async (tx) => (await countableCatalogue(tx)).sort((x, y) => x.name.localeCompare(y.name)));
+  }
+}
+
+@Module({ controllers: [StockController, StockItemsController], providers: [StockService], exports: [StockService] })
 export class StockModule {}
 
 
