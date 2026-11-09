@@ -53,11 +53,12 @@ describe('ZATCA certificate request', () => {
     expect(Buffer.from(csr.base64ForApi, 'base64').toString()).toBe(csr.pem);
     const file = join(dir, 'req.csr');
     writeFileSync(file, csr.pem);
-    const out = execFileSync('openssl', ['req', '-in', file, '-noout', '-verify', '-text'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    expect(out).toContain('C = SA, OU = Olaya, O = Najd Kitchens Co., CN = BOH-EGS-1');
+    // OpenSSL versions differ in spacing around "=" (1.1/3.x: "C = SA", some 3.0 builds: "C=SA").
+    const out = execFileSync('openssl', ['req', '-in', file, '-noout', '-verify', '-text'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).replace(/\s*=\s*/g, '=');
+    expect(out).toContain('C=SA, OU=Olaya, O=Najd Kitchens Co., CN=BOH-EGS-1');
     expect(out).toContain('secp256k1');
     expect(out).toContain('TSTZATCA-Code-Signing');
-    expect(out).toMatch(/SN\s*=\s*1-Backhouse\|2-1\.0\|3-/);
+    expect(out).toMatch(/SN=1-Backhouse\|2-1\.0\|3-/);
     expect(out).toContain('399999999900003');
     expect(out).toContain('1100');
   });
