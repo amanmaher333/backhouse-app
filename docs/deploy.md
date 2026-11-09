@@ -9,7 +9,12 @@ Four services in one Railway project, built from this repository's Dockerfiles:
 | `worker` | `Dockerfile.api` | `node dist/worker.js` | No domain. Runs agents, billing, WhatsApp delivery and ZATCA submissions |
 | `web` | `Dockerfile.web` | `next start` | Public domain; this is the app people open |
 
-Each service sets `RAILWAY_DOCKERFILE_PATH` to its Dockerfile. Pushes to `main` redeploy automatically.
+Build and start settings are in the repo:
+- `railway.json` (repo root) is the **api** service: the default for any service from this repo.
+- `railway/worker.json` is the **worker**: in that service's Settings, set *Config-as-code → Railway config file* to `/railway/worker.json`.
+- `railway/web.json` is the **web** app: set that service's config file to `/railway/web.json`.
+
+Pushes to `main` redeploy automatically.
 
 ## Variables
 
