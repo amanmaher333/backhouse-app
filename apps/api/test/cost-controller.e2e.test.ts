@@ -78,8 +78,12 @@ describe('Cost Controller', () => {
     // Salad sales are well over 20% of sales without a recipe: high priority.
     expect(task.priority).toBe(1);
     expect(task.writtenBy).toBe('template');
-    expect(task.title).toContain('Food cost last week at Olaya');
-    expect(task.summary).toContain('without a recipe');
+    // No stock counts around the week: actual can't be worked out, and the headline says so.
+    expect(task.evidence.actualReliable).toBe(false);
+    expect(task.title).toContain("Food cost last week at Olaya");
+    expect(task.title).toContain("stock wasn't counted");
+    expect(task.summary).not.toContain('Biggest losses');
+    expect(task.summary).toContain('Chicken Salad was sold without a recipe');
     expect(task.summaryAr).toContain('بدون وصفة');
 
     // Running again refreshes the same report instead of adding another.

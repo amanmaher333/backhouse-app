@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { organizations, sites, stockCounts, type AgentAction } from '@boh/db';
-import { Decimal, currencyAr } from '@boh/domain';
+import { Decimal, formatMoney } from '@boh/domain';
 import type { TaskText } from './llm.js';
 import type { AgentDefinition, RunContext, TaskProposal } from './types.js';
 
@@ -28,8 +28,8 @@ export function lastCompletedWeek(now: Date, tz: string, weekEndsOn: number) {
   return { from: addDays(end, -6), to: end };
 }
 
-const money = (v: string | number | Decimal, cur: string) => `${cur} ${new Decimal(v).toFixed(2)}`;
-const moneyAr = (v: string | number | Decimal, cur: string) => `${new Decimal(v).toFixed(2)} ${currencyAr(cur)}`;
+const money = (v: string | number | Decimal, cur: string) => formatMoney(new Decimal(v).toFixed(2), cur, 'en');
+const moneyAr = (v: string | number | Decimal, cur: string) => formatMoney(new Decimal(v).toFixed(2), cur, 'ar');
 const qty = (v: string, baseUnit: string) => {
   const n = new Decimal(v);
   if (baseUnit === 'g') return n.abs().gte(1000) ? `${n.div(1000).toDecimalPlaces(2).toString()} kg` : `${n.toDecimalPlaces(0).toString()} g`;
@@ -62,8 +62,10 @@ async function reportFor(ctx: RunContext, site: typeof sites.$inferSelect, curre
     .slice(0, 5)
     .map((x) => ({ recipeId: x.id, name: x.name, nameAr: x.nameAr, foodCostPct: x.foodCostPct, target: x.targetCostPct ? new Decimal(x.targetCostPct).toFixed(0) : null }));
   const gaps = { countAtStart: Boolean(r.counts.start), countAtEnd: Boolean(r.counts.end), unlinkedBranches: r.pos.unlinkedLocations, itemsWithoutCost: r.noCost };
-  const gap = t.gapPct !== null ? Number(t.gapPct) : null;
-  const priority = (gap !== null && gap >= gapAlert) || Number(withoutRecipeShare) >= 20 ? 1 : 2;
+  // "Actual" comes from stock at both ends of the week; without both counts it isn't meaningful.
+  const actualReliable = gaps.countAtStart && gaps.countAtEnd;
+  const gap = actualReliable && t.gapPct !== null ? Number(t.gapPct) : null;
+  const priority = (gap !== null && gap >= gapAlert) || Number(withoutRecipeShare) >= 20 || !actualReliable ? 1 : 2;
 
   const evidence = {
     kind: 'weekly_food_cost',
@@ -75,6 +77,7 @@ async function reportFor(ctx: RunContext, site: typeof sites.$inferSelect, curre
     withoutRecipe: { count: r.withoutRecipe.length, netSales: withoutRecipeNet.toFixed(2), sharePct: withoutRecipeShare, products: r.withoutRecipe.slice(0, 5).map((w) => ({ name: w.name, qty: w.qty, net: w.net })) },
     overTarget,
     gaps,
+    actualReliable,
     gapAlertPts: gapAlert,
   };
 
@@ -82,21 +85,34 @@ async function reportFor(ctx: RunContext, site: typeof sites.$inferSelect, curre
     const siteEn = site.name;
     const siteAr = site.nameAr ?? site.name;
     const pct = (v: string | null) => (v === null ? '–' : `${v}%`);
-    const title = t.actualPct && t.theoreticalPct ? `Food cost last week at ${siteEn}: ${t.actualPct}% vs ${t.theoreticalPct}% from recipes` : `Food cost last week at ${siteEn}`;
-    const titleAr = t.actualPct && t.theoreticalPct ? `تكلفة الطعام الأسبوع الماضي في ${siteAr}: ${t.actualPct}% مقابل ${t.theoreticalPct}% حسب الوصفات` : `تكلفة الطعام الأسبوع الماضي في ${siteAr}`;
-    const en: string[] = [`Net sales ${money(t.netSales, currency)}; actual food cost ${pct(t.actualPct)} against ${pct(t.theoreticalPct)} from recipes and recorded waste${gap !== null ? `, a gap of ${t.gapPct} points (about ${money(t.varianceCost, currency)} unexplained)` : ''}.`];
-    const ar: string[] = [`صافي المبيعات ${moneyAr(t.netSales, currency)}؛ تكلفة الطعام الفعلية ${pct(t.actualPct)} مقابل ${pct(t.theoreticalPct)} حسب الوصفات والهدر المسجل${gap !== null ? `، بفجوة ${t.gapPct} نقطة (نحو ${moneyAr(t.varianceCost, currency)} غير مفسَّر)` : ''}.`];
-    if (losses.length) {
+    const title = !actualReliable
+      ? `Food cost last week at ${siteEn}: ${pct(t.theoreticalPct)} from recipes; stock wasn't counted`
+      : t.actualPct && t.theoreticalPct
+        ? `Food cost last week at ${siteEn}: ${t.actualPct}% vs ${t.theoreticalPct}% from recipes`
+        : `Food cost last week at ${siteEn}`;
+    const titleAr = !actualReliable
+      ? `تكلفة الطعام الأسبوع الماضي في ${siteAr}: ${pct(t.theoreticalPct)} حسب الوصفات؛ لم يُجرد المخزون`
+      : t.actualPct && t.theoreticalPct
+        ? `تكلفة الطعام الأسبوع الماضي في ${siteAr}: ${t.actualPct}% مقابل ${t.theoreticalPct}% حسب الوصفات`
+        : `تكلفة الطعام الأسبوع الماضي في ${siteAr}`;
+    const en: string[] = actualReliable
+      ? [`Net sales ${money(t.netSales, currency)}; actual food cost ${pct(t.actualPct)} against ${pct(t.theoreticalPct)} from recipes and recorded waste${gap !== null ? `, a gap of ${t.gapPct} points (about ${money(t.varianceCost, currency)} unexplained)` : ''}.`]
+      : [`Net sales ${money(t.netSales, currency)}; recipes and recorded waste put food cost at ${pct(t.theoreticalPct)}.`];
+    const ar: string[] = actualReliable
+      ? [`صافي المبيعات ${moneyAr(t.netSales, currency)}؛ تكلفة الطعام الفعلية ${pct(t.actualPct)} مقابل ${pct(t.theoreticalPct)} حسب الوصفات والهدر المسجل${gap !== null ? `، بفجوة ${t.gapPct} نقطة (نحو ${moneyAr(t.varianceCost, currency)} غير مفسَّر)` : ''}.`]
+      : [`صافي المبيعات ${moneyAr(t.netSales, currency)}؛ تضع الوصفات والهدر المسجل تكلفة الطعام عند ${pct(t.theoreticalPct)}.`];
+    if (losses.length && actualReliable) {
       en.push(`Biggest losses: ${losses.slice(0, 3).map((l) => `${l.name} (+${l.extra}, ${money(l.value, currency)})`).join(', ')}.`);
       ar.push(`أكبر الخسائر: ${losses.slice(0, 3).map((l) => `${l.nameAr ?? l.name} (+${l.extraAr}، ${moneyAr(l.value, currency)})`).join('، ')}.`);
     }
     if (r.withoutRecipe.length) {
-      en.push(`${r.withoutRecipe.length} products sold without a recipe (${withoutRecipeShare}% of sales) aren't covered; add their recipes.`);
-      ar.push(`${r.withoutRecipe.length} منتجات بيعت بدون وصفة (${withoutRecipeShare}% من المبيعات) غير مشمولة؛ أضف وصفاتها.`);
+      const n = r.withoutRecipe.length;
+      en.push(n === 1 ? `${r.withoutRecipe[0]!.name} was sold without a recipe (${withoutRecipeShare}% of sales), so it isn't covered; add its recipe.` : `${n} products sold without a recipe (${withoutRecipeShare}% of sales) aren't covered; add their recipes.`);
+      ar.push(n === 1 ? `بيع ${r.withoutRecipe[0]!.name} بدون وصفة (${withoutRecipeShare}% من المبيعات)، لذا فهو غير مشمول؛ أضف وصفته.` : `${n} منتجات بيعت بدون وصفة (${withoutRecipeShare}% من المبيعات) غير مشمولة؛ أضف وصفاتها.`);
     }
-    if (!gaps.countAtStart || !gaps.countAtEnd) {
-      en.push('Stock wasn’t counted at both ends of the week, so “actual” may be off; count at close on the last day of each week.');
-      ar.push('لم يُجرد المخزون في بداية الأسبوع ونهايته، لذا قد تكون «الفعلية» غير دقيقة؛ اجرد عند الإغلاق في آخر يوم من كل أسبوع.');
+    if (!actualReliable) {
+      en.push('Stock wasn’t counted at both ends of the week, so actual food cost can’t be worked out; count at close on the last day of each week to see what actually went.');
+      ar.push('لم يُجرد المخزون في بداية الأسبوع ونهايته، لذا لا يمكن حساب تكلفة الطعام الفعلية؛ اجرد عند الإغلاق في آخر يوم من كل أسبوع لمعرفة ما استُخدم فعلًا.');
     }
     if (overTarget.length) {
       en.push(`Over their food cost target: ${overTarget.slice(0, 3).map((o) => `${o.name} ${o.foodCostPct}%${o.target ? ` (target ${o.target}%)` : ''}`).join(', ')}.`);
@@ -108,7 +124,8 @@ async function reportFor(ctx: RunContext, site: typeof sites.$inferSelect, curre
   const written = await ctx.llm.write(
     'Write the weekly food cost report for one restaurant site, for its manager. title: the headline (actual vs theoretical food cost %, or the main problem if data is missing). ' +
       'summary: 3-4 plain sentences in this order: net sales and the gap between actual and theoretical food cost with its value; the two or three biggest losses with their extra quantity and value; ' +
-      'sales without recipes and missing stock counts if any (these make the numbers less reliable); one concrete thing to check this week. message and message_ar: empty strings.',
+      'sales without recipes and missing stock counts if any; one concrete thing to check this week. When actualReliable is false, stock was not counted at both ends of the week: ' +
+      'do not state an actual food cost, gap or losses; give the theoretical food cost and say counts are needed. message and message_ar: empty strings.',
     evidence,
     template,
   );

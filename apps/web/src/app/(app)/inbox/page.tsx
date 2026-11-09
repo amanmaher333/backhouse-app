@@ -270,6 +270,59 @@ function TaskCard({ task, focused, onChanged }: { task: Task; focused?: boolean;
         </div>
       )}
 
+      {task.kind === 'weekly_food_cost' && ev.totals && (
+        <div className="evidence">
+          <div className="weekly-stats">
+            <div>
+              <div className="faint" style={{ fontSize: 12 }}>{t('actualFoodCost')}</div>
+              <div className="num" style={{ fontSize: 22, fontWeight: 700 }}>{ev.actualReliable !== false && ev.totals.actualPct ? `${ev.totals.actualPct}%` : '–'}</div>
+            </div>
+            <div>
+              <div className="faint" style={{ fontSize: 12 }}>{t('theoreticalFoodCost')}</div>
+              <div className="num" style={{ fontSize: 22, fontWeight: 700 }}>{ev.totals.theoreticalPct ? `${ev.totals.theoreticalPct}%` : '–'}</div>
+            </div>
+            <div>
+              <div className="faint" style={{ fontSize: 12 }}>{t('unexplained')}</div>
+              <div className={`num ${ev.actualReliable !== false && Number(ev.totals.gapPct ?? 0) > 0 ? 'cell-flag' : ''}`} style={{ fontSize: 22, fontWeight: 700 }}>{ev.actualReliable !== false ? fmtMoney(ev.totals.varianceCost) : '–'}</div>
+            </div>
+          </div>
+          <div className="faint num" style={{ fontSize: 12 }}>
+            {pick(ev.site)} · {fmtDate(ev.period.from)} – {fmtDate(ev.period.to)} · {t('netSales')} {fmtMoney(ev.totals.netSales)}
+          </div>
+          {ev.actualReliable === false && <div className="notice" style={{ marginTop: 8, fontSize: 13 }}>{t('noCountsWeek')}</div>}
+          {ev.actualReliable !== false && Array.isArray(ev.topLosses) && ev.topLosses.length > 0 && (
+            <ul className="diff-list" style={{ marginTop: 8 }}>
+              {ev.topLosses.slice(0, 3).map((l: { itemId: string; name: string; nameAr: string | null; extra: string; extraAr: string; value: string }) => (
+                <li key={l.itemId}>
+                  <span>
+                    {ar ? l.nameAr ?? l.name : l.name} <span className="faint num">+{ar ? l.extraAr : l.extra}</span>
+                  </span>
+                  <span className="amount num">{fmtMoney(l.value)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Link className="btn btn-sm btn-quiet" href={`/food-cost?siteId=${ev.site.id}&from=${ev.period.from}&to=${ev.period.to}`}>
+              {t('openFoodCost')}
+            </Link>
+            {ev.withoutRecipe?.count > 0 && (
+              <Link className="btn btn-sm btn-quiet" href="/recipes">
+                {t('fixRecipes')} <span className="num">({ev.withoutRecipe.count})</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!open && result.countId && (
+        <div>
+          <Link className="btn btn-sm btn-primary" href={`/stock/counts/${result.countId}`}>
+            {t('continueCounting')} {result.ref}
+          </Link>
+        </div>
+      )}
+
       {task.kind === 'po_overdue' && (
         <div className="evidence">
           <div className="num" style={{ fontSize: 22, fontWeight: 700 }}>
