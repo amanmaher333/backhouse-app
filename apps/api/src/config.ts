@@ -17,7 +17,7 @@ const schema = z.object({
   AGENTS_MODEL: z.string().default('claude-opus-5-5'),
   ANTHROPIC_API_KEY: z.string().optional(),
   WORKER_POLL_MS: z.coerce.number().int().min(200).default(5000),
-  /** Where people open BOH; used in links inside WhatsApp messages. */
+  /** Where people open Backhouse; used in links inside WhatsApp messages. */
   PUBLIC_WEB_URL: z.string().url().default('http://localhost:3001'),
   /**
    * WhatsApp Business Cloud API. 'cloud' sends through Meta (needs token, phone number id, app secret).
@@ -31,7 +31,7 @@ const schema = z.object({
   /** Token you choose when subscribing the webhook in Meta's dashboard. */
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
   WHATSAPP_GRAPH_VERSION: z.string().default('v25.0'),
-  /** BOH's WhatsApp number in E.164, shown to people for linking (wa.me link). */
+  /** Backhouse's WhatsApp number in E.164, shown to people for linking (wa.me link). */
   WHATSAPP_BUSINESS_NUMBER: z.string().default('+966500000000'),
   WHATSAPP_TEMPLATE_APPROVAL: z.string().default('boh_approval_request'),
   WHATSAPP_TEMPLATE_NOTICE: z.string().default('boh_task_notice'),
@@ -46,9 +46,9 @@ const schema = z.object({
   MOYASAR_PUBLISHABLE_KEY: z.string().optional(),
   /** The secret_token set on the Moyasar webhook; every webhook must carry it. */
   MOYASAR_WEBHOOK_SECRET: z.string().optional(),
-  /** BOH as the seller on its own tax invoices. */
-  BOH_SELLER_NAME: z.string().default('BOH Technologies'),
-  BOH_SELLER_NAME_AR: z.string().default('شركة بوه للتقنية'),
+  /** Backhouse as the seller on its own tax invoices. */
+  BOH_SELLER_NAME: z.string().default('Backhouse Technologies'),
+  BOH_SELLER_NAME_AR: z.string().default('شركة باك هاوس للتقنية'),
   BOH_SELLER_VAT: z.string().default('300000000000003'),
   BOH_SELLER_CR: z.string().default('1010000000'),
   BOH_SELLER_ADDRESS: z.string().default('Riyadh, Saudi Arabia'),

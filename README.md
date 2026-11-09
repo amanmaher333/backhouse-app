@@ -1,4 +1,4 @@
-# BOH — Restaurant back-of-house platform
+# Backhouse — Restaurant back-of-house platform
 
 Multi-site procurement, inventory, costing and analytics for restaurant groups, with a supplier network, built Saudi-first.
 Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/research/).
@@ -19,12 +19,12 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - Users can't grant permissions they don't hold themselves, and the last org admin can't be removed
   - Every write is audited in the same transaction, recording before and after values
   - OpenAPI docs at `/docs`
-- `apps/web`: Next.js PWA built to the design spec in `docs/design/design-spec.md`. The back office uses the POS tokens; the "Ask BOH" agent screen uses the AI Insights tokens.
+- `apps/web`: Next.js PWA built to the design spec in `docs/design/design-spec.md`. The back office uses the POS tokens; the "Ask Backhouse" agent screen uses the AI Insights tokens.
   - Arabic (RTL, the default) and English, light and dark themes
   - Phone bottom bar, tablet drawer, desktop sidebar that collapses
   - Sign-up with Saudi VAT/CR, login, invitation links, switching organisations
   - Screens: overview, sites and storage locations, members and invitations, roles (custom roles with a permission picker), audit log with before/after diffs, settings and legal entities
-  - "Ask BOH" agent preview: the chat UI only, with clearly labelled sample data (the agent arrives in phase 8)
+  - "Ask Backhouse" agent preview: the chat UI only, with clearly labelled sample data (the agent arrives in phase 8)
   - The refresh token is kept in an httpOnly cookie through a Next.js backend-for-frontend; API calls go through a same-origin proxy
   - Manifest, service worker for the app shell, install button, online/offline pill
 - CI (GitHub Actions) with Postgres; 126 tests covering units maths, text normalisation, CSV, RLS isolation, audit immutability, auth flows, tenant isolation, permissions, matching and alias learning, packs, suppliers, prices, CSV import, the agent runtime (autonomy, guardrails, pause, dedup, permissions), access tokens, MCP, delivery dates, stock costing, the PO lifecycle, spend limits, the Purchasing agent, and WhatsApp linking, routing, signed webhooks, button decisions, the daily digest and supplier messaging (orders, confirmations, problems, the order link, direct chasers), billing (trial, renewals, retries, read-only mode, 3-D Secure, webhooks) and company verification
@@ -34,7 +34,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
 - **Shared ingredient map:** 134 common Saudi kitchen ingredients with English/Arabic names and supplier-style aliases. Item names are normalised (Arabic letter forms, diacritics, Arabic-Indic digits, pack sizes such as "6x1L" or "كرتون") and matched with Postgres trigram search. Confident matches link automatically; the rest are suggested for a person to pick.
 - **Learning:** every time a person picks or changes a match, a correction is stored (training data). The name also becomes a new alias, which only takes effect once **two different organisations** confirm it, so one tenant can't poison the shared map.
 - **Items:** auto codes, category, allergens and base unit (prefilled from the matched ingredient), duplicate warnings, nested packs (case → bottle → ml) with cross-unit conversion (density, piece weight), and par levels per site entered in any pack.
-- **Suppliers:** a supplier profile is shared across BOH and deduplicated by VAT number, but each restaurant's relationship stays private. Each supplier has an ordering channel (email/WhatsApp/portal/manual), terms, and a delivery schedule per site (days, cut-off, lead time).
+- **Suppliers:** a supplier profile is shared across Backhouse and deduplicated by VAT number, but each restaurant's relationship stays private. Each supplier has an ordering channel (email/WhatsApp/portal/manual), terms, and a delivery schedule per site (days, cut-off, lead time).
 - **Prices:** supplier catalogue lines per pack, append-only price history, cost per kg / L / each, the preferred supplier per item, and a recent price changes feed (on the overview). Prices are hidden from roles without `price:read`.
 - **CSV:** import and export for items and supplier price lists. Imports run as a dry run first, then commit all-or-nothing; empty cells mean "leave unchanged". Files include a BOM so Excel opens Arabic correctly.
 - **Web:** items list with filters, item detail, suppliers list, supplier detail with inline price editing and history, the CSV import preview, and the overview price changes, all in Arabic and English.
@@ -55,7 +55,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
 - **Stock ledger:** append-only stock movements (opening count, adjustment, receipt) and a balance per site and item, costed at weighted average. The first count of an item is costed at its cheapest supplier price. Stock shows low / OK / no par against each site's reorder point and par level.
 - **Purchase orders:** draft → waiting for approval → approved → sent → partly received → received → closed (or cancelled). Spend limits per order and per month, for the whole org, a site or a supplier. Orders over a limit need someone with `po:approve`, who can't be the person who created them.
 - **Delivery dates:** worked out in Riyadh time from each supplier's delivery days, cut-off and lead time.
-- **Sending:** builds a bilingual order message with WhatsApp and email links, and marks the order as sent. BOH doesn't send it directly yet.
+- **Sending:** builds a bilingual order message with WhatsApp and email links, and marks the order as sent. Backhouse doesn't send it directly yet.
 - **Receiving:** quantities and prices from the delivery note, partial deliveries, and an immutable goods receipt. Stock is posted at the delivered price. Changed prices update the supplier catalogue (source `invoice`), which feeds Price Watch.
 - **Purchasing agent:** watches stock, order and receipt events, plus a daily scan. For items at or below their reorder point it drafts one order per supplier per site, topped up to par in whole packs net of what's already on order, using the preferred supplier (otherwise the cheapest). Evidence covers on hand, par, quantities, totals, delivery date and the supplier minimum. Items never counted are skipped by default. It also flags late deliveries and drafts a chaser. On "do it" autonomy it creates orders by itself only up to a SAR cap (default 1,500), and spend limits still apply.
 - **Web:** Orders (list, new order from a supplier's catalogue, order detail with approve / send / receive / close / cancel), Stock (per site, low filter, set count in any pack), and inbox cards for reorder drafts and late deliveries, in Arabic and English.
@@ -78,7 +78,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - Quiet days send nothing, and a digest is never sent twice.
   - Outside the 24-hour window it's a compact template. Its **Show decisions** button reopens the window, and the waiting approval cards follow as interactive messages.
   - The WhatsApp page has a preview and a "send it now" button.
-- **Direct supplier messaging:** for suppliers who take orders on WhatsApp, "Send on WhatsApp from BOH" sends the order from BOH's number (Arabic and English).
+- **Direct supplier messaging:** for suppliers who take orders on WhatsApp, "Send on WhatsApp from Backhouse" sends the order from Backhouse's number (Arabic and English).
   - The message has **Confirm / Problem** buttons and a private link to the order. The link is a public page that needs no account, where the supplier can confirm or describe a problem.
   - A confirmation is recorded on the order.
   - A problem or any other reply is stored on the order, sent as a WhatsApp notice to the people who manage that site's orders, and added to the inbox as a Purchasing task.
@@ -97,8 +97,8 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
 - **Invoices:** every charge issues a tax invoice with ZATCA's phase-1 QR code.
 - **Company checks:** the CR is checked against the Ministry of Commerce register (Wathq adapter, simulated by default) at sign-up and on changes.
   - An active CR with a matching name is verified automatically; a missing or expired CR is rejected with the reason.
-  - Only a name mismatch reaches BOH's review queue.
-  - A verified company is required before BOH messages suppliers for it.
+  - Only a name mismatch reaches Backhouse's review queue.
+  - A verified company is required before Backhouse messages suppliers for it.
 - **Web:** Billing page (trial, plan choice with live estimate, card, cancel/resume, pay now, invoices), printable invoice with QR, trial and read-only banner, verification badges and "Check now" in Settings.
 
 ## Layout

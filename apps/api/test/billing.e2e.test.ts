@@ -102,14 +102,14 @@ describe('Billing', () => {
     expect(inv).toMatchObject({ status: 'paid', total: '1265.00', vat: '165.00', interval: 'month', buyer: { vatNumber: '310122393500003', crNumber: '1010123456' } });
     expect(inv.number).toMatch(/^BOH-\d{4}-\d{6}$/);
     const qr = decodeZatcaQr(inv.qr);
-    expect([qr[0], qr[1], qr[3], qr[4]]).toEqual(['شركة بوه للتقنية', '300000000000003', '1265.00', '165.00']);
+    expect([qr[0], qr[1], qr[3], qr[4]]).toEqual(['شركة باك هاوس للتقنية', '300000000000003', '1265.00', '165.00']);
 
     // Another worker running at the same time does not charge again.
     await billing.runDue();
     expect((await http.get('/v1/billing').set(auth(x.token))).body.invoices).toHaveLength(1);
   });
 
-  it('makes BOH read-only when the trial ends without a plan, and pauses agents', async () => {
+  it('makes Backhouse read-only when the trial ends without a plan, and pauses agents', async () => {
     const x = await restaurant();
     await setSub(x.orgId, { trialEndsAt: past(1) });
     await billing.runDue();

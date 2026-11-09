@@ -93,13 +93,13 @@ afterAll(async () => {
 });
 
 describe('Sending orders to suppliers on WhatsApp', () => {
-  it('sends the order from BOH with Confirm / Problem buttons and a private link', async () => {
+  it('sends the order from Backhouse with Confirm / Problem buttons and a private link', async () => {
     const x = await setup();
     const { sent, msg, token } = await sendDirect(x);
     expect(sent).toMatchObject({ status: 'sent', sentVia: 'whatsapp_direct', direct: { to: x.supplierPhone } });
     expect(sent.direct.viewUrl).toContain(`/s/${token}`);
 
-    // The supplier never wrote to BOH: the approved template is used.
+    // The supplier never wrote to Backhouse: the approved template is used.
     expect(msg.form).toBe('template');
     const body = cloudRequestBody(x.supplierPhone, msg.content, msg.form) as any;
     expect(body.template).toMatchObject({ name: 'boh_purchase_order', language: { code: 'ar' } });
@@ -197,7 +197,7 @@ describe('Sending orders to suppliers on WhatsApp', () => {
     await http.post(`/v1/purchase-orders/${y.po.id}/send`).set(auth(y.token)).send({ direct: true }).expect(400);
   });
 
-  it('only lets verified companies send through BOH’s number', async () => {
+  it('only lets verified companies send through Backhouse’s number', async () => {
     const x = await setup({ cr: '1010120000' }); // not in the register: rejected
     const res = await http.post(`/v1/purchase-orders/${x.po.id}/send`).set(auth(x.token)).send({ direct: true }).expect(400);
     expect(res.body.message).toContain('Verify your company');

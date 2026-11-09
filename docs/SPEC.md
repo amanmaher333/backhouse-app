@@ -1,6 +1,6 @@
-# BOH — Product Spec v0.4 (Agents as a Service, moat-first, KSA-first)
+# Backhouse — Product Spec v0.4 (Agents as a Service, moat-first, KSA-first)
 
-Working codename **BOH**; rename before launch. Launch market: **Saudi Arabia first**, UAE second.
+Product name **Backhouse** (logo mark "BOH", for back of house). Launch market: **Saudi Arabia first**, UAE second.
 - v0.1 was feature parity.
 - v0.2–0.3 added defensibility and Saudi-first.
 - **v0.4 changes what customers buy: agents that do back-office jobs, not software they operate.**
@@ -17,9 +17,9 @@ This is an original product. No Supy code, branding, copy or UI is used.
 
 ## 1. Thesis
 
-> **Restaurant groups don't want more software. They want the back-office work done. BOH gives them agents that do purchasing, invoice checking, stock control and cost control. People approve and correct, mostly over WhatsApp, and every correction makes the agents and the shared network better.**
+> **Restaurant groups don't want more software. They want the back-office work done. Backhouse gives them agents that do purchasing, invoice checking, stock control and cost control. People approve and correct, mostly over WhatsApp, and every correction makes the agents and the shared network better.**
 
-| | SaaS (what incumbents sell) | BOH: Agents as a Service |
+| | SaaS (what incumbents sell) | Backhouse: Agents as a Service |
 |---|---|---|
 | Customer buys | Seats, modules, locations | **Agents hired per site** to do specific jobs |
 | Home screen | Lists and forms | **The inbox:** work the agents did or propose, waiting for a decision |
@@ -27,7 +27,7 @@ This is an original product. No Supy code, branding, copy or UI is used.
 | Value measured by | Logins | **Jobs done, hours saved, riyals saved** |
 | Gets better by | New features | **Every approval and correction**, plus the network's data |
 
-What still holds from v0.3: the moat stack (§3). Agents are how customers experience the product. The moats are why agents on BOH beat agents built anywhere else.
+What still holds from v0.3: the moat stack (§3). Agents are how customers experience the product. The moats are why agents on Backhouse beat agents built anywhere else.
 
 ---
 
@@ -56,7 +56,7 @@ Each agent is a product: a clear job, the tools it may use, the actions it may p
 
 | # | Moat | What builds up over time | How it makes agents better |
 |---|---|---|---|
-| 1 | **Supplier network** (two-sided, deduplicated by VAT number) | Suppliers transacting on BOH | Agents can message, compare and switch suppliers; suppliers confirm orders on the platform |
+| 1 | **Supplier network** (two-sided, deduplicated by VAT number) | Suppliers transacting on Backhouse | Agents can message, compare and switch suppliers; suppliers confirm orders on the platform |
 | 2 | **Data flywheel** | Shared ingredient map, price index, benchmarks | Agents know whether a price is fair across the market, not just versus last week |
 | 3 | **Corrections → training data** | Every approval, rejection and edit, stored | Agents tuned and evaluated on real decisions; rejected suggestions teach the agent |
 | 4 | **Regulatory depth** | ZATCA e-invoicing, VAT, in-Kingdom hosting | The Invoice agent reads structured e-invoices exactly |
@@ -109,9 +109,9 @@ Each agent is a product: a clear job, the tools it may use, the actions it may p
 
 ### 4.6 Open access: API, tokens and MCP
 - **Personal access tokens** (`boh_pat_…`): created by a user for one org, inheriting that user's permissions there, hashed at rest, with expiry and revocation.
-- **MCP server** at `/mcp` (Streamable HTTP, stateless) exposes BOH's actions as tools: search items, item details, suppliers, recent price changes, ingredient matching, the agent inbox, approving and rejecting tasks.
+- **MCP server** at `/mcp` (Streamable HTTP, stateless) exposes Backhouse's actions as tools: search items, item details, suppliers, recent price changes, ingredient matching, the agent inbox, approving and rejecting tasks.
   - The same permissions apply.
-  - This lets a customer's own AI assistant work with BOH, and lets BOH agents be offered inside other agent platforms.
+  - This lets a customer's own AI assistant work with Backhouse, and lets Backhouse agents be offered inside other agent platforms.
 - **Public REST API** with OpenAPI (existing).
 
 ### 4.7 Channels
@@ -211,7 +211,7 @@ Detail carried over from v0.1, condensed. See `research/` for the incumbent's be
 - **POS:** Foodics first (GCC market leader), then Square / Lightspeed / others on demand. Menu pull and sales pull or webhook → depletion.
 - **Accounting:** Xero, Zoho Books (popular in the GCC), QuickBooks. Bills, credit notes, period-end journals (COGS, waste, stock value change, intercompany). GL mapping per category and entity.
 - **E-invoicing:**
-  - **KSA (first):** ZATCA Phase 2 issuing module for suppliers and central kitchens on BOH (UBL 2.1 XML, cryptographic stamp, QR, device/EGS onboarding per supplier, B2B clearance and B2C reporting); ingestion of received XML / PDF-A3 from suppliers' own systems. *To check: ZATCA's current rules on solution providers / qualified vendor lists, and whether a third-party specialist (SDK or middleware) is faster to build on than doing it ourselves.*
+  - **KSA (first):** ZATCA Phase 2 issuing module for suppliers and central kitchens on Backhouse (UBL 2.1 XML, cryptographic stamp, QR, device/EGS onboarding per supplier, B2B clearance and B2C reporting); ingestion of received XML / PDF-A3 from suppliers' own systems. *To check: ZATCA's current rules on solution providers / qualified vendor lists, and whether a third-party specialist (SDK or middleware) is faster to build on than doing it ourselves.*
   - **UAE (Year 2):** partner with an Accredited Service Provider (receive as buyer endpoint; issue for suppliers), PINT AE format. Path to becoming a Peppol service provider (UAE ASP accreditation reportedly needs about 2 years of operating history).
 - **WhatsApp:** WhatsApp Business Platform (Cloud API) via a business solution provider; message templates for POs, approvals and reports.
 - **Speech:** a multilingual speech-to-text provider (evaluate Hindi, Urdu, Malayalam, Tagalog, Gulf Arabic accuracy), then Claude to parse into structured commands against the tenant's catalogue.

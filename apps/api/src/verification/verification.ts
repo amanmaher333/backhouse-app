@@ -34,7 +34,7 @@ export const NAME_MATCH_THRESHOLD = 0.6;
 const MAX_PENDING_ATTEMPTS = 10;
 
 /**
- * Company checks against the commercial register, with no one at BOH involved in the
+ * Company checks against the commercial register, with no one at Backhouse involved in the
  * normal case: an active CR whose name matches is verified on the spot; a missing or
  * expired CR is rejected with the reason; a name mismatch goes to a short review queue.
  */
@@ -132,9 +132,9 @@ export class VerificationService {
     return done;
   }
 
-  // ---------- BOH review queue (the only manual step) ----------
+  // ---------- Backhouse review queue (the only manual step) ----------
 
-  /** Platform admins are members of BOH's own organisation (type "platform"). */
+  /** Platform admins are members of Backhouse's own organisation (type "platform"). */
   async assertPlatformAdmin(userId: string) {
     const [row] = await this.db.system((tx) =>
       tx
@@ -143,7 +143,7 @@ export class VerificationService {
         .innerJoin(organizations, eq(organizations.id, memberships.orgId))
         .where(and(eq(memberships.userId, userId), eq(organizations.type, 'platform'))),
     );
-    if (!row) throw new ForbiddenException('BOH staff only');
+    if (!row) throw new ForbiddenException('Backhouse staff only');
   }
 
   async reviewQueue(userId: string, status: string) {

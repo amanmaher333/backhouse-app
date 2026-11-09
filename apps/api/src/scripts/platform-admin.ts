@@ -1,5 +1,5 @@
 /**
- * Make an existing user a BOH platform admin (can review company checks).
+ * Make an existing user a Backhouse platform admin (can review company checks).
  * Usage: pnpm --filter @boh/api platform:admin someone@boh.sa
  */
 import { and, eq, isNull, sql } from 'drizzle-orm';
@@ -17,10 +17,10 @@ try {
     const [user] = await tx.select().from(users).where(sql`lower(${users.email}) = ${email.toLowerCase()}`);
     if (!user) throw new Error(`No user ${email}; they must sign up first`);
     let [org] = await tx.select().from(organizations).where(eq(organizations.type, 'platform')).limit(1);
-    if (!org) [org] = await tx.insert(organizations).values({ type: 'platform', name: 'BOH', nameAr: 'بوه' }).returning();
+    if (!org) [org] = await tx.insert(organizations).values({ type: 'platform', name: 'Backhouse', nameAr: 'بوه' }).returning();
     const [role] = await tx.select().from(roles).where(and(isNull(roles.orgId), eq(roles.key, 'org_admin')));
     await tx.insert(memberships).values({ orgId: org!.id, userId: user.id, roleId: role!.id }).onConflictDoNothing();
-    console.log(`${email} is now a BOH platform admin (org ${org!.id})`);
+    console.log(`${email} is now a Backhouse platform admin (org ${org!.id})`);
   });
 } finally {
   await pool.end();

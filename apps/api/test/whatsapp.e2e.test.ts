@@ -141,13 +141,13 @@ describe('Linking a number', () => {
     expect(lastTo(number).content.text).toContain('wrong or has expired');
     const { code: code2 } = (await http.post('/v1/me/whatsapp/link').set(auth(other.token)).expect(201)).body;
     await text(number, code2).expect(200);
-    expect(lastTo(number).content.text).toContain('linked to another BOH account');
+    expect(lastTo(number).content.text).toContain('linked to another Backhouse account');
   });
 
   it('answers unknown numbers and supports STOP / START', async () => {
     const stranger = phone();
     await text(stranger, 'hello').expect(200);
-    expect(lastTo(stranger).content.text).toContain('not linked to a BOH account');
+    expect(lastTo(stranger).content.text).toContain('not linked to a Backhouse account');
 
     const x = await setup('ar');
     const number = await link(x.token);
@@ -281,7 +281,7 @@ describe('Approving on WhatsApp', () => {
     // Decided in the web meanwhile
     await http.post(`/v1/agent-tasks/${task.id}/reject`).set(auth(x.token)).send({}).expect(200);
     await tap(owner, lastTo(owner).content.buttons![0]!.id).expect(200);
-    expect(lastTo(owner).content.text).toContain('was already rejected in BOH');
+    expect(lastTo(owner).content.text).toContain('was already rejected in Backhouse');
     expect((await http.get('/v1/purchase-orders?status=all').set(auth(x.token))).body).toHaveLength(0);
   });
 

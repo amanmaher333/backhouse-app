@@ -149,7 +149,7 @@ export class AuthService {
       const [admin] = await tx.select().from(roles).where(and(isNull(roles.orgId), eq(roles.key, 'org_admin')));
       if (!admin) throw new Error('System roles not seeded; run migrations');
       await tx.insert(memberships).values({ orgId: org!.id, userId: user!.id, roleId: admin.id });
-      // Restaurants start a free trial; suppliers are free. No one at BOH has to set anything up.
+      // Restaurants start a free trial; suppliers are free. No one at Backhouse has to set anything up.
       await tx.insert(subscriptions).values(BillingService.initialSubscription(org!.id, dto.organization.type));
 
       const base = { orgId: org!.id, userId: user!.id, requestId: meta.requestId, ip: meta.ip };

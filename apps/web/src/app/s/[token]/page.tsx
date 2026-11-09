@@ -20,7 +20,7 @@ interface SupplierOrder {
   canAnswer: boolean;
 }
 
-/** The supplier's view of an order sent through BOH. No account: the private link is the credential. */
+/** The supplier's view of an order sent through Backhouse. No account: the private link is the credential. */
 export default function SupplierOrderPage() {
   const { token } = useParams<{ token: string }>();
   const { t, pick, lang, fmtMoney, fmtDate } = useI18n();

@@ -395,7 +395,7 @@ function Simulator({ linked, onActivity }: { linked: boolean; onActivity: () => 
         <div className="wa-phone-bar">
           <span className="wa-avatar">B</span>
           <div>
-            <div style={{ fontWeight: 600 }}>BOH</div>
+            <div style={{ fontWeight: 600 }}>Backhouse</div>
             <div style={{ fontSize: 11, opacity: 0.8 }}>{t('whatsapp')}</div>
           </div>
         </div>

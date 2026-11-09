@@ -27,11 +27,11 @@ async function signup(crNumber: string, name = 'Najd Kitchens Co.', nameAr = 'ش
   return { token: s.body.accessToken as string, legalEntity: s.body.legalEntity, userId: s.body.user.id as string };
 }
 
-/** BOH staff: a member of BOH's own organisation (type "platform"). */
+/** Backhouse staff: a member of Backhouse's own organisation (type "platform"). */
 async function platformAdmin() {
   const x = await signup(cr('1234'));
   await db.system(async (tx) => {
-    const [org] = await tx.insert(organizations).values({ type: 'platform', name: `BOH ${uniq()}` }).returning();
+    const [org] = await tx.insert(organizations).values({ type: 'platform', name: `Backhouse ${uniq()}` }).returning();
     const [role] = await tx.select().from(roles).where(and(isNull(roles.orgId), eq(roles.key, 'org_admin')));
     await tx.insert(memberships).values({ orgId: org!.id, userId: x.userId, roleId: role!.id });
   });
@@ -69,7 +69,7 @@ describe('Company verification', () => {
     expect(h[0]).toMatchObject({ status: 'rejected', reason: 'The CR is expired' });
   });
 
-  it('sends a name mismatch to BOH review, the only manual step', async () => {
+  it('sends a name mismatch to Backhouse review, the only manual step', async () => {
     const x = await signup(cr('8888'));
     expect(x.legalEntity.verificationStatus).toBe('needs_review');
     const reviewer = await platformAdmin();

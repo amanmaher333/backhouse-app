@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { waId } from '@boh/domain';
 import type { AppConfig } from '../config.js';
 
-/** What BOH stores for each outbound message; the sender turns it into a Cloud API request. */
+/** What Backhouse stores for each outbound message; the sender turns it into a Cloud API request. */
 export interface MessageContent {
   lang: 'ar' | 'en';
   /** Free-form body (text message, or interactive body). */

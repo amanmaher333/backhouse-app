@@ -137,7 +137,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="shell" data-drawer={drawer ? 'open' : 'closed'} data-collapsed={collapsed}>
       <aside className="sidebar" aria-label={t('menu')}>
         <div className="brand">
-          <div className="brand-logo">B</div>
+          <img className="brand-logo" src="/icons/icon.svg" alt="" width={36} height={36} />
           <div className="hide-collapsed">
             <div className="brand-name">{t('appName')}</div>
             <div className="brand-sub">{t('appSub')}</div>

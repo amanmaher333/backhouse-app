@@ -35,7 +35,7 @@ import { VerificationService } from '../verification/verification.js';
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 const LINK_TTL_DAYS = 45;
 const NOTE_WINDOW_MIN = 120;
-/** A supplier's free text is attached to their latest order sent from BOH within this many days. */
+/** A supplier's free text is attached to their latest order sent from Backhouse within this many days. */
 const THREAD_DAYS = 30;
 const NOTIFY_MAX = 5;
 
@@ -77,7 +77,7 @@ export interface OrderToSend {
 }
 
 /**
- * Messages between restaurants and their suppliers, sent from BOH's WhatsApp number.
+ * Messages between restaurants and their suppliers, sent from Backhouse's WhatsApp number.
  * Orders go with Confirm / Problem buttons and a private link; replies come back onto the
  * order, and the people who manage that site's orders hear about problems.
  */
@@ -102,9 +102,9 @@ export class SupplierMessenger {
   async sendOrder(tx: Tx, a: AccessContext, po: OrderToSend, message: string) {
     const to = this.supplierAddress(po.supplier.contactPhone);
     if (!to) throw new BadRequestException('This supplier has no valid WhatsApp number');
-    // BOH's number speaks for the restaurant: only verified companies may use it (keeps spam off it).
+    // Backhouse's number speaks for the restaurant: only verified companies may use it (keeps spam off it).
     if (!(await this.verification.isVerified(tx, a.orgId))) {
-      throw new BadRequestException('Verify your company (CR) under Settings before BOH sends orders to suppliers for you');
+      throw new BadRequestException('Verify your company (CR) under Settings before Backhouse sends orders to suppliers for you');
     }
     const [org] = await tx.select().from(organizations).where(eq(organizations.id, a.orgId));
     const token = randomBytes(24).toString('base64url');
@@ -122,7 +122,7 @@ export class SupplierMessenger {
     const content: MessageContent = {
       lang: 'ar',
       text: `${clip(message, WA_LIMITS.body - tail.length - 2)}\n\n${tail}`,
-      footer: clip(`BOH · ${orgName}`, 60),
+      footer: clip(`Backhouse · ${orgName}`, 60),
       buttons: [
         { id: supplierPayload(link!.id, 'confirm'), title: 'تأكيد / Confirm' },
         { id: supplierPayload(link!.id, 'problem'), title: 'مشكلة / Problem' },
@@ -150,7 +150,7 @@ export class SupplierMessenger {
     const content: MessageContent = {
       lang: 'ar',
       text: clip(`${p.messageAr}\n\n${p.message}`, WA_LIMITS.body),
-      footer: clip(`BOH · ${orgName}`, 60),
+      footer: clip(`Backhouse · ${orgName}`, 60),
       template: { name: this.config.WHATSAPP_TEMPLATE_SUPPLIER_FOLLOWUP, bodyParams: [templateParam(orgName, 100), templateParam(p.about, 60), templateParam(p.messageAr, 700)], quickReplyPayloads: [] },
     };
     const messageId = await queueOutbound(tx, { orgId: a.orgId, userId: null, to, kind: 'supplier_followup', content, relationshipId: rel.id, poId: p.poId ?? null });
@@ -288,8 +288,8 @@ export class SupplierMessenger {
   }
 
   /**
-   * WhatsApp from a supplier number (not a BOH user): a button on an order, or text.
-   * Returns null when the number is not a supplier BOH has sent orders to.
+   * WhatsApp from a supplier number (not a Backhouse user): a button on an order, or text.
+   * Returns null when the number is not a supplier Backhouse has sent orders to.
    */
   async handleInbound(m: { from: string; inboundId: number; answer?: { linkId: string; answer: 'confirm' | 'problem' }; text?: string }) {
     return this.db.system(async (tx) => {

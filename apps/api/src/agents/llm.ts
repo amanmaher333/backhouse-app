@@ -37,7 +37,7 @@ const PRICING: Record<string, [number, number]> = {
   'claude-haiku-5-5': [0.1, 0.5],
 };
 
-const SYSTEM = `You write short notifications for BOH, a back-office platform for restaurant groups in Saudi Arabia.
+const SYSTEM = `You write short notifications for Backhouse, a back-office platform for restaurant groups in Saudi Arabia.
 You receive evidence as JSON that has already been calculated. Write the requested fields in English and Modern Standard Arabic.
 Rules:
 - Use only numbers that appear in the evidence. Never invent prices, percentages, dates or names.

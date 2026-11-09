@@ -1,17 +1,37 @@
 {
-  "name": "BOH — Back of house",
-  "short_name": "BOH",
-  "description": "Purchasing, stock, recipes and food cost for restaurant groups",
+  "name": "Backhouse",
+  "short_name": "Backhouse",
+  "description": "The AI back office for restaurant groups: agents for purchasing and supplier prices, approved on WhatsApp",
   "start_url": "/overview",
   "scope": "/",
   "display": "standalone",
   "background_color": "#F4F4F5",
-  "theme_color": "#0F766E",
+  "theme_color": "#1D513F",
   "lang": "ar",
   "dir": "auto",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
   ]
 }

@@ -2,7 +2,7 @@ import { Decimal } from 'decimal.js';
 import { normalizeName } from './text.js';
 
 /*
- * BOH subscriptions. Restaurants pay a platform fee per organisation plus each hired agent
+ * Backhouse subscriptions. Restaurants pay a platform fee per organisation plus each hired agent
  * per active site; suppliers are free. Annual billing is ten months' price for twelve.
  * All prices in SAR, before 15% VAT. These are launch prices to validate with design partners.
  */
@@ -52,7 +52,7 @@ export function computeBill(input: BillInput): Bill {
     const unit = new Decimal(monthly).mul(months);
     lines.push({ code, description: en, descriptionAr: ar, quantity: qty, unitPrice: unit.toFixed(2), amount: unit.mul(qty).toFixed(2) });
   };
-  add('platform', `BOH platform (1 ${per.en})`, `منصة BOH (${per.ar} واحد)`, 1, PLATFORM_FEE_MONTHLY);
+  add('platform', `Backhouse platform (1 ${per.en})`, `منصة Backhouse (${per.ar} واحد)`, 1, PLATFORM_FEE_MONTHLY);
   for (const a of input.agents) {
     add(
       `agent:${a.kind}`,

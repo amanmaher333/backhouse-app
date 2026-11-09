@@ -19,7 +19,7 @@ export function AuthFrame({ title, children }: { title: string; children: ReactN
           <ThemeButton />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div className="brand-logo">B</div>
+          <img className="brand-logo" src="/icons/icon.svg" alt="" width={36} height={36} />
           <h2>{title}</h2>
         </div>
         {children}

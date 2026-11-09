@@ -345,7 +345,7 @@ export const purchasing: AgentDefinition = {
     if (action.type === 'contact_supplier') {
       const p = action.params as { supplierId?: string; channel?: string; email?: string | null; phone?: string | null; message: string; messageAr: string };
       const body = `${p.messageAr}\n\n${p.message}`;
-      // Suppliers who take orders on WhatsApp get the chaser from BOH directly, once a person approved it.
+      // Suppliers who take orders on WhatsApp get the chaser from Backhouse directly, once a person approved it.
       if (p.channel === 'whatsapp' && p.supplierId) {
         const ev = ctx.task.evidence as { poId?: string; number?: string };
         const sent = await ctx.services.messenger.sendFollowUp(ctx.tx, ctx.access, { relationshipId: p.supplierId, poId: ev.poId ?? null, about: `الطلب ${ev.number ?? ''}`.trim(), message: p.message, messageAr: p.messageAr });

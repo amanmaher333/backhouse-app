@@ -329,7 +329,7 @@ export class ProcurementService {
 
   /**
    * Mark as sent. With direct (the default when the supplier orders by WhatsApp and has a
-   * number), BOH sends it to the supplier's WhatsApp itself; otherwise it returns a
+   * number), Backhouse sends it to the supplier's WhatsApp itself; otherwise it returns a
    * ready-to-send message with email/WhatsApp links.
    */
   send(a: AccessContext, id: string, via?: string, direct?: boolean) {

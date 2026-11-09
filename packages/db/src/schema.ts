@@ -58,7 +58,7 @@ export const organizations = pgTable('organizations', {
 });
 
 export interface OrgSettings {
-  /** Largest task value (SAR, incl. VAT) that can be approved from WhatsApp. Above it, the card links to BOH instead. */
+  /** Largest task value (SAR, incl. VAT) that can be approved from WhatsApp. Above it, the card links to Backhouse instead. */
   whatsappApprovalMax?: number;
 }
 
@@ -322,7 +322,7 @@ export const orgCounters = pgTable(
 );
 
 /**
- * Shared ingredient map (global, curated by BOH). Every tenant item and supplier
+ * Shared ingredient map (global, curated by Backhouse). Every tenant item and supplier
  * item points here; it powers matching, onboarding and benchmarks.
  */
 export const canonicalIngredients = pgTable('canonical_ingredients', {
@@ -340,7 +340,7 @@ export const canonicalIngredients = pgTable('canonical_ingredients', {
 });
 
 /**
- * Names that point at a canonical ingredient. Seed aliases come from BOH;
+ * Names that point at a canonical ingredient. Seed aliases come from Backhouse;
  * learned aliases come from people confirming matches and only count once
  * confirmed by at least 2 different organisations (so one tenant can't poison the map).
  */
@@ -458,7 +458,7 @@ export const itemSiteSettings = pgTable(
 );
 
 /**
- * A supplier as a business, shared across BOH. Created "unclaimed" by the first
+ * A supplier as a business, shared across Backhouse. Created "unclaimed" by the first
  * restaurant that adds it; the supplier can later claim it as their own org.
  * Deduplicated by VAT number.
  */
@@ -1009,7 +1009,7 @@ export const channelLinkCodes = pgTable(
   (t) => [uniqueIndex('channel_link_codes_hash_uq').on(t.codeHash)],
 );
 
-/** Outbox and log of messages BOH sends. org_id is NULL for account messages (e.g. link confirmations). */
+/** Outbox and log of messages Backhouse sends. org_id is NULL for account messages (e.g. link confirmations). */
 export const outboundMessages = pgTable(
   'outbound_messages',
   {
@@ -1086,7 +1086,7 @@ export const approvalPrompts = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     taskId: uuid('task_id').notNull(),
     actionId: text('action_id').notNull(),
-    /** False when the task is above the org's WhatsApp approval cap: the card can reject, or link to BOH. */
+    /** False when the task is above the org's WhatsApp approval cap: the card can reject, or link to Backhouse. */
     canApprove: boolean('can_approve').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     usedAt: timestamp('used_at', { withTimezone: true }),
@@ -1164,7 +1164,7 @@ export const subscriptions = pgTable('subscriptions', {
   currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
   currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
   cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
-  /** Saved card: provider token plus display details. The token only works with BOH's secret key. */
+  /** Saved card: provider token plus display details. The token only works with Backhouse's secret key. */
   paymentMethod: jsonb('payment_method').$type<{ provider: string; token: string; brand: string; last4: string; expMonth?: number; expYear?: number } | null>(),
   failedAttempts: integer('failed_attempts').notNull().default(0),
   nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
@@ -1172,7 +1172,7 @@ export const subscriptions = pgTable('subscriptions', {
   updatedAt: updatedAt(),
 });
 
-/** BOH's own tax invoices to its customers (simplified ZATCA phase-1 fields until the ZATCA integration). */
+/** Backhouse's own tax invoices to its customers (simplified ZATCA phase-1 fields until the ZATCA integration). */
 export const billingInvoices = pgTable(
   'billing_invoices',
   {

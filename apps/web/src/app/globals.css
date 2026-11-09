@@ -1,5 +1,5 @@
 /*
- * BOH design system.
+ * Backhouse design system.
  * Back office uses the POS tokens (docs/design/design-spec.md §1).
  * The AI agent screen (.ai) uses the AI Insights tokens (§2).
  * Logical properties throughout so [dir="rtl"] mirrors without extra CSS.
