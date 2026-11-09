@@ -1247,3 +1247,167 @@ export const companyVerifications = pgTable(
     index('company_verifications_status_idx').on(t.status, t.createdAt),
   ],
 );
+
+/* =====================================================================
+ * Phase 3: supplier invoices
+ * ===================================================================== */
+
+export const supplierInvoiceStatus = pgEnum('supplier_invoice_status', [
+  /** Supplier or order still to be confirmed by a person (unknown sender, no order found, unreadable). */
+  'needs_review',
+  /** Agrees with the order and the deliveries. */
+  'matched',
+  /** Differs from the order or the deliveries. */
+  'mismatch',
+  /** Approved for payment. */
+  'approved',
+  /** A credit note was requested from the supplier. */
+  'disputed',
+  'paid',
+  'rejected',
+]);
+
+/** Original files (PDF, image, e-invoice XML), kept for audit. */
+export const invoiceDocuments = pgTable(
+  'invoice_documents',
+  {
+    id: id(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    filename: text('filename').notNull(),
+    contentType: text('content_type').notNull(),
+    size: integer('size').notNull(),
+    sha256: text('sha256').notNull(),
+    /** base64; moves to object storage when volume needs it. */
+    data: text('data').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [unique('invoice_documents_org_id_id_uq').on(t.orgId, t.id), index('invoice_documents_sha_idx').on(t.orgId, t.sha256)],
+);
+
+export const supplierInvoices = pgTable(
+  'supplier_invoices',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    /** Backhouse's reference, SI-00001. */
+    ref: text('ref').notNull(),
+    type: text('type').notNull().default('invoice'),
+    status: supplierInvoiceStatus('status').notNull().default('needs_review'),
+    relationshipId: uuid('relationship_id'),
+    siteId: uuid('site_id'),
+    poId: uuid('po_id'),
+    /** For credit notes: the invoice being corrected. */
+    correctsInvoiceId: uuid('corrects_invoice_id'),
+    /** The supplier's own numbering. */
+    number: text('number'),
+    zatcaUuid: text('zatca_uuid'),
+    issueDate: text('issue_date'),
+    dueDate: text('due_date'),
+    currency: text('currency').notNull().default('SAR'),
+    subtotal: numeric('subtotal', { precision: 16, scale: 2 }),
+    taxTotal: numeric('tax_total', { precision: 16, scale: 2 }),
+    total: numeric('total', { precision: 16, scale: 2 }),
+    supplierVat: text('supplier_vat'),
+    supplierNameOnInvoice: text('supplier_name_on_invoice'),
+    buyerVat: text('buyer_vat'),
+    orderReference: text('order_reference'),
+    billingReference: text('billing_reference'),
+    /** manual, upload, email */
+    source: text('source').notNull(),
+    /** xml (e-invoice), claude, manual, none */
+    extractedBy: text('extracted_by').notNull(),
+    documentId: uuid('document_id'),
+    /** The email it came in, for email intake. */
+    emailFrom: text('email_from'),
+    emailSubject: text('email_subject'),
+    /** What the extraction produced, before any edits (training data for corrections). */
+    extraction: jsonb('extraction').$type<Record<string, unknown> | null>(),
+    /** Latest three-way match result. */
+    match: jsonb('match').$type<Record<string, unknown> | null>(),
+    claimTotal: numeric('claim_total', { precision: 16, scale: 2 }).notNull().default('0'),
+    /** Why a person must look (unknown sender, no order, unreadable, ...). */
+    reviewReasons: text('review_reasons').array().notNull().default(sql`'{}'::text[]`),
+    disputeMessage: text('dispute_message'),
+    disputedAt: timestamp('disputed_at', { withTimezone: true }),
+    disputedBy: uuid('disputed_by'),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    approvedBy: uuid('approved_by'),
+    /** Approved although it did not match (with the reason). */
+    approvedOverride: text('approved_override'),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    paymentReference: text('payment_reference'),
+    rejectedAt: timestamp('rejected_at', { withTimezone: true }),
+    rejectReason: text('reject_reason'),
+    agentTaskId: uuid('agent_task_id'),
+    createdBy: uuid('created_by'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('supplier_invoices_org_id_id_uq').on(t.orgId, t.id),
+    unique('supplier_invoices_org_ref_uq').on(t.orgId, t.ref),
+    foreignKey({ columns: [t.orgId, t.relationshipId], foreignColumns: [tradingRelationships.orgId, tradingRelationships.id] }),
+    foreignKey({ columns: [t.orgId, t.siteId], foreignColumns: [sites.orgId, sites.id] }),
+    foreignKey({ columns: [t.orgId, t.poId], foreignColumns: [purchaseOrders.orgId, purchaseOrders.id] }),
+    foreignKey({ columns: [t.orgId, t.documentId], foreignColumns: [invoiceDocuments.orgId, invoiceDocuments.id] }),
+    index('supplier_invoices_org_status_idx').on(t.orgId, t.status, t.createdAt),
+    index('supplier_invoices_supplier_number_idx').on(t.relationshipId, t.number),
+    index('supplier_invoices_po_idx').on(t.poId),
+  ],
+);
+
+export const supplierInvoiceLines = pgTable(
+  'supplier_invoice_lines',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    invoiceId: uuid('invoice_id').notNull(),
+    lineNo: integer('line_no').notNull(),
+    description: text('description').notNull(),
+    supplierSku: text('supplier_sku'),
+    qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),
+    unit: text('unit'),
+    unitPrice: numeric('unit_price', { precision: 14, scale: 4 }).notNull(),
+    lineTotal: numeric('line_total', { precision: 16, scale: 2 }).notNull(),
+    taxRate: numeric('tax_rate', { precision: 6, scale: 4 }),
+    /** Set by a person to pair the line with an order line; the matcher fills its own pairing in `match`. */
+    poLineId: uuid('po_line_id'),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.invoiceId], foreignColumns: [supplierInvoices.orgId, supplierInvoices.id] }).onDelete('cascade'),
+    index('supplier_invoice_lines_invoice_idx').on(t.invoiceId, t.lineNo),
+  ],
+);
+
+/** Each organisation's private invoice email address: invoices+<token>@<inbound domain>. */
+export const invoiceInboxes = pgTable(
+  'invoice_inboxes',
+  {
+    orgId: uuid('org_id')
+      .primaryKey()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    token: text('token').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('invoice_inboxes_token_uq').on(t.token)],
+);
+
+/** Inbound emails, deduplicated by message id (providers retry). */
+export const inboundEmails = pgTable(
+  'inbound_emails',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    orgId: uuid('org_id'),
+    messageId: text('message_id').notNull(),
+    fromAddress: text('from_address').notNull(),
+    toAddress: text('to_address').notNull(),
+    subject: text('subject'),
+    attachments: integer('attachments').notNull().default(0),
+    invoices: integer('invoices').notNull().default(0),
+    outcome: text('outcome').notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('inbound_emails_message_uq').on(t.messageId)],
+);

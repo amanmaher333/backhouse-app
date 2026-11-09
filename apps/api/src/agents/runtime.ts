@@ -25,6 +25,7 @@ import type { AgentDefinition, AgentOutput, AgentRow, AgentServices, RunContext,
 import { ProcurementService } from '../modules/procurement.js';
 import { StockService } from '../modules/stock.js';
 import { SupplierMessenger } from '../channels/supplier-messenger.js';
+import { InvoicesService } from '../invoices/invoices.service.js';
 
 const OPEN = ['proposed', 'approved'] as const;
 
@@ -63,8 +64,9 @@ export class AgentRuntime {
     procurement: ProcurementService,
     stock: StockService,
     messenger: SupplierMessenger,
+    invoices: InvoicesService,
   ) {
-    this.services = { procurement, stock, messenger };
+    this.services = { procurement, stock, messenger, invoices };
   }
 
   // ---------- identities ----------

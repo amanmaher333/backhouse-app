@@ -90,7 +90,7 @@ describe('MCP server', () => {
     const tools = await mcp(pat, 'tools/list').expect(200);
     const names = tools.body.result.tools.map((t: any) => t.name);
     expect(names).toEqual(
-      expect.arrayContaining(['search_items', 'get_item', 'match_ingredients', 'list_suppliers', 'recent_price_changes', 'set_supplier_price', 'list_agent_tasks', 'approve_agent_task']),
+      expect.arrayContaining(['search_items', 'get_item', 'match_ingredients', 'list_suppliers', 'recent_price_changes', 'set_supplier_price', 'list_agent_tasks', 'approve_agent_task', 'list_supplier_invoices', 'get_supplier_invoice']),
     );
 
     // Set up data through REST, then use MCP to read it and approve an agent action.

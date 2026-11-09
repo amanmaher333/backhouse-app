@@ -8,3 +8,4 @@ export * from './stock.js';
 export * from './channels.js';
 export * from './billing.js';
 export { Decimal } from 'decimal.js';
+export * from './invoices.js';

@@ -56,6 +56,10 @@ const schema = z.object({
   REGISTRY_PROVIDER: z.enum(['simulated', 'wathq']).default('simulated'),
   WATHQ_API_KEY: z.string().optional(),
   WATHQ_BASE_URL: z.string().url().default('https://api.wathq.sa/v5/commercialregistration'),
+  /** Supplier invoices by email: invoices+<org token>@INBOUND_EMAIL_DOMAIN, posted to /v1/webhooks/invoice-email by the mail provider. */
+  INBOUND_EMAIL_DOMAIN: z.string().default('in.backhouse.sa'),
+  /** Shared secret for the inbound email webhook (HMAC-SHA256 of the body in X-Backhouse-Signature). Unset = email intake off. */
+  INBOUND_EMAIL_SECRET: z.string().optional(),
   WHATSAPP_PROMPT_TTL_HOURS: z.coerce.number().int().positive().default(72),
 });
 

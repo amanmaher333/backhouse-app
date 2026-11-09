@@ -18,6 +18,8 @@ import { SuppliersModule, SuppliersService } from '../modules/suppliers.js';
 import { MatchingModule, MatchingService } from '../modules/matching.js';
 import { AgentsModule } from '../agents/agents.module.js';
 import { AgentRuntime } from '../agents/runtime.js';
+import { InvoicesModule } from '../invoices/invoices.module.js';
+import { InvoicesService } from '../invoices/invoices.service.js';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
 
@@ -97,12 +99,13 @@ export class McpController {
     private readonly suppliers: SuppliersService,
     private readonly matching: MatchingService,
     private readonly agents: AgentRuntime,
+    private readonly invoices: InvoicesService,
   ) {}
 
   private buildServer(a: AccessContext): McpServer {
     const server = new McpServer(
       { name: 'boh', version: '0.1.0' },
-      { instructions: 'Backhouse restaurant back office: items, suppliers, prices, the shared ingredient map, and the agent inbox. Prices are in SAR.' },
+      { instructions: 'Backhouse restaurant back office: items, suppliers, prices, the shared ingredient map, supplier invoices, and the agent inbox. Prices are in SAR.' },
     );
     const guard = async <T>(fn: () => Promise<T>) => {
       try {
@@ -175,6 +178,28 @@ export class McpController {
         ({ supplier_item_id, price }) => guard(() => this.suppliers.setPrice(a, supplier_item_id, { price: price.toFixed(4) } as any)),
       );
     }
+    if (a.can('invoice:read')) {
+      server.registerTool(
+        'list_supplier_invoices',
+        {
+          title: 'List supplier invoices',
+          description: 'Supplier invoices with match status (needs_review, matched, mismatch, approved, disputed, paid, rejected), totals and the amount to claim back. "review" = needs a person, "to_pay" = approved and unpaid.',
+          inputSchema: { status: z.enum(['review', 'open', 'to_pay', 'all', 'needs_review', 'matched', 'mismatch', 'approved', 'disputed', 'paid', 'rejected']).default('open'), limit: z.number().int().min(1).max(200).default(50) },
+          annotations: { readOnlyHint: true },
+        },
+        ({ status, limit }) => guard(() => this.invoices.list(a, { status, limit })),
+      );
+      server.registerTool(
+        'get_supplier_invoice',
+        {
+          title: 'Get supplier invoice',
+          description: 'One supplier invoice: lines, the order and quantities received, and every difference found by the three-way match.',
+          inputSchema: { invoice_id: z.string().uuid() },
+          annotations: { readOnlyHint: true },
+        },
+        ({ invoice_id }) => guard(() => this.invoices.detail(a, invoice_id)),
+      );
+    }
     if (a.can('agent:read')) {
       server.registerTool(
         'list_agent_tasks',
@@ -242,5 +267,5 @@ export class McpController {
   }
 }
 
-@Module({ imports: [ItemsModule, SuppliersModule, MatchingModule, AgentsModule], controllers: [AccessTokensController, McpController] })
+@Module({ imports: [ItemsModule, SuppliersModule, MatchingModule, AgentsModule, InvoicesModule], controllers: [AccessTokensController, McpController] })
 export class McpModule {}

@@ -4,6 +4,7 @@ import type { ProcurementService } from '../modules/procurement.js';
 import type { SupplierMessenger } from '../channels/supplier-messenger.js';
 import type { StockService } from '../modules/stock.js';
 import type { LlmWriter } from './llm.js';
+import type { InvoicesService } from '../invoices/invoices.service.js';
 
 export type AgentRow = typeof agents.$inferSelect;
 export type TaskRow = typeof agentTasks.$inferSelect;
@@ -48,6 +49,8 @@ export interface AgentServices {
   stock: StockService;
   /** Sends approved messages to suppliers on WhatsApp. */
   messenger: SupplierMessenger;
+  /** Supplier invoices: matching, approval, credit-note requests. */
+  invoices: InvoicesService;
 }
 
 export interface RunContext {
