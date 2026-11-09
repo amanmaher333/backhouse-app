@@ -76,6 +76,13 @@ describe('recipes', () => {
     // 3.75 + 0.80 + 0.39975 = 4.9498; price before 15% VAT 25.00 → 19.8%.
     expect(burger).toMatchObject({ kind: 'menu', unitCost: '4.9498', price: '28.75', priceExVat: '25.00', foodCostPct: '19.8', overTarget: false, allergens: ['gluten', 'sesame'] });
 
+    // Previewing costs a draft without saving: a new recipe, and an edit to the burger.
+    const draft = (await http.post('/v1/recipes/preview').set(auth(x.token)).send({ name: 'Draft', lines: [{ itemId: x.chicken.id, qty: 200, unit: 'g' }, { itemId: x.bun.id, qty: 1, unit: 'ml' }], sellingPrice: 23 }).expect(200)).body;
+    expect(draft).toMatchObject({ unitCost: '5.0000', priceExVat: '20.00', foodCostPct: '25.0' });
+    expect(draft.lines[1]).toMatchObject({ problem: 'bad_unit' });
+    expect((await http.post('/v1/recipes/preview').set(auth(x.token)).send({ recipeId: burger.id, lines: [{ itemId: x.chicken.id, qty: 100, unit: 'g' }] }).expect(200)).body).toMatchObject({ name: 'Chicken burger', unitCost: '2.5000' });
+    expect((await http.get(`/v1/recipes/${burger.id}`).set(auth(x.token)).expect(200)).body.unitCost).toBe('4.9498');
+
     // Changing only the name leaves everything else alone.
     const renamed = (await http.patch(`/v1/recipes/${burger.id}`).set(auth(x.token)).send({ name: 'Classic chicken burger', targetCostPct: 15 }).expect(200)).body;
     expect(renamed).toMatchObject({ name: 'Classic chicken burger', yieldQty: '1.0000', unitCost: '4.9498', overTarget: true });

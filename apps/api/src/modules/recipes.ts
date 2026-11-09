@@ -72,6 +72,7 @@ export type RecipeInput = z.infer<typeof RecipeSchema>;
 const ListSchema = z.object({ kind: z.enum(['menu', 'prep']).optional(), q: z.string().max(80).optional(), basis: Basis });
 class ListDto extends createZodDto(ListSchema) {}
 class BasisDto extends createZodDto(z.object({ basis: Basis })) {}
+class PreviewDto extends createZodDto(RecipeFields.partial().extend({ recipeId: z.string().uuid().nullish(), basis: Basis.optional() })) {}
 class FromPosDto extends createZodDto(z.object({ productIds: z.array(z.string().uuid()).max(500).optional() })) {}
 
 /**
@@ -112,9 +113,25 @@ export class RecipesService {
   }
 
   /** Every active recipe costed, plus what's needed to show them. */
-  private async costAll(tx: Tx, basis: CostBasis) {
-    const rs = await tx.select().from(recipes).where(eq(recipes.isActive, true)).orderBy(asc(recipes.kind), asc(recipes.name));
-    const ls = rs.length ? await tx.select().from(recipeLines).where(inArray(recipeLines.recipeId, rs.map((r) => r.id))).orderBy(asc(recipeLines.position)) : [];
+  private async costAll(tx: Tx, basis: CostBasis, draft?: { id: string; input: Partial<RecipeInput> }) {
+    let rs = await tx.select().from(recipes).where(eq(recipes.isActive, true)).orderBy(asc(recipes.kind), asc(recipes.name));
+    let ls = rs.length ? await tx.select().from(recipeLines).where(inArray(recipeLines.recipeId, rs.map((r) => r.id))).orderBy(asc(recipeLines.position)) : [];
+    if (draft) {
+      // An unsaved version of a recipe (new or edited): cost it in place of the saved one.
+      const saved = rs.find((r) => r.id === draft.id);
+      const d = draft.input;
+      const row: RecipeRow = {
+        ...(saved ?? { id: draft.id, orgId: '', name: '', nameAr: null, kind: 'menu', category: null, yieldQty: '1', yieldUnit: 'each', sellingPrice: null, priceIncludesVat: true, targetCostPct: null, posProductId: null, notes: null, isActive: true, source: 'app', createdBy: null, createdAt: new Date(), updatedAt: new Date() }),
+        ...this.values(d),
+      } as RecipeRow;
+      rs = [...rs.filter((r) => r.id !== draft.id), row];
+      if (d.lines) {
+        ls = [
+          ...ls.filter((l) => l.recipeId !== draft.id),
+          ...d.lines.map((l, i) => ({ id: `draft-${i}`, orgId: '', recipeId: draft.id, position: i, itemId: l.itemId ?? null, subRecipeId: l.subRecipeId ?? null, qty: String(l.qty), unit: l.packId ? null : (l.unit ?? null), packId: l.packId ?? null, yieldPct: String(l.yieldPct ?? 100), note: l.note ?? null })),
+        ];
+      }
+    }
     const itemIds = [...new Set(ls.map((l) => l.itemId).filter((x): x is string => !!x))];
     const itemRows = itemIds.length ? await tx.select().from(items).where(inArray(items.id, itemIds)) : [];
     const packRows = itemIds.length ? await tx.select().from(packs).where(inArray(packs.itemId, itemIds)) : [];
@@ -196,8 +213,8 @@ export class RecipesService {
     });
   }
 
-  async detailInTx(tx: Tx, a: AccessContext, id: string, basis: CostBasis) {
-    const { rs, ls, itemRows, packRows, catalogue, costed, pos, vat } = await this.costAll(tx, basis);
+  async detailInTx(tx: Tx, a: AccessContext, id: string, basis: CostBasis, draft?: Partial<RecipeInput>) {
+    const { rs, ls, itemRows, packRows, catalogue, costed, pos, vat } = await this.costAll(tx, basis, draft ? { id, input: draft } : undefined);
     let r = rs.find((x) => x.id === id);
     if (!r) {
       [r] = await tx.select().from(recipes).where(eq(recipes.id, id));
@@ -242,6 +259,19 @@ export class RecipesService {
   detail(a: AccessContext, id: string, basis: CostBasis) {
     this.must(a, 'recipe:read');
     return this.db.tenant(a.tenant, (tx) => this.detailInTx(tx, a, id, basis));
+  }
+
+  /** Cost an unsaved recipe (new, or edits to `recipeId`) without saving it. Unit problems show on the lines. */
+  preview(a: AccessContext, dto: Partial<RecipeInput> & { recipeId?: string | null; basis?: CostBasis }) {
+    this.must(a, 'recipe:read');
+    return this.db.tenant(a.tenant, async (tx) => {
+      const { recipeId, basis, ...input } = dto;
+      if (recipeId) {
+        const [r] = await tx.select({ id: recipes.id }).from(recipes).where(eq(recipes.id, recipeId));
+        if (!r) throw new NotFoundException('recipe not found');
+      }
+      return this.detailInTx(tx, a, recipeId ?? '00000000-0000-4000-8000-000000000000', basis ?? 'supplier', input);
+    });
   }
 
   /** Check the lines (items, units, packs, preps without loops) and the POS link. */
@@ -459,6 +489,9 @@ export class RecipesController {
 
   @Post() @Requires('recipe:manage')
   create(@Access() a: AccessContext, @Body() dto: RecipeDto) { return this.svc.create(a, dto); }
+
+  @Post('preview') @Requires('recipe:read') @HttpCode(200)
+  preview(@Access() a: AccessContext, @Body() dto: PreviewDto) { return this.svc.preview(a, dto); }
 
   @Get('pos-products') @Requires('recipe:read')
   unlinked(@Access() a: AccessContext) { return this.svc.unlinkedProducts(a); }
