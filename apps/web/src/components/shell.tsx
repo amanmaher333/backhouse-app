@@ -49,6 +49,7 @@ const MAIN: NavItem[] = [
   { href: '/sales', label: 'salesInvoices', icon: IconStamp, perm: 'sales_invoice:read' },
   { href: '/stock', label: 'stock', icon: IconLayers, perm: 'stock:read' },
   { href: '/items', label: 'items', icon: IconBox, perm: 'item:read' },
+  { href: '/recipes', label: 'recipes', icon: IconList, perm: 'recipe:read' },
   { href: '/suppliers', label: 'suppliers', icon: IconTruck, perm: 'supplier:read' },
   { href: '/sites', label: 'sites', icon: IconStore, perm: 'site:read' },
   { href: '/insights', label: 'insights', icon: IconSpark },

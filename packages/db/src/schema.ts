@@ -1936,3 +1936,68 @@ export const posWebhookEvents = pgTable(
   (t) => [index('pos_webhook_events_pending_idx').on(t.processedAt)],
 );
 
+/* =====================================================================
+ * Phase 5: recipes and costing
+ * ===================================================================== */
+
+/**
+ * A recipe: a menu item (sold, usually one portion, may be linked to a POS product) or a prep
+ * (a batch other recipes use). Costs are worked out when read, from current item costs.
+ */
+export const recipes = pgTable(
+  'recipes',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    name: text('name').notNull(),
+    nameAr: text('name_ar'),
+    kind: text('kind').notNull().default('menu'),
+    category: text('category'),
+    yieldQty: numeric('yield_qty', { precision: 14, scale: 4 }).notNull().default('1'),
+    yieldUnit: text('yield_unit').notNull().default('each'),
+    /** Selling price of one yield unit (menu items). Null: use the linked POS product's price. */
+    sellingPrice: numeric('selling_price', { precision: 14, scale: 4 }),
+    priceIncludesVat: boolean('price_includes_vat').notNull().default(true),
+    /** Food cost target, percent of the price before VAT. */
+    targetCostPct: numeric('target_cost_pct', { precision: 5, scale: 2 }),
+    posProductId: uuid('pos_product_id'),
+    notes: text('notes'),
+    isActive: boolean('is_active').notNull().default(true),
+    source: text('source').notNull().default('app'),
+    createdBy: uuid('created_by'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('recipes_org_id_id_uq').on(t.orgId, t.id),
+    uniqueIndex('recipes_pos_product_uq').on(t.posProductId).where(sql`pos_product_id is not null and is_active`),
+    index('recipes_org_kind_idx').on(t.orgId, t.kind),
+  ],
+);
+
+export const recipeLines = pgTable(
+  'recipe_lines',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    recipeId: uuid('recipe_id').notNull(),
+    position: integer('position').notNull().default(0),
+    itemId: uuid('item_id'),
+    subRecipeId: uuid('sub_recipe_id'),
+    qty: numeric('qty', { precision: 14, scale: 4 }).notNull(),
+    unit: text('unit'),
+    packId: uuid('pack_id'),
+    /** Usable share after trimming, percent (items only). */
+    yieldPct: numeric('yield_pct', { precision: 5, scale: 2 }).notNull().default('100'),
+    note: text('note'),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.recipeId], foreignColumns: [recipes.orgId, recipes.id] }).onDelete('cascade'),
+    foreignKey({ columns: [t.orgId, t.itemId], foreignColumns: [items.orgId, items.id] }),
+    foreignKey({ columns: [t.orgId, t.subRecipeId], foreignColumns: [recipes.orgId, recipes.id] }),
+    check('recipe_lines_one_ref_chk', sql`(${t.itemId} is null) <> (${t.subRecipeId} is null)`),
+    index('recipe_lines_recipe_idx').on(t.recipeId, t.position),
+    index('recipe_lines_sub_idx').on(t.subRecipeId),
+  ],
+);
+

@@ -11,6 +11,7 @@ import { arSales, enSales } from './i18n-sales';
 import { arCounts, enCounts } from './i18n-counts';
 import { arWaste, enWaste } from './i18n-waste';
 import { arPos, enPos } from './i18n-pos';
+import { arRecipes, enRecipes } from './i18n-recipes';
 
 export type Lang = 'en' | 'ar';
 
@@ -25,6 +26,7 @@ const en = {
   ...enCounts,
   ...enWaste,
   ...enPos,
+  ...enRecipes,
   appName: 'Backhouse',
   appSub: 'AI back office',
   // nav
@@ -200,6 +202,7 @@ const ar: Dict = {
   ...arCounts,
   ...arWaste,
   ...arPos,
+  ...arRecipes,
   appName: 'Backhouse',
   appSub: 'المكتب الخلفي الذكي',
   navMain: 'مساحة العمل',
