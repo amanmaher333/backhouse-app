@@ -1,0 +1,21 @@
+# Backhouse API and worker (same image; the worker runs a different command).
+FROM node:22-slim AS build
+RUN corepack enable
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY packages/domain/package.json packages/domain/
+COPY packages/db/package.json packages/db/
+COPY apps/api/package.json apps/api/
+RUN pnpm install --frozen-lockfile --filter @boh/api...
+COPY tsconfig.base.json ./
+COPY packages packages
+COPY apps/api apps/api
+RUN pnpm --filter @boh/domain build && pnpm --filter @boh/db build && pnpm --filter @boh/api build
+
+FROM node:22-slim
+ENV NODE_ENV=production
+COPY --from=build /app /app
+WORKDIR /app/apps/api
+EXPOSE 3000
+# Database migrations (idempotent) run before the API starts. The worker service runs: node dist/worker.js
+CMD ["sh", "-c", "node ../../packages/db/dist/migrate.js && node dist/main.js"]
