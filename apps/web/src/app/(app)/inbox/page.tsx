@@ -279,7 +279,7 @@ function TaskCard({ task, focused, onChanged }: { task: Task; focused?: boolean;
             </div>
             <div>
               <div className="faint" style={{ fontSize: 12 }}>{t('theoreticalFoodCost')}</div>
-              <div className="num" style={{ fontSize: 22, fontWeight: 700 }}>{ev.totals.theoreticalPct ? `${ev.totals.theoreticalPct}%` : '–'}</div>
+              <div className="num" style={{ fontSize: 22, fontWeight: 700 }}>{ev.hasRecipes !== false && ev.totals.theoreticalPct ? `${ev.totals.theoreticalPct}%` : '–'}</div>
             </div>
             <div>
               <div className="faint" style={{ fontSize: 12 }}>{t('unexplained')}</div>
@@ -289,6 +289,7 @@ function TaskCard({ task, focused, onChanged }: { task: Task; focused?: boolean;
           <div className="faint num" style={{ fontSize: 12 }}>
             {pick(ev.site)} · {fmtDate(ev.period.from)} – {fmtDate(ev.period.to)} · {t('netSales')} {fmtMoney(ev.totals.netSales)}
           </div>
+          {ev.hasRecipes === false && <div className="notice" style={{ marginTop: 8, fontSize: 13 }}>{t('noRecipesWeek')}</div>}
           {ev.actualReliable === false && <div className="notice" style={{ marginTop: 8, fontSize: 13 }}>{t('noCountsWeek')}</div>}
           {ev.actualReliable !== false && Array.isArray(ev.topLosses) && ev.topLosses.length > 0 && (
             <ul className="diff-list" style={{ marginTop: 8 }}>

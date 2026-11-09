@@ -64,8 +64,10 @@ async function reportFor(ctx: RunContext, site: typeof sites.$inferSelect, curre
   const gaps = { countAtStart: Boolean(r.counts.start), countAtEnd: Boolean(r.counts.end), unlinkedBranches: r.pos.unlinkedLocations, itemsWithoutCost: r.noCost };
   // "Actual" comes from stock at both ends of the week; without both counts it isn't meaningful.
   const actualReliable = gaps.countAtStart && gaps.countAtEnd;
-  const gap = actualReliable && t.gapPct !== null ? Number(t.gapPct) : null;
-  const priority = (gap !== null && gap >= gapAlert) || Number(withoutRecipeShare) >= 20 || !actualReliable ? 1 : 2;
+  // Theoretical food cost needs recipes for what was sold; with none, there is no food cost to compare.
+  const hasRecipes = new Decimal(t.netSalesWithRecipe).gt(0);
+  const gap = actualReliable && hasRecipes && t.gapPct !== null ? Number(t.gapPct) : null;
+  const priority = (gap !== null && gap >= gapAlert) || Number(withoutRecipeShare) >= 20 || !actualReliable || !hasRecipes ? 1 : 2;
 
   const evidence = {
     kind: 'weekly_food_cost',
@@ -78,6 +80,7 @@ async function reportFor(ctx: RunContext, site: typeof sites.$inferSelect, curre
     overTarget,
     gaps,
     actualReliable,
+    hasRecipes,
     gapAlertPts: gapAlert,
   };
 
@@ -85,6 +88,28 @@ async function reportFor(ctx: RunContext, site: typeof sites.$inferSelect, curre
     const siteEn = site.name;
     const siteAr = site.nameAr ?? site.name;
     const pct = (v: string | null) => (v === null ? '–' : `${v}%`);
+    if (!hasRecipes) {
+      // Nothing sold has a recipe: say so, and point at the best sellers to start with.
+      const best = r.withoutRecipe.slice(0, 3);
+      const en = [`Net sales ${money(t.netSales, currency)}, but none of the products sold has a recipe yet, so food cost can't be worked out.`];
+      const ar = [`صافي المبيعات ${moneyAr(t.netSales, currency)}، لكن لا يوجد وصفة لأي من المنتجات المباعة بعد، لذا لا يمكن حساب تكلفة الطعام.`];
+      if (best.length) {
+        en.push(`Start with the best sellers: ${best.map((b) => b.name).join(', ')}.`);
+        ar.push(`ابدأ بالأكثر مبيعًا: ${best.map((b) => b.name).join('، ')}.`);
+      }
+      if (!actualReliable) {
+        en.push('Stock wasn’t counted at both ends of the week either; count at close on the last day of each week.');
+        ar.push('ولم يُجرد المخزون في بداية الأسبوع ونهايته أيضًا؛ اجرد عند الإغلاق في آخر يوم من كل أسبوع.');
+      }
+      return {
+        title: `Food cost last week at ${siteEn}: no recipes yet`,
+        title_ar: `تكلفة الطعام الأسبوع الماضي في ${siteAr}: لا توجد وصفات بعد`,
+        summary: en.join(' '),
+        summary_ar: ar.join(' '),
+        message: '',
+        message_ar: '',
+      };
+    }
     const title = !actualReliable
       ? `Food cost last week at ${siteEn}: ${pct(t.theoreticalPct)} from recipes; stock wasn't counted`
       : t.actualPct && t.theoreticalPct
@@ -125,7 +150,8 @@ async function reportFor(ctx: RunContext, site: typeof sites.$inferSelect, curre
     'Write the weekly food cost report for one restaurant site, for its manager. title: the headline (actual vs theoretical food cost %, or the main problem if data is missing). ' +
       'summary: 3-4 plain sentences in this order: net sales and the gap between actual and theoretical food cost with its value; the two or three biggest losses with their extra quantity and value; ' +
       'sales without recipes and missing stock counts if any; one concrete thing to check this week. When actualReliable is false, stock was not counted at both ends of the week: ' +
-      'do not state an actual food cost, gap or losses; give the theoretical food cost and say counts are needed. message and message_ar: empty strings.',
+      'do not state an actual food cost, gap or losses; give the theoretical food cost and say counts are needed. ' +
+      'When hasRecipes is false, nothing sold has a recipe: do not state any food cost percentage; say recipes are needed and name the best sellers to start with. message and message_ar: empty strings.',
     evidence,
     template,
   );
