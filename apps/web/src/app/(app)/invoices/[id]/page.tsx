@@ -15,7 +15,7 @@ const STICKY = ['unknown_sender', 'buyer_vat', 'not_invoice', 'unreadable'];
 export default function InvoicePage() {
   const { id } = useParams<{ id: string }>();
   const search = useSearchParams();
-  const { t, pick, lang, fmtMoney, fmtDate } = useI18n();
+  const { t, pick, lang, fmtMoney: fmtOrgMoney, fmtDate } = useI18n();
   const { api } = useSession();
   const openDocument = useOpenDocument();
   const { data: inv, error, reload } = useApi<InvoiceDetail>(`/supplier-invoices/${id}`, [id]);
@@ -29,6 +29,8 @@ export default function InvoicePage() {
 
   if (error) return <div className="notice notice-error">{error.message}</div>;
   if (!inv) return <div className="muted">{t('loading')}</div>;
+  // Amounts on this page are in the document's own currency.
+  const fmtMoney = (v: string | number | null | undefined, d = 2) => fmtOrgMoney(v, d, inv.currency);
 
   const call = async (fn: () => Promise<unknown>, done?: string) => {
     setBusy(true);

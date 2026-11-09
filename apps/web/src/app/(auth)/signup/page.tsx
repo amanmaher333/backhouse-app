@@ -7,6 +7,7 @@ import { AuthFrame } from '@/components/auth-frame';
 import { Field } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
 import { ApiError, useSession } from '@/lib/session';
+import { COUNTRIES_UI, countryUi } from '@/lib/countries';
 
 export default function SignupPage() {
   const { t, lang } = useI18n();
@@ -20,6 +21,7 @@ export default function SignupPage() {
     orgName: '',
     orgNameAr: '',
     type: 'restaurant_group',
+    country: 'SA',
     legalName: '',
     vatNumber: '',
     crNumber: '',
@@ -27,6 +29,8 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const c = countryUi(f.country);
+  const ar = lang === 'ar';
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
 
   return (
@@ -47,7 +51,7 @@ export default function SignupPage() {
               fullName: f.fullName,
               phone: f.phone || undefined,
               locale: lang,
-              organization: { name: f.orgName, nameAr: f.orgNameAr || undefined, type: f.type },
+              organization: { name: f.orgName, nameAr: f.orgNameAr || undefined, type: f.type, country: f.country },
               legalEntity: {
                 name: f.legalName || f.orgName,
                 vatNumber: f.vatNumber || undefined,
@@ -70,7 +74,7 @@ export default function SignupPage() {
           <Field label={t('fullName')} error={errors.fullName}>
             <input className="input" required value={f.fullName} onChange={set('fullName')} autoComplete="name" />
           </Field>
-          <Field label={t('phone')} error={errors.phone} hint="+9665XXXXXXXX">
+          <Field label={t('phone')} error={errors.phone} hint={c.phone}>
             <input className="input" value={f.phone} onChange={set('phone')} inputMode="tel" dir="ltr" autoComplete="tel" />
           </Field>
         </div>
@@ -88,6 +92,15 @@ export default function SignupPage() {
             <input className="input" value={f.orgNameAr} onChange={set('orgNameAr')} dir="rtl" lang="ar" />
           </Field>
         </div>
+        <Field label={t('country')} hint={t('countryHint')} error={errors['organization.country']}>
+          <select className="select" value={f.country} onChange={set('country')}>
+            {COUNTRIES_UI.map((x) => (
+              <option key={x.code} value={x.code}>
+                {ar ? x.nameAr : x.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label={t('orgType')}>
           <select className="select" value={f.type} onChange={set('type')}>
             <option value="restaurant_group">{t('restaurantGroup')}</option>
@@ -98,11 +111,11 @@ export default function SignupPage() {
           <input className="input" value={f.legalName} onChange={set('legalName')} placeholder={f.orgName} />
         </Field>
         <div className="form-row">
-          <Field label={t('vatNumber')} hint={t('vatHint')} error={errors['legalEntity.vatNumber']}>
-            <input className="input num" value={f.vatNumber} onChange={set('vatNumber')} inputMode="numeric" dir="ltr" maxLength={15} />
+          <Field label={c.vatLabel[ar ? 1 : 0]} hint={c.vatHint ? c.vatHint[ar ? 1 : 0] : t('optional')} error={errors['legalEntity.vatNumber']}>
+            <input className="input num" value={f.vatNumber} onChange={set('vatNumber')} dir="ltr" maxLength={30} />
           </Field>
-          <Field label={t('crNumber')} hint={t('crHint')} error={errors['legalEntity.crNumber']}>
-            <input className="input num" value={f.crNumber} onChange={set('crNumber')} inputMode="numeric" dir="ltr" maxLength={10} />
+          <Field label={t('crNumber')} hint={c.crHint[ar ? 1 : 0]} error={errors['legalEntity.crNumber']}>
+            <input className="input num" value={f.crNumber} onChange={set('crNumber')} dir="ltr" maxLength={30} />
           </Field>
         </div>
         <button className="btn btn-primary btn-lg btn-block" disabled={busy}>

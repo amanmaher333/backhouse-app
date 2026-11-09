@@ -30,7 +30,7 @@ export default function NewSalePage() {
 
 function NewSale() {
   const { t, pick, fmtMoney } = useI18n();
-  const { api } = useSession();
+  const { api, org } = useSession();
   const router = useRouter();
   const search = useSearchParams();
   const { data: entities } = useApi<LegalEntity[]>('/legal-entities');
@@ -67,7 +67,7 @@ function NewSale() {
   const set = (i: number, patch: Partial<L>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const net = (l: L) => round2((Number(l.qty) || 0) * (Number(l.unitPrice) || 0) - (Number(l.discount) || 0));
   const subtotal = lines.reduce((s, l) => s + net(l), 0);
-  const vat = round2(lines.filter((l) => l.vatCategory === 'S').reduce((s, l) => s + net(l), 0) * 0.15);
+  const vat = round2(lines.filter((l) => l.vatCategory === 'S').reduce((s, l) => s + net(l), 0) * Number(org?.vatRate ?? 0.15));
 
   const submit = async (issue: boolean) => {
     setBusy(true);

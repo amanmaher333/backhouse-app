@@ -16,6 +16,7 @@ This is an original product. No Supy code, branding, copy or UI is used.
 - Phase B (WhatsApp approvals, digest, supplier messaging) ✅ except push and supplier email
 - Billing and company verification ✅
 - Phase 3 (supplier invoices and the Invoice agent) in progress; see §10.
+- Country profiles: Saudi Arabia first; the UAE, Bahrain, Kuwait, Oman, Qatar, Egypt and Jordan supported (currency, VAT, time zone, number rules). See `docs/countries.md`.
 
 ---
 

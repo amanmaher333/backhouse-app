@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArmButton, Empty, Field, PageHead, Toast } from '@/components/ui';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
+import { REGION_TIME_ZONES as TIME_ZONES } from '@/lib/countries';
 
 interface Mine {
   mode: 'cloud' | 'simulated';
@@ -162,7 +163,6 @@ export default function WhatsAppPage() {
   );
 }
 
-const TIME_ZONES = ['Asia/Riyadh', 'Asia/Dubai', 'Asia/Qatar', 'Asia/Bahrain', 'Asia/Kuwait', 'Asia/Muscat'];
 
 function DigestPrefs({ linked, onChange, onSent }: { linked: NonNullable<Mine['linked']>; onChange: () => void; onSent: () => void }) {
   const { t } = useI18n();

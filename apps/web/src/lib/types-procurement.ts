@@ -39,6 +39,7 @@ export interface PoLine {
 
 export interface PoDetail {
   id: string;
+  currency: string;
   number: string;
   status: PoStatus;
   siteId: string;

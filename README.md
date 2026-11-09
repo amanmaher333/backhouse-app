@@ -137,6 +137,14 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - Sales invoices: list, new invoice or note, printable bilingual invoice with QR, XML download.
 - **Modes:** simulated by default (`ZATCA_MODE=simulated`); `live` calls ZATCA.
 
+**Countries:** Saudi Arabia first, but no Saudi assumptions outside ZATCA and Wathq (see [`docs/countries.md`](docs/countries.md)):
+
+- **Supported:** Saudi Arabia, the UAE, Bahrain, Kuwait, Oman, Qatar, Egypt and Jordan.
+- **Set by the organisation's country at sign-up:** currency, VAT rate, time zone, phone format, and tax and company number rules.
+- **Documents and messages** use the document's own currency.
+- **Company checks:** automatic in Saudi Arabia (Wathq); elsewhere Backhouse reviews the company.
+- **ZATCA** is offered only to Saudi companies.
+
 ## Layout
 
 ```

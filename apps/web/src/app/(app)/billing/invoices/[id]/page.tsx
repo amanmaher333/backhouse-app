@@ -99,8 +99,8 @@ export default function InvoicePage() {
                 <tr key={l.code}>
                   <td>{ar ? l.descriptionAr : l.description}</td>
                   <td className="end num">{l.quantity}</td>
-                  <td className="end num hide-phone">{fmtMoney(l.unitPrice)}</td>
-                  <td className="end num">{fmtMoney(l.amount)}</td>
+                  <td className="end num hide-phone">{fmtMoney(l.unitPrice, 2, 'SAR')}</td>
+                  <td className="end num">{fmtMoney(l.amount, 2, 'SAR')}</td>
                 </tr>
               ))}
             </tbody>
@@ -108,11 +108,11 @@ export default function InvoicePage() {
         </div>
         <div className="totals">
           <span className="muted">{t('subtotal')}</span>
-          <span className="num">{fmtMoney(inv.subtotal)}</span>
+          <span className="num">{fmtMoney(inv.subtotal, 2, 'SAR')}</span>
           <span className="muted">{t('vat')} 15%</span>
-          <span className="num">{fmtMoney(inv.vat)}</span>
+          <span className="num">{fmtMoney(inv.vat, 2, 'SAR')}</span>
           <strong>{t('total')}</strong>
-          <strong className="num">{fmtMoney(inv.total)}</strong>
+          <strong className="num">{fmtMoney(inv.total, 2, 'SAR')}</strong>
         </div>
         <p className="faint" style={{ fontSize: 12, margin: 0 }}>
           {t('simplifiedNote')}

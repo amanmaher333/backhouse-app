@@ -125,7 +125,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const org = me.organizations.find((o) => o.id === me.currentOrgId);
-  const visible = (items: NavItem[]) => items.filter((i) => !i.perm || can(i.perm));
+  // ZATCA e-invoicing pages only for organisations in a country that uses it.
+  const zatcaPages = ['/sales', '/einvoicing'];
+  const visible = (items: NavItem[]) => items.filter((i) => (!i.perm || can(i.perm)) && (!zatcaPages.includes(i.href) || org?.eInvoicing === 'zatca'));
   const all = [...visible(MAIN), ...visible(ADMIN)];
   const current = all.find((i) => isActive(path, i.href));
   const bottom = [...visible(MAIN), ...visible(ADMIN)].slice(0, 4);

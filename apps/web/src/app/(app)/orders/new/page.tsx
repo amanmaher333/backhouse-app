@@ -9,7 +9,7 @@ import type { Site, SupplierDetail, SupplierRow } from '@/lib/types';
 
 export default function NewOrderPage() {
   const { t, pick, lang, fmtMoney } = useI18n();
-  const { api, me } = useSession();
+  const { api, me, org } = useSession();
   const router = useRouter();
   const { data: sites } = useApi<Site[]>('/sites');
   const { data: suppliers } = useApi<SupplierRow[]>('/suppliers');
@@ -37,7 +37,7 @@ export default function NewOrderPage() {
 
   const chosen = useMemo(() => (supplier?.items ?? []).filter((l) => l.isActive && Number(qty[l.id]) > 0), [supplier, qty]);
   const subtotal = chosen.reduce((s, l) => s + Number(qty[l.id]) * Number(l.currentPrice ?? 0), 0);
-  const vat = subtotal * Number(supplier?.taxRate ?? 0.15);
+  const vat = subtotal * Number(supplier?.taxRate ?? org?.vatRate ?? 0.15);
 
   const save = async (submit: boolean) => {
     setBusy(true);

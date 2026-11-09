@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Dialog, Empty, Field, PageHead } from '@/components/ui';
 import { IconPlus } from '@/components/icons';
+import { countryUi } from '@/lib/countries';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
 import type { OrderChannel, SupplierRow } from '@/lib/types';
@@ -77,7 +78,7 @@ export default function SuppliersPage() {
 
 function AddSupplierDialog({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
-  const { api } = useSession();
+  const { api, org } = useSession();
   const router = useRouter();
   const [f, setF] = useState({
     displayName: '',
@@ -172,7 +173,7 @@ function AddSupplierDialog({ onClose }: { onClose: () => void }) {
         <Field label={t('contactEmail')} error={errors.contactEmail}>
           <input className="input" type="email" value={f.contactEmail} onChange={set('contactEmail')} dir="ltr" />
         </Field>
-        <Field label={t('contactPhone')} hint="+9665XXXXXXXX" error={errors.contactPhone}>
+        <Field label={t('contactPhone')} hint={countryUi(org?.country).phone} error={errors.contactPhone}>
           <input className="input" value={f.contactPhone} onChange={set('contactPhone')} dir="ltr" inputMode="tel" />
         </Field>
       </div>

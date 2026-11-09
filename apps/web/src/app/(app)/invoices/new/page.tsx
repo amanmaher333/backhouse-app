@@ -12,7 +12,8 @@ import type { InvoiceDetail } from '@/lib/types-invoices';
 
 export default function NewInvoicePage() {
   const { t, pick, fmtMoney } = useI18n();
-  const { api } = useSession();
+  const { api, org } = useSession();
+  const vatRate = Number(org?.vatRate ?? 0.15);
   const router = useRouter();
   const { data: suppliers } = useApi<SupplierRow[]>('/suppliers');
   const [relationshipId, setRelationshipId] = useState('');
@@ -105,9 +106,9 @@ export default function NewInvoicePage() {
           <span className="muted">{t('subtotal')}</span>
           <span className="num">{fmtMoney(subtotal)}</span>
           <span className="muted">{t('vat')}</span>
-          <span className="num">{fmtMoney(subtotal * 0.15)}</span>
+          <span className="num">{fmtMoney(subtotal * vatRate)}</span>
           <strong>{t('total')}</strong>
-          <strong className="num">{fmtMoney(subtotal * 1.15)}</strong>
+          <strong className="num">{fmtMoney(subtotal * (1 + vatRate))}</strong>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button

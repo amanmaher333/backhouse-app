@@ -1,12 +1,21 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useI18n } from './i18n';
 
 export interface Org {
   id: string;
   name: string;
   nameAr?: string | null;
   type: 'restaurant_group' | 'supplier' | 'platform';
+  country?: string;
+  currency?: string;
+  /** Standard VAT rate as a fraction, e.g. "0.15". */
+  vatRate?: string;
+  timezone?: string;
+  phoneCode?: string;
+  /** 'zatca' when the organisation's country uses ZATCA e-invoicing. */
+  eInvoicing?: string | null;
 }
 export interface Membership {
   roleKey: string;
@@ -53,6 +62,8 @@ interface Session {
   signOut: () => Promise<void>;
   can: (perm: string) => boolean;
   reload: () => Promise<void>;
+  /** The organisation the person is working in (country, currency, VAT rate). */
+  org: Org | null;
 }
 
 const Ctx = createContext<Session | null>(null);
@@ -65,6 +76,12 @@ function matches(granted: string, required: string) {
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [me, setMe] = useState<Me | null>(null);
+  const { setCurrency } = useI18n();
+  // Amounts show in the current organisation's currency.
+  useEffect(() => {
+    const org = me?.organizations.find((o) => o.id === me.currentOrgId);
+    if (org?.currency) setCurrency(org.currency);
+  }, [me, setCurrency]);
   const token = useRef<string | null>(null);
   const refreshing = useRef<Promise<boolean> | null>(null);
 
@@ -190,7 +207,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <Ctx.Provider value={{ status, me, api, begin, switchOrg, signOut, can, reload: loadMe }}>{children}</Ctx.Provider>
+    <Ctx.Provider value={{ status, me, api, begin, switchOrg, signOut, can, reload: loadMe, org: me?.organizations.find((o) => o.id === me.currentOrgId) ?? null }}>{children}</Ctx.Provider>
   );
 }
 

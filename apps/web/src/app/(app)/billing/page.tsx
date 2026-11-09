@@ -111,7 +111,7 @@ export default function BillingPage() {
           )}
           {paying && b.currentPeriodEnd && (
             <div>
-              <div className="stat-value num">{fmtMoney(b.estimates[b.interval ?? 'month'].total)}</div>
+              <div className="stat-value num">{fmtMoney(b.estimates[b.interval ?? 'month'].total, 2, 'SAR')}</div>
               <div className="faint" style={{ fontSize: 13 }}>
                 {t(b.interval === 'year' ? 'annual' : 'monthly')} · {b.cancelAtPeriodEnd ? t('endsOn') : t('renewsOn')} {fmtDate(b.currentPeriodEnd)}
               </div>
@@ -151,7 +151,7 @@ export default function BillingPage() {
                 {est.lines.map((l) => (
                   <tr key={l.code}>
                     <td>{ar ? l.descriptionAr : l.description}</td>
-                    <td className="end num">{fmtMoney(l.amount)}</td>
+                    <td className="end num">{fmtMoney(l.amount, 2, 'SAR')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -159,13 +159,13 @@ export default function BillingPage() {
           </div>
           <div className="totals">
             <span className="muted">{t('subtotal')}</span>
-            <span className="num">{fmtMoney(est.subtotal)}</span>
+            <span className="num">{fmtMoney(est.subtotal, 2, 'SAR')}</span>
             <span className="muted">{t('vat')}</span>
-            <span className="num">{fmtMoney(est.vat)}</span>
+            <span className="num">{fmtMoney(est.vat, 2, 'SAR')}</span>
             <strong>
               {t('total')} <span className="faint" style={{ fontWeight: 400 }}>{t(interval === 'year' ? 'perYear' : 'perMonth')}</span>
             </strong>
-            <strong className="num">{fmtMoney(est.total)}</strong>
+            <strong className="num">{fmtMoney(est.total, 2, 'SAR')}</strong>
           </div>
           <p className="faint" style={{ fontSize: 13, margin: 0 }}>
             {t('estimateNote')}
@@ -213,7 +213,7 @@ export default function BillingPage() {
           {manage && failedInvoice && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <button className="btn btn-primary" disabled={busy} onClick={() => run(() => api('/billing/pay-now', { method: 'POST' }), t('paymentDone'))}>
-                {t('payNow')} · {fmtMoney(failedInvoice.total)}
+                {t('payNow')} · {fmtMoney(failedInvoice.total, 2, 'SAR')}
               </button>
               {failedInvoice.failureMessage && <span className="faint" style={{ fontSize: 13 }}>{failedInvoice.failureMessage}</span>}
             </div>
@@ -244,7 +244,7 @@ export default function BillingPage() {
                     <td className="hide-phone">
                       {fmtDate(i.periodStart)} – {fmtDate(i.periodEnd)}
                     </td>
-                    <td className="end num">{fmtMoney(i.total)}</td>
+                    <td className="end num">{fmtMoney(i.total, 2, 'SAR')}</td>
                     <td>
                       <span className={`tag ${i.status === 'paid' ? 'tag-accent' : i.status === 'failed' ? 'tag-late' : ''}`}>{t(`inv_${i.status}` as TKey)}</span>
                     </td>

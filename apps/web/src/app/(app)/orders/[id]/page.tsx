@@ -20,7 +20,7 @@ function reasonFor(reason: string, lang: string) {
 
 export default function OrderPage() {
   const { id } = useParams<{ id: string }>();
-  const { t, pick, lang, fmtMoney, fmtDate } = useI18n();
+  const { t, pick, lang, fmtMoney: fmtOrgMoney, fmtDate } = useI18n();
   const { api, me, can } = useSession();
   const { data: po, error, reload } = useApi<PoDetail>(`/purchase-orders/${id}`, [id]);
   const { data: invoices } = useApi<InvoiceRow[]>(can('invoice:read') ? `/supplier-invoices?status=all&poId=${id}` : null, [id]);
@@ -31,6 +31,8 @@ export default function OrderPage() {
 
   if (error) return <div className="notice notice-error">{error.message}</div>;
   if (!po) return <div className="muted">{t('loading')}</div>;
+  // Amounts on this page are in the document's own currency.
+  const fmtMoney = (v: string | number | null | undefined, d = 2) => fmtOrgMoney(v, d, po.currency);
 
   const has = (perm: string) =>
     !!me?.memberships.some((m) => m.permissions.some((p) => p === '*' || p === perm || p === `${perm.split(':')[0]}:*`) && (m.scope === 'org' || m.siteIds === null || m.siteIds.includes(po.siteId)));

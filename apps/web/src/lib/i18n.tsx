@@ -43,7 +43,9 @@ const en = {
   language: 'العربية',
   installApp: 'Install app',
   // auth
-  heroLabel: 'Saudi Arabia · ZATCA-ready',
+  heroLabel: 'Saudi Arabia and the Gulf · ZATCA-ready',
+  country: 'Country',
+  countryHint: 'Where the business is registered: sets currency, VAT and number formats',
   heroTitle: 'Run every kitchen from one place',
   heroLead: 'Orders, stock, recipes and food cost for every branch, plus a supplier network that gets better as you grow.',
   signIn: 'Sign in',
@@ -210,7 +212,9 @@ const ar: Dict = {
   theme: 'تبديل المظهر',
   language: 'English',
   installApp: 'تثبيت التطبيق',
-  heroLabel: 'المملكة العربية السعودية · جاهز لفاتورة',
+  heroLabel: 'السعودية والخليج · جاهز لفاتورة',
+  country: 'الدولة',
+  countryHint: 'حيث سُجلت المنشأة: تحدد العملة والضريبة وصيغ الأرقام',
   heroTitle: 'أدِر كل مطابخك من مكان واحد',
   heroLead: 'الطلبات والمخزون والوصفات وتكلفة الطعام لكل فرع، مع شبكة موردين تتحسن كلما كبرت.',
   signIn: 'تسجيل الدخول',
@@ -352,18 +356,25 @@ interface I18n {
   locale: string;
   fmtNum: (n: number, digits?: number) => string;
   fmtDate: (iso: string) => string;
-  /** SAR amount, e.g. "54.00 ر.س" / "SAR 54.00". */
-  fmtMoney: (v: string | number | null | undefined, digits?: number) => string;
+  /** Amount in the organisation's currency (or the one given), e.g. "54.00 ر.س" / "SAR 54.00". */
+  fmtMoney: (v: string | number | null | undefined, digits?: number, currency?: string | null) => string;
+  /** The current organisation's currency (set when the session loads). */
+  currency: string;
+  setCurrency: (c: string) => void;
   /** Base quantity shown in a friendly unit (g→kg, ml→L). */
   fmtQty: (base: string | number, baseUnit: string) => string;
   /** Cost per base unit shown per kg / per L / each. */
   fmtUnitCost: (costPerBase: string | number | null | undefined, baseUnit: string) => string;
 }
 
+/** Arabic currency abbreviations (written after the amount). */
+export const CURRENCY_AR: Record<string, string> = { SAR: 'ر.س', AED: 'د.إ', BHD: 'د.ب', KWD: 'د.ك', OMR: 'ر.ع', QAR: 'ر.ق', EGP: 'ج.م', JOD: 'د.أ' };
+
 const Ctx = createContext<I18n | null>(null);
 
 export function I18nProvider({ children, initialLang }: { children: ReactNode; initialLang: Lang }) {
   const [lang, setLangState] = useState<Lang>(initialLang);
+  const [currency, setCurrency] = useState('SAR');
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
@@ -384,10 +395,13 @@ export function I18nProvider({ children, initialLang }: { children: ReactNode; i
     locale: lang === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB',
     fmtNum: (n, digits = 0) =>
       n.toLocaleString(lang === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits }),
-    fmtMoney: (v, digits = 2) => {
+    currency,
+    setCurrency,
+    fmtMoney: (v, digits = 2, cur) => {
       if (v === null || v === undefined || v === '') return '–';
       const n = Number(v).toLocaleString(lang === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-      return lang === 'ar' ? `${n} ر.س` : `SAR ${n}`;
+      const c = (cur || currency).toUpperCase();
+      return lang === 'ar' ? `${n} ${CURRENCY_AR[c] ?? c}` : `${c} ${n}`;
     },
     fmtQty: (base, baseUnit) => {
       const n = Number(base);
@@ -401,7 +415,7 @@ export function I18nProvider({ children, initialLang }: { children: ReactNode; i
       const factor = baseUnit === 'each' ? 1 : 1000;
       const per = baseUnit === 'g' ? dicts[lang].perKg : baseUnit === 'ml' ? dicts[lang].perL : dicts[lang].perEach;
       const n = (Number(c) * factor).toLocaleString(lang === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      return lang === 'ar' ? `${n} ر.س ${per}` : `SAR ${n} ${per}`;
+      return lang === 'ar' ? `${n} ${CURRENCY_AR[currency] ?? currency} ${per}` : `${currency} ${n} ${per}`;
     },
     fmtDate: (iso) =>
       new Date(iso).toLocaleDateString(lang === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),

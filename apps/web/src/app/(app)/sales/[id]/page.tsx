@@ -22,13 +22,15 @@ const TITLE: Record<string, [string, string]> = {
 export default function SalePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { t, fmtMoney, fmtDate } = useI18n();
+  const { t, fmtMoney: fmtOrgMoney, fmtDate } = useI18n();
   const { api, can } = useSession();
   const { data: inv, error, reload } = useApi<SaleDetail>(`/sales-invoices/${id}`, [id]);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   if (error) return <div className="notice notice-error">{error.message}</div>;
   if (!inv) return <div className="muted">{t('loading')}</div>;
+  // Amounts on this page are in the document's own currency.
+  const fmtMoney = (v: string | number | null | undefined, d = 2) => fmtOrgMoney(v, d, inv.currency);
   const manage = can('sales_invoice:manage');
   const [titleAr, titleEn] = TITLE[`${inv.kind}:${inv.type}`]!;
   const done = ['cleared', 'reported'].includes(inv.status);
