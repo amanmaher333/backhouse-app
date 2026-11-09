@@ -1187,3 +1187,64 @@ input[type='time'].inline-input {
     margin: 0 !important;
   }
 }
+
+/* ---------- Supplier invoices ---------- */
+.dropzone {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 28px 16px;
+  border: 1.5px dashed var(--line);
+  border-radius: 14px;
+  background: var(--tile);
+  text-align: center;
+  cursor: pointer;
+}
+.dropzone[data-over='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.diff-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.diff-list li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--late-soft);
+  color: var(--t1);
+  font-size: 13px;
+}
+.diff-list li.info {
+  background: var(--tile);
+  color: var(--t2);
+}
+.diff-list .amount {
+  color: var(--late);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cell-flag {
+  color: var(--late);
+  font-weight: 600;
+}
+.copy-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.copy-row code {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--tile);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}

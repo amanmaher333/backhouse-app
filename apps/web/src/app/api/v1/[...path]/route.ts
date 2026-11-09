@@ -16,8 +16,12 @@ async function proxy(req: NextRequest, { params }: { params: Promise<{ path: str
     body: hasBody ? await req.text() : undefined,
     cache: 'no-store',
   });
-  const body = res.status === 204 ? null : await res.text();
-  return new NextResponse(body, { status: res.status, headers: { 'content-type': res.headers.get('content-type') ?? 'application/json' } });
+  // Bytes, not text: invoice documents (PDFs, photos) pass through unchanged.
+  const body = res.status === 204 ? null : await res.arrayBuffer();
+  const out: Record<string, string> = { 'content-type': res.headers.get('content-type') ?? 'application/json' };
+  const disposition = res.headers.get('content-disposition');
+  if (disposition) out['content-disposition'] = disposition;
+  return new NextResponse(body, { status: res.status, headers: out });
 }
 
 export { proxy as GET, proxy as POST, proxy as PATCH, proxy as PUT, proxy as DELETE };

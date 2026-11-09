@@ -6,6 +6,7 @@ import { arAgents, enAgents } from './i18n-agents';
 import { arProcurement, enProcurement } from './i18n-procurement';
 import { arChannels, enChannels } from './i18n-channels';
 import { arBilling, enBilling } from './i18n-billing';
+import { arInvoices, enInvoices } from './i18n-invoices';
 
 export type Lang = 'en' | 'ar';
 
@@ -15,6 +16,7 @@ const en = {
   ...enProcurement,
   ...enChannels,
   ...enBilling,
+  ...enInvoices,
   appName: 'Backhouse',
   appSub: 'AI back office',
   // nav
@@ -183,6 +185,7 @@ const ar: Dict = {
   ...arProcurement,
   ...arChannels,
   ...arBilling,
+  ...arInvoices,
   appName: 'Backhouse',
   appSub: 'المكتب الخلفي الذكي',
   navMain: 'مساحة العمل',

@@ -129,7 +129,7 @@ function TaskCard({ task, focused, onChanged }: { task: Task; focused?: boolean;
   const ev = task.evidence;
   const open = task.status === 'proposed' || task.status === 'approved';
   const canDecide = can('task:decide');
-  const contact = task.actions.find((a) => a.type === 'contact_supplier');
+  const contact = task.actions.find((a) => a.type === 'contact_supplier' || a.type === 'request_credit_note');
   const result = task.result ?? {};
 
   const approve = async (a: Action) => {
@@ -137,7 +137,7 @@ function TaskCard({ task, focused, onChanged }: { task: Task; focused?: boolean;
     setError(null);
     try {
       const done = await api<Task>(`/agent-tasks/${task.id}/approve`, { method: 'POST', body: { actionId: a.id } });
-      if (done.status === 'executed' && done.result?.mailto && a.type === 'contact_supplier') {
+      if (done.status === 'executed' && done.result?.mailto && (a.type === 'contact_supplier' || a.type === 'request_credit_note')) {
         // Open the prepared message so the person can send it.
         const url = done.result.whatsapp && task.evidence.supplier?.channel === 'whatsapp' ? done.result.whatsapp : done.result.mailto ?? done.result.whatsapp;
         if (url) window.open(url, '_blank', 'noopener');
@@ -277,6 +277,39 @@ function TaskCard({ task, focused, onChanged }: { task: Task; focused?: boolean;
           </div>
           <div className="faint num" style={{ fontSize: 12 }}>
             {ev.number} · {t('delivery')} {ev.deliveryDate ? fmtDate(ev.deliveryDate) : '–'} · {fmtMoney(ev.total)}
+          </div>
+        </div>
+      )}
+
+      {task.kind.startsWith('invoice_') && (
+        <div className="evidence">
+          <div className="evidence-main">
+            <div className="num" style={{ fontSize: 22, fontWeight: 700 }}>
+              {fmtMoney(ev.total)}
+            </div>
+            {Number(ev.claimTotal) > 0 && task.kind === 'invoice_dispute' && (
+              <span className="tag tag-late num">
+                {fmtMoney(ev.claimTotal)} {t('over')}
+              </span>
+            )}
+          </div>
+          <div className="faint num" style={{ fontSize: 12 }}>
+            {[ev.number ?? ev.ref, ev.poNumber, ev.site ? pick(ev.site) : null, ev.dueDate ? `${t('dueDate')} ${fmtDate(ev.dueDate)}` : null].filter(Boolean).join(' · ')}
+          </div>
+          {task.kind === 'invoice_dispute' && Array.isArray(ev.discrepancies) && ev.discrepancies.length > 0 && (
+            <ul className="diff-list" style={{ marginTop: 8 }}>
+              {ev.discrepancies.slice(0, 4).map((d: { message: string; messageAr: string; amount: string }, i: number) => (
+                <li key={i}>
+                  <span>{ar ? d.messageAr : d.message}</span>
+                  {Number(d.amount) > 0 && <span className="amount num">{fmtMoney(d.amount)}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div style={{ marginTop: 8 }}>
+            <Link className="btn btn-sm btn-quiet" href={`/invoices/${ev.invoiceId}`}>
+              {t('openInvoice')}
+            </Link>
           </div>
         </div>
       )}

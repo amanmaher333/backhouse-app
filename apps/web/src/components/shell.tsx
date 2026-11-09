@@ -27,6 +27,7 @@ import {
   IconUsers,
   IconChat,
   IconCard,
+  IconReceipt,
 } from './icons';
 import { InstallButton, LangButton, SyncPill, ThemeButton } from './toolbar';
 import { initials } from './ui';
@@ -42,6 +43,7 @@ const MAIN: NavItem[] = [
   { href: '/inbox', label: 'inbox', icon: IconInbox, perm: 'agent:read' },
   { href: '/overview', label: 'overview', icon: IconHome },
   { href: '/orders', label: 'orders', icon: IconCart, perm: 'po:read' },
+  { href: '/invoices', label: 'invoices', icon: IconReceipt, perm: 'invoice:read' },
   { href: '/stock', label: 'stock', icon: IconLayers, perm: 'stock:read' },
   { href: '/items', label: 'items', icon: IconBox, perm: 'item:read' },
   { href: '/suppliers', label: 'suppliers', icon: IconTruck, perm: 'supplier:read' },

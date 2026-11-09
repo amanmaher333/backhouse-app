@@ -9,6 +9,8 @@ import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
 import type { PoDetail } from '@/lib/types-procurement';
 import { PoStatusTag } from '@/components/procurement';
+import { InvoiceStatusTag } from '@/components/invoices';
+import type { InvoiceRow } from '@/lib/types-invoices';
 
 /** Server reasons are 'English\nArabic'; show the line for the current language. */
 function reasonFor(reason: string, lang: string) {
@@ -19,8 +21,9 @@ function reasonFor(reason: string, lang: string) {
 export default function OrderPage() {
   const { id } = useParams<{ id: string }>();
   const { t, pick, lang, fmtMoney, fmtDate } = useI18n();
-  const { api, me } = useSession();
+  const { api, me, can } = useSession();
   const { data: po, error, reload } = useApi<PoDetail>(`/purchase-orders/${id}`, [id]);
+  const { data: invoices } = useApi<InvoiceRow[]>(can('invoice:read') ? `/supplier-invoices?status=all&poId=${id}` : null, [id]);
   const [toast, setToast] = useState<string | null>(null);
   const [receiving, setReceiving] = useState(false);
   const [sent, setSent] = useState<{ message: string; links: { mailto: string | null; whatsapp: string | null } } | null>(null);
@@ -183,6 +186,21 @@ export default function OrderPage() {
               </span>
               <span className="faint num">{fmtDate(r.receivedAt)}</span>
               <span className="num">{fmtMoney(r.total)}</span>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {invoices && invoices.length > 0 && (
+        <section className="card">
+          <h2 className="card-title">{t('invoicesForOrder')}</h2>
+          {invoices.map((inv) => (
+            <div key={inv.id} className="row-line">
+              <Link href={`/invoices/${inv.id}`} className="grow num" style={{ fontWeight: 500 }}>
+                <bdi>{inv.number ?? inv.ref}</bdi>
+              </Link>
+              <span className="num">{inv.total ? fmtMoney(inv.total) : '–'}</span>
+              <InvoiceStatusTag status={inv.status} />
             </div>
           ))}
         </section>

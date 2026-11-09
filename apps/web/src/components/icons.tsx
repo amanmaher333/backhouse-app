@@ -110,3 +110,6 @@ export const IconChat = (p: SVGProps<SVGSVGElement>) => (
 export const IconCard = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="3" y="5.5" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></svg>
 );
+export const IconReceipt = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5zM9 8h6M9 12h6M9 16h3" /></svg>
+);

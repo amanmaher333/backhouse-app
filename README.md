@@ -101,6 +101,27 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
   - A verified company is required before Backhouse messages suppliers for it.
 - **Web:** Billing page (trial, plan choice with live estimate, card, cancel/resume, pay now, invoices), printable invoice with QR, trial and read-only banner, verification badges and "Check now" in Settings.
 
+**Phase 3 started: supplier invoices and the Invoice agent** (see [`docs/invoices.md`](docs/invoices.md)):
+
+- **Intake:**
+  - upload a PDF, photo or ZATCA e-invoice XML;
+  - type in paper invoices;
+  - or have suppliers email them to the organisation's private address (signed webhook, deduplicated, sender checked).
+- **Reading:**
+  - e-invoices are read exactly, including the XML inside ZATCA PDFs;
+  - other documents are read by Claude into a fixed structure and checked by code, or kept for a person when no model is configured.
+- **Three-way match** against the order and what was received:
+  - prices, quantities net of earlier invoices, and lines not ordered;
+  - arithmetic, VAT, duplicates and the supplier's VAT number;
+  - the amount to claim back.
+- **Decisions:**
+  - approve (mismatches need a reason; someone else approves invoices you typed in);
+  - ask for a credit note (sent on WhatsApp or prepared as email);
+  - reject, or mark as paid.
+  - Credit notes link to the invoice they fix.
+- **Invoice agent:** proposes approvals, credit-note requests with a drafted message, checks, and approval once a credit note arrives. It can approve clean matches under a limit on its own.
+- **Web:** Invoices list with tabs, upload, invoice page with every difference highlighted, entry by hand, invoices on the order page, invoice tasks in the inbox. MCP tools `list_supplier_invoices` and `get_supplier_invoice`.
+
 ## Layout
 
 ```
@@ -172,6 +193,6 @@ Set `ANTHROPIC_API_KEY` in `.env` for Claude-written text (optional; `AGENTS_LLM
 ## Next
 
 - **Phase B (rest):** push notifications; supplier messages by email.
-- **Phase 3 (invoices) with the Invoice agent:** email and e-invoice intake, matching to orders and deliveries, credit notes, ZATCA.
+- **Phase 3 (rest):** ZATCA phase 2 issuing for suppliers on Backhouse, posting approved invoices to accounting systems, documents in object storage.
 
 See `docs/SPEC.md` §10.

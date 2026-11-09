@@ -11,7 +11,11 @@ This is an original product. No Supy code, branding, copy or UI is used.
 **Status:**
 - Phase 0 (foundation) ✅
 - Phase 1 (catalogue and shared ingredient map) ✅
-- Phase A (agent platform and Price Watch) ✅; see §10.
+- Phase A (agent platform and Price Watch) ✅
+- Phase 2 (procurement and the Purchasing agent) ✅
+- Phase B (WhatsApp approvals, digest, supplier messaging) ✅ except push and supplier email
+- Billing and company verification ✅
+- Phase 3 (supplier invoices and the Invoice agent) in progress; see §10.
 
 ---
 
@@ -40,7 +44,7 @@ Each agent is a product: a clear job, the tools it may use, the actions it may p
 | **Price Watch** | Catch supplier price rises and respond | `price.changed` events, daily scan | Switch to a cheaper supplier for the same ingredient; ask the supplier to explain or revert (drafted EN/AR message); accept the new price | SAR avoided per month; response time to price rises | Phase 1 ✅ |
 | **Onboarding** | Get a customer live in 48 h | New org, uploaded files | Build items, packs, suppliers and price lists from invoices, price lists and menus, for review | Time to first value; % of lines accepted without edits | Phase 1 ✅ + document AI |
 | **Purchasing** | Keep every site stocked at the lowest cost | Par/stock levels, delivery schedules, cut-offs | Draft orders per supplier and delivery date; send after approval; chase late confirmations | Stock-outs avoided; on-time ordering; savings vs. last price | Phase 2 |
-| **Invoice** | Never pay for what didn't arrive | Invoice received (email/e-invoice), delivery received | Match invoice to PO and delivery; flag differences; draft credit-note requests; post to accounting | SAR recovered; minutes per invoice | Phase 2, e-invoicing |
+| **Invoice** | Never pay for what didn't arrive | Invoice received (email/e-invoice), delivery received | Match invoice to PO and delivery; flag differences; draft credit-note requests; post to accounting | SAR recovered; minutes per invoice | Phase 3 ✅ (posting to accounting next) |
 | **Stock** | Accurate stock with minimal effort | Count schedules, WhatsApp/voice messages | Run counts and waste logging by voice; explain variances | Count completion; variance explained | Phase 3 |
 | **Cost Controller** | Protect food-cost % | Weekly schedule, questions | "Why did food cost rise?"; weekly profit-leak report; menu price suggestions | Food cost % vs. target | Recipes + POS |
 
@@ -251,7 +255,7 @@ infra/        docker-compose (postgres, redis, minio), CI
 | B Channels | **WhatsApp approval cards** ✅ (linking by code, cards routed by permission and site, approve/reject from buttons, value cap, templates outside the 24-hour window, delivery tracking, simulator) and **daily digest** ✅ (per person and org, local hour, permission-scoped, "Show decisions" reopens the window). and **direct supplier messaging** ✅ (orders with Confirm/Problem buttons and a private order link, replies onto the order and the inbox, direct chasers). Still to do: push; supplier email | in progress |
 | Billing + verification | Self-serve trial and subscriptions (platform fee + agent per site, SAR + VAT), renewals, retries, read-only mode, Moyasar adapter, invoices with ZATCA phase-1 QR; CR verification against the commercial register (Wathq adapter) with review queue for mismatches | ✅ |
 | 2 Procurement + **Purchasing agent** | POs, approvals and spend limits, sending, receiving (GRN), stock ledger with weighted average cost, Purchasing agent (reorder drafts, late-delivery chasing). Built agent-first (core actions and review screens, few hand-entry forms). Requisitions and multi-level approval deferred | ✅ |
-| 3 Invoices + **Invoice agent** | Email/e-invoice intake, AI extraction, three-way matching, credit notes, ZATCA | |
+| 3 Invoices + **Invoice agent** | Email/e-invoice intake ✅, AI extraction ✅, three-way matching ✅, credit-note requests ✅, Invoice agent ✅ (see `docs/invoices.md`). Still to do: ZATCA phase 2 issuing for suppliers, posting to accounting, documents in object storage | in progress |
 | 4 Stock + **Stock agent** | Counts by voice/WhatsApp, waste, transfers, variance | |
 | 5 Recipes, POS + **Cost Controller** | Recipes and costing, Foodics integration, theoretical vs actual, weekly report | |
 | Onboarding agent | Runs alongside phases 2–3 as document AI matures | |
@@ -294,7 +298,7 @@ infra/        docker-compose (postgres, redis, minio), CI
 ---
 
 ## 13. Open decisions
-1. Product name and brand.
+1. ~~Product name and brand.~~ Decided: Backhouse.
 2. Pricing validation with 3–5 design partners (agent-per-site vs. performance share).
 3. Anthropic data-residency and processing terms for KSA customers. Prompts and outputs that include customer data need a data processing agreement.
 4. WhatsApp Business provider for Phase B: built on Meta's Cloud API directly (no BSP). Revisit if we need a BSP for onboarding many sender numbers.
