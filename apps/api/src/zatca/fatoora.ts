@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { XMLParser } from 'fast-xml-parser';
-import { createTestCa, issueTestCert, readCert, readCsr, verifyHash, type TestCa, type ZatcaEnvironment } from './crypto.js';
+import { certFromToken, certSubjectAndKey, createTestCa, issueTestCert, readCert, readCsr, signedBy, verifyHash, type TestCa, type ZatcaEnvironment } from './crypto.js';
 import { readQr } from './ubl.js';
 
 /*
@@ -131,21 +131,21 @@ export class HttpFatoora implements Fatoora {
 export class SimulatedFatoora implements Fatoora {
   readonly mode = 'simulated' as const;
   private readonly ca: TestCa = createTestCa();
-  private readonly issued = new Map<string, { secret: string; csrPem: string; production: boolean }>();
   /** Set to make the next N calls fail as unavailable (tests). */
   failNext = 0;
 
-  private issue(csrPem: string, production: boolean): CsidResponse {
-    const cert = issueTestCert(this.ca, csrPem);
-    const token = Buffer.from(cert).toString('base64');
-    const secret = createHash('sha256').update(token).digest('base64').slice(0, 32);
-    this.issued.set(token, { secret, csrPem, production });
-    return { binarySecurityToken: token, secret, requestID: String(Date.now()) + String(Math.floor(Math.random() * 1000)), dispositionMessage: 'ISSUED' };
+  /** Stateless, so the API and the worker agree: the secret is derived from the token and the certificate kind. */
+  private secretFor(token: string, production: boolean) {
+    return createHash('sha256').update(`${production ? 'production' : 'compliance'}:${token}`).digest('base64').slice(0, 32);
+  }
+  private issue(subject: Buffer, spki: Buffer, production: boolean): CsidResponse {
+    const token = Buffer.from(issueTestCert(this.ca, subject, spki)).toString('base64');
+    return { binarySecurityToken: token, secret: this.secretFor(token, production), requestID: String(Date.now()) + String(Math.floor(Math.random() * 1000)), dispositionMessage: 'ISSUED' };
   }
   private auth(c: Credentials, production: boolean) {
-    const found = this.issued.get(c.binarySecurityToken);
-    if (!found || found.secret !== c.secret || found.production !== production) throw new FatooraRejected('ZATCA did not accept the certificate (401)', 401, null);
-    return found;
+    const cert = certFromToken(c.binarySecurityToken);
+    if (c.secret !== this.secretFor(c.binarySecurityToken, production) || !signedBy(cert, this.ca)) throw new FatooraRejected('ZATCA did not accept the certificate (401)', 401, null);
+    return cert;
   }
   private unavailable() {
     if (this.failNext > 0) {
@@ -157,14 +157,15 @@ export class SimulatedFatoora implements Fatoora {
   async compliance(_env: ZatcaEnvironment, csrBase64: string, otp: string) {
     this.unavailable();
     if (!/^\d{6}$/.test(otp) || otp === '000000') throw new FatooraRejected('Compliance certificate refused: Invalid-OTP', 400, null);
-    const csrPem = Buffer.from(csrBase64, 'base64').toString('utf8');
-    if (!readCsr(csrPem).signatureValid) throw new FatooraRejected('Compliance certificate refused: Invalid-CSR', 400, null);
-    return this.issue(csrPem, false);
+    const csr = readCsr(Buffer.from(csrBase64, 'base64').toString('utf8'));
+    if (!csr.signatureValid) throw new FatooraRejected('Compliance certificate refused: Invalid-CSR', 400, null);
+    return this.issue(csr.subject, csr.spki, false);
   }
 
-  async productionCsid(_env: ZatcaEnvironment, creds: Credentials) {
+  async productionCsid(_env: ZatcaEnvironment, creds: Credentials, _complianceRequestId?: string) {
     this.unavailable();
-    return this.issue(this.auth(creds, false).csrPem, true);
+    const { subject, spki } = certSubjectAndKey(this.auth(creds, false));
+    return this.issue(subject, spki, true);
   }
 
   private check(body: SubmitBody): ValidationResults {

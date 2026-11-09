@@ -60,6 +60,10 @@ const schema = z.object({
   INBOUND_EMAIL_DOMAIN: z.string().default('in.backhouse.sa'),
   /** Shared secret for the inbound email webhook (HMAC-SHA256 of the body in X-Backhouse-Signature). Unset = email intake off. */
   INBOUND_EMAIL_SECRET: z.string().optional(),
+  /** ZATCA e-invoicing: 'live' calls ZATCA's Fatoora API; 'simulated' (default) uses a local stand-in with a test CA. */
+  ZATCA_MODE: z.enum(['simulated', 'live']).default('simulated'),
+  /** Encrypts EGS signing keys and ZATCA secrets at rest (32+ characters). Required in production. */
+  ZATCA_SECRET_KEY: z.string().min(32).optional(),
   WHATSAPP_PROMPT_TTL_HOURS: z.coerce.number().int().positive().default(72),
 });
 

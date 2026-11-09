@@ -23,6 +23,7 @@ import { ChannelsModule } from './channels/channels.module.js';
 import { BillingModule, EntitlementGuard } from './billing/billing.module.js';
 import { VerificationModule } from './verification/verification.js';
 import { InvoicesModule } from './invoices/invoices.module.js';
+import { ZatcaModule } from './zatca/zatca.module.js';
 
 @ApiTags('health')
 @Controller('health')
@@ -61,7 +62,7 @@ export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forRoot(config), BillingModule, VerificationModule, AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, StockModule, ProcurementModule, InvoicesModule, AgentsModule, ChannelsModule, McpModule],
+      imports: [CoreModule.forRoot(config), BillingModule, VerificationModule, AuthModule, OrgStructureModule, MembersModule, MatchingModule, ItemsModule, SuppliersModule, StockModule, ProcurementModule, InvoicesModule, ZatcaModule, AgentsModule, ChannelsModule, McpModule],
       controllers: [HealthController],
       providers: [
         { provide: APP_PIPE, useClass: ZodValidationPipe },

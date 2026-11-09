@@ -46,6 +46,9 @@ export const PERMISSIONS = [
   'invoice:read',
   'invoice:manage',
   'invoice:approve',
+  'einvoice:manage',
+  'sales_invoice:read',
+  'sales_invoice:manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -75,7 +78,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Operations Manager',
     nameAr: 'مدير العمليات',
     scope: 'org',
-    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage', 'par:manage', 'supplier:manage', 'task:decide', 'token:manage', 'stock:manage', 'po:manage', 'po:approve', 'spend_limit:manage', 'invoice:manage', 'invoice:approve'],
+    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage', 'par:manage', 'supplier:manage', 'task:decide', 'token:manage', 'stock:manage', 'po:manage', 'po:approve', 'spend_limit:manage', 'invoice:manage', 'invoice:approve', 'sales_invoice:manage'],
   },
   {
     key: 'site_manager',
@@ -91,7 +94,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Accountant',
     nameAr: 'محاسب',
     scope: 'org',
-    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read', 'item:read', 'supplier:read', 'price:read', 'agent:read', 'stock:read', 'po:read', 'billing:read', 'invoice:read', 'invoice:manage', 'invoice:approve', 'task:decide'],
+    permissions: ['org:read', 'legal_entity:read', 'site:read', 'cost_centre:read', 'audit:read', 'item:read', 'supplier:read', 'price:read', 'agent:read', 'stock:read', 'po:read', 'billing:read', 'invoice:read', 'invoice:manage', 'invoice:approve', 'task:decide', 'sales_invoice:read', 'sales_invoice:manage'],
   },
   // Agent roles: assigned only to agent identities, never to people.
   {

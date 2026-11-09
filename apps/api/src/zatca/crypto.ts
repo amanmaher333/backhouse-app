@@ -135,17 +135,19 @@ export interface TestCa {
   name: Der;
 }
 
+/** The simulated ZATCA's CA key. Test-only: certificates it signs mean nothing outside simulated mode. */
+const TEST_CA_KEY = `-----BEGIN PRIVATE KEY-----
+MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQg26usbm4ABxSCIhE0qovi
+QaRmnnAKpy0RIbV/LBvSAp+hRANCAATEpNsw+Mcrat3iHTFZB9J1JZAibfDIrc6f
+9Sw929mI/BxEOnD2P6uT7D/F+hy4bkI5Gj2bypgUi7ksUQlwOjZU
+-----END PRIVATE KEY-----`;
+
 export function createTestCa(): TestCa {
-  const { privateKeyPem } = generateKeys();
-  return { keyPem: privateKeyPem, name: seq(rdn('0.9.2342.19200300.100.1.25', utf8('local')), rdn('0.9.2342.19200300.100.1.25', utf8('backhouse')), rdn(OID.commonName, utf8('Backhouse-Simulated-ZATCA-CA'))) };
+  return { keyPem: TEST_CA_KEY, name: seq(rdn('0.9.2342.19200300.100.1.25', utf8('local')), rdn('0.9.2342.19200300.100.1.25', utf8('backhouse')), rdn(OID.commonName, utf8('Backhouse-Simulated-ZATCA-CA'))) };
 }
 
-/** Issue a certificate for a CSR's key and subject (simulated onboarding). */
-export function issueTestCert(ca: TestCa, csrPem: string, days = 365): string {
-  const csr = parse(unpem(csrPem));
-  const info = csr.children[0]!;
-  const subject = info.children[1]!.raw;
-  const spki = info.children[2]!.raw;
+/** Issue a certificate for a subject and public key (simulated onboarding). */
+export function issueTestCert(ca: TestCa, subject: Buffer, spki: Buffer, days = 365): string {
   const now = new Date();
   const tbs = seq(
     explicit(0, integer(2)),
@@ -160,11 +162,23 @@ export function issueTestCert(ca: TestCa, csrPem: string, days = 365): string {
   return seq(tbs, seq(oid(OID.ecdsaSha256)), bitString(signature)).toString('base64');
 }
 
+/** Subject and public key of a certificate (DER, base64). */
+export function certSubjectAndKey(base64Cert: string) {
+  const tbs = parse(Buffer.from(base64Cert, 'base64')).children[0]!;
+  return { subject: tbs.children[5]!.raw, spki: tbs.children[6]!.raw };
+}
+
+/** True if the certificate was signed by the CA. */
+export function signedBy(base64Cert: string, ca: TestCa): boolean {
+  const top = parse(Buffer.from(base64Cert, 'base64'));
+  return verify('sha256', top.children[0]!.raw, createPublicKey(createPrivateKey(ca.keyPem)), top.children[2]!.value.subarray(1));
+}
+
 /** Read the EGS details back out of a CSR (used by the simulated ZATCA). */
 export function readCsr(csrPem: string) {
   const csr = parse(unpem(csrPem));
   const info = csr.children[0]!;
   const spki = info.children[2]!.raw;
   const ok = verify('sha256', info.raw, createPublicKey({ key: spki, format: 'der', type: 'spki' }), csr.children[2]!.value.subarray(1));
-  return { signatureValid: ok, spki };
+  return { signatureValid: ok, subject: info.children[1]!.raw, spki };
 }

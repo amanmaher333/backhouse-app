@@ -8,6 +8,7 @@ import { ChannelsService } from './channels/channels.service.js';
 import { DigestService } from './channels/digest.js';
 import { BillingService } from './billing/billing.service.js';
 import { VerificationService } from './verification/verification.js';
+import { ZatcaService } from './zatca/zatca.service.js';
 
 /**
  * Agent worker: polls for agents with unprocessed events (and daily scans) and runs them.
@@ -20,6 +21,7 @@ const channels = app.get(ChannelsService);
 const digests = app.get(DigestService);
 const billing = app.get(BillingService);
 const verification = app.get(VerificationService);
+const zatca = app.get(ZatcaService);
 const logger = new Logger('Worker');
 let stopping = false;
 process.on('SIGINT', () => (stopping = true));
@@ -39,6 +41,9 @@ while (!stopping) {
     if (b.trialsEnded || b.renewed || b.failed) logger.log(`billing: ${b.trialsEnded} trials ended, ${b.renewed} paid, ${b.failed} failed`);
     // Company checks that could not reach the register.
     await verification.retryPending();
+    // ZATCA: send signed invoices that couldn't be cleared or reported yet.
+    const z = await zatca.submitDue();
+    if (Object.keys(z).length) logger.log(`zatca (${zatca.mode}): ${JSON.stringify(z)}`);
     // WhatsApp: approval cards for new tasks, then anything queued (retries included).
     const cards = await channels.notifyPending();
     const daily = await digests.runDue();

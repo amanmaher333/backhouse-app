@@ -1411,3 +1411,138 @@ export const inboundEmails = pgTable(
   },
   (t) => [uniqueIndex('inbound_emails_message_uq').on(t.messageId)],
 );
+
+/* =====================================================================
+ * Phase 3: ZATCA phase 2 e-invoicing (issuing)
+ * ===================================================================== */
+
+/**
+ * An EGS unit (e-invoice generation solution) registered with ZATCA for one legal entity.
+ * Holds the signing key (encrypted), its certificates, and the invoice chain: counter
+ * (ICV) and hash of the last document signed (PIH for the next one).
+ */
+export const zatcaUnits = pgTable(
+  'zatca_units',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    legalEntityId: uuid('legal_entity_id').notNull(),
+    name: text('name').notNull(),
+    /** sandbox (Developer Portal), simulation, production */
+    environment: text('environment').notNull(),
+    /** Four flags: standard (B2B), simplified (B2C), then two reserved: "1100" = both. */
+    invoiceTypes: text('invoice_types').notNull().default('1100'),
+    /** new → onboarding → active; failed (can retry with a new OTP); revoked */
+    status: text('status').notNull().default('new'),
+    commonName: text('common_name').notNull(),
+    egsSerial: text('egs_serial').notNull(),
+    privateKeyEnc: text('private_key_enc').notNull(),
+    csrPem: text('csr_pem').notNull(),
+    complianceToken: text('compliance_token'),
+    complianceSecretEnc: text('compliance_secret_enc'),
+    complianceRequestId: text('compliance_request_id'),
+    productionToken: text('production_token'),
+    productionSecretEnc: text('production_secret_enc'),
+    certSerial: text('cert_serial'),
+    certExpiresAt: timestamp('cert_expires_at', { withTimezone: true }),
+    /** Last invoice counter used; the next document gets icv + 1. */
+    icv: integer('icv').notNull().default(0),
+    /** Hash of the last document signed (null = none yet). */
+    lastHash: text('last_hash'),
+    checks: jsonb('checks').$type<Record<string, unknown>[] | null>(),
+    lastError: text('last_error'),
+    activatedAt: timestamp('activated_at', { withTimezone: true }),
+    createdBy: uuid('created_by'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('zatca_units_org_id_id_uq').on(t.orgId, t.id),
+    foreignKey({ columns: [t.orgId, t.legalEntityId], foreignColumns: [legalEntities.orgId, legalEntities.id] }).onDelete('cascade'),
+    index('zatca_units_entity_idx').on(t.legalEntityId, t.status),
+  ],
+);
+
+/** Tax invoices, credit notes and debit notes issued by an organisation's legal entity. */
+export const salesInvoices = pgTable(
+  'sales_invoices',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    legalEntityId: uuid('legal_entity_id').notNull(),
+    unitId: uuid('unit_id'),
+    siteId: uuid('site_id'),
+    number: text('number').notNull(),
+    uuid: uuid('uuid').notNull().defaultRandom(),
+    /** invoice, credit_note, debit_note */
+    type: text('type').notNull().default('invoice'),
+    /** standard (B2B, cleared by ZATCA before it is shared) or simplified (B2C, reported within 24 hours) */
+    kind: text('kind').notNull(),
+    /** draft → issued (signed, waiting for ZATCA) → cleared / reported, or rejected */
+    status: text('status').notNull().default('draft'),
+    issueDate: text('issue_date'),
+    issueTime: text('issue_time'),
+    supplyDate: text('supply_date'),
+    currency: text('currency').notNull().default('SAR'),
+    buyer: jsonb('buyer').$type<Record<string, unknown> | null>(),
+    paymentMeansCode: text('payment_means_code').notNull().default('10'),
+    note: text('note'),
+    reason: text('reason'),
+    originalInvoiceId: uuid('original_invoice_id'),
+    billingReference: text('billing_reference'),
+    subtotal: numeric('subtotal', { precision: 16, scale: 2 }).notNull().default('0'),
+    taxTotal: numeric('tax_total', { precision: 16, scale: 2 }).notNull().default('0'),
+    total: numeric('total', { precision: 16, scale: 2 }).notNull().default('0'),
+    icv: integer('icv'),
+    pih: text('pih'),
+    hash: text('hash'),
+    qr: text('qr'),
+    signedXml: text('signed_xml'),
+    clearedXml: text('cleared_xml'),
+    zatcaStatus: text('zatca_status'),
+    validation: jsonb('validation').$type<Record<string, unknown> | null>(),
+    submitAttempts: integer('submit_attempts').notNull().default(0),
+    nextSubmitAt: timestamp('next_submit_at', { withTimezone: true }),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    lastError: text('last_error'),
+    createdBy: uuid('created_by'),
+    issuedBy: uuid('issued_by'),
+    issuedAt: timestamp('issued_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('sales_invoices_org_id_id_uq').on(t.orgId, t.id),
+    unique('sales_invoices_org_number_uq').on(t.orgId, t.number),
+    foreignKey({ columns: [t.orgId, t.legalEntityId], foreignColumns: [legalEntities.orgId, legalEntities.id] }),
+    foreignKey({ columns: [t.orgId, t.unitId], foreignColumns: [zatcaUnits.orgId, zatcaUnits.id] }),
+    index('sales_invoices_org_status_idx').on(t.orgId, t.status, t.createdAt),
+    index('sales_invoices_submit_idx').on(t.status, t.nextSubmitAt),
+    uniqueIndex('sales_invoices_unit_icv_uq').on(t.unitId, t.icv),
+  ],
+);
+
+export const salesInvoiceLines = pgTable(
+  'sales_invoice_lines',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    invoiceId: uuid('invoice_id').notNull(),
+    lineNo: integer('line_no').notNull(),
+    name: text('name').notNull(),
+    qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),
+    unitPrice: numeric('unit_price', { precision: 14, scale: 4 }).notNull(),
+    discount: numeric('discount', { precision: 14, scale: 2 }).notNull().default('0'),
+    /** S standard, Z zero-rated, E exempt, O out of scope */
+    vatCategory: text('vat_category').notNull().default('S'),
+    vatRate: numeric('vat_rate', { precision: 5, scale: 2 }).notNull().default('15'),
+    exemptionCode: text('exemption_code'),
+    exemptionReason: text('exemption_reason'),
+    net: numeric('net', { precision: 16, scale: 2 }).notNull().default('0'),
+    vat: numeric('vat', { precision: 16, scale: 2 }).notNull().default('0'),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.invoiceId], foreignColumns: [salesInvoices.orgId, salesInvoices.id] }).onDelete('cascade'),
+    index('sales_invoice_lines_invoice_idx').on(t.invoiceId, t.lineNo),
+  ],
+);
