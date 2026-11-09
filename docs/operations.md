@@ -11,7 +11,7 @@ What keeps production healthy, and the dashboard steps that can't be done from t
 | 3 | Bigger database volume | Railway → `postgres` → Settings → Volume. 500 MB today (about 120 MB used) | Needs a plan with larger volumes |
 | 4 | Plan | Railway → Workspace → Plan. Hobby today; Pro adds larger volumes, backups retention and team access | Decide before the first paying customer |
 | 5 | Error reporting | Create a Sentry project (platform: Node.js), copy its DSN, set `SENTRY_DSN` on `api` and `worker` | Code ready; off until the DSN is set |
-| 6 | Own domain | Railway → `web` → Settings → Networking → Custom domain (e.g. `app.<domain>`), and `api` (e.g. `api.<domain>`). Add the CNAME records Railway shows at your DNS provider, then set `PUBLIC_WEB_URL` and `FOODICS_REDIRECT_URI` to the new web address | Waiting for the domain |
+| 6 | Own domain | `kitchain.online`: `app.kitchain.online` → `web` (port 8080), `api.kitchain.online` → `api` (port 3000). CNAME and `_railway-verify` TXT records at the registrar. The bare domain and `www` are left for the marketing site | Done for `app`; `PUBLIC_WEB_URL` = `https://app.kitchain.online` on `api` and `worker` |
 
 ## Error reporting (Sentry)
 

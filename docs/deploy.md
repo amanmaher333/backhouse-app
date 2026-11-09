@@ -27,7 +27,7 @@ Automatic deploys from `main` are not switched on yet: see `docs/operations.md` 
 | `DATABASE_URL` | `${{postgres.DATABASE_URL}}` |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | long random strings |
 | `ZATCA_SECRET_KEY` | 32+ random characters (encrypts e-invoicing keys) |
-| `PUBLIC_WEB_URL` | the web service's URL |
+| `PUBLIC_WEB_URL` | the web app's address: `https://app.kitchain.online` |
 | `NODE_ENV` | `production` |
 | `AGENTS_LLM` / `ANTHROPIC_API_KEY` | optional: AI-written task text and invoice reading |
 | `WHATSAPP_*`, `MOYASAR_*`, `WATHQ_API_KEY`, `INBOUND_EMAIL_SECRET`, `ZATCA_MODE=live` | when those integrations go live; until then everything runs in simulated mode |
