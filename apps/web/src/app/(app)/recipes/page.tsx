@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Dialog, Empty, PageHead, Toast } from '@/components/ui';
 import { IconPlus } from '@/components/icons';
+import { RecipeTabs } from '@/components/stock';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
 import type { CostBasis, PosProductOption, RecipeRow } from '@/lib/types-recipes';
@@ -42,6 +43,7 @@ export default function RecipesPage() {
           )
         }
       />
+      <RecipeTabs />
       <div className="filters">
         <div className="segmented" role="group">
           {(['menu', 'prep'] as const).map((k) => (

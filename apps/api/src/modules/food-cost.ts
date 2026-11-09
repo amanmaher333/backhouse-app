@@ -77,8 +77,9 @@ export class FoodCostService {
         const b0 = cs.find((c) => c.id === q.toCountId);
         if (!a0 || !b0) throw new BadRequestException('Both counts must be posted counts at this site');
         if (a0.postedAt! >= b0.postedAt!) throw new BadRequestException('The first count must come before the second');
-        t0 = a0.postedAt!;
-        t1 = b0.postedAt!;
+        // A count's own adjustments are stamped at (or just before) its posting time: include them on its side.
+        t0 = new Date(a0.postedAt!.getTime() + 1);
+        t1 = new Date(b0.postedAt!.getTime() + 1);
         // Counts are taken at close of business: sales run from the day after the first count to the day of the second.
         fromDate = addDays(localDate(t0, tz), 1);
         toDate = localDate(t1, tz);

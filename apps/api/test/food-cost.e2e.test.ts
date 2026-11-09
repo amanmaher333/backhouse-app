@@ -79,10 +79,15 @@ describe('theoretical vs actual food cost', () => {
 
     // Stock: counted two days ago; a delivery and some waste yesterday; the closing count late yesterday.
     let last = await lastMovementId();
-    await http.post(`/v1/sites/${site.id}/stock/set`).set(auth(token)).send({ itemId: chicken.id, qty: 20, unit: 'kg' }).expect(201);
-    await http.post(`/v1/sites/${site.id}/stock/set`).set(auth(token)).send({ itemId: bun.id, qty: 100, unit: 'each' }).expect(201);
-    await http.post(`/v1/sites/${site.id}/stock/set`).set(auth(token)).send({ itemId: tomato.id, qty: 10, unit: 'kg' }).expect(201);
-    await backdate(site.id, last, at(riyadhDate(-2), '23:00'));
+    const opening = (await http.post(`/v1/sites/${site.id}/stock-counts`).set(auth(token)).send({}).expect(201)).body;
+    await http
+      .patch(`/v1/stock-counts/${opening.id}/lines`)
+      .set(auth(token))
+      .send({ lines: [{ itemId: chicken.id, qty: 20, unit: 'kg' }, { itemId: bun.id, qty: 100, unit: 'each' }, { itemId: tomato.id, qty: 10, unit: 'kg' }] })
+      .expect(200);
+    await http.post(`/v1/stock-counts/${opening.id}/submit`).set(auth(token)).expect(200);
+    await http.post(`/v1/stock-counts/${opening.id}/post`).set(auth(token)).expect(200);
+    await backdate(site.id, last, at(riyadhDate(-2), '23:00'), opening.id);
 
     last = await lastMovementId();
     const po = (await http.post('/v1/purchase-orders').set(auth(token)).send({ siteId: site.id, relationshipId: sup.id, submit: true, lines: [{ supplierItemId: chicken.line.id, qty: 1 }] }).expect(201)).body;
@@ -111,7 +116,7 @@ describe('theoretical vs actual food cost', () => {
     await http.post('/v1/recipes/from-pos').set(auth(token)).send({}).expect(200);
     r = (await http.get(`/v1/food-cost?siteId=${site.id}&from=${yesterday}&to=${yesterday}`).set(auth(token)).expect(200)).body;
     expect(r.withoutRecipe).toEqual([]);
-    expect(r.counts.start).toBeNull(); // no count at the start of yesterday: the figures say so
+    expect(r.counts.start).toMatchObject({ ref: opening.ref }); // counted the night before
     expect(r.counts.end).toMatchObject({ ref: count.ref });
     const row = (n: string) => r.rows.find((x: any) => x.name === n);
     // Chicken: 20 + 10 − 26 = 4 kg used; sold 12 × 150 g + 8 × 120 g = 2.76 kg, + 0.5 kg waste = 3.26 kg → 740 g unexplained.
@@ -122,9 +127,18 @@ describe('theoretical vs actual food cost', () => {
     // Net sales 12 × 24.35 + 4 × 55.65 = 514.80; actual 128.50 (25.0%); theoretical 96.60 (18.8%).
     expect(r.totals).toMatchObject({ netSales: '514.80', actualCost: '128.50', theoreticalCost: '96.60', wasteCost: '12.50', varianceCost: '31.90', actualPct: '25.0', theoreticalPct: '18.8', gapPct: '6.2' });
 
-    // Counts offered as period ends; a period needs two different counts in order.
+    // Counts offered as period ends; between the two counts gives the same figures.
     const periods = (await http.get(`/v1/food-cost/periods?siteId=${site.id}`).set(auth(token)).expect(200)).body;
-    expect(periods[0]).toMatchObject({ id: count.id, ref: count.ref, date: yesterday });
+    expect(periods.map((p: any) => p.ref)).toEqual([count.ref, opening.ref]);
+    expect(periods[0]).toMatchObject({ id: count.id, date: yesterday });
+    const between = (await http.get(`/v1/food-cost?siteId=${site.id}&fromCountId=${opening.id}&toCountId=${count.id}`).set(auth(token)).expect(200)).body;
+    expect(between.period).toMatchObject({ from: yesterday, to: yesterday });
+    expect(between.totals).toEqual(r.totals);
+    expect(between.rows.find((x: any) => x.name === 'Chicken breast')).toMatchObject({ opening: '20000.000', closing: '26000.000', actual: '4000.000' });
+    // Without a count at the start, the report says so.
+    const earlier = (await http.get(`/v1/food-cost?siteId=${site.id}&from=${riyadhDate(-4)}&to=${riyadhDate(-3)}`).set(auth(token)).expect(200)).body;
+    expect(earlier.counts.start).toBeNull();
+    // A period needs two different counts in order.
     await http.get(`/v1/food-cost?siteId=${site.id}&fromCountId=${count.id}&toCountId=${count.id}`).set(auth(token)).expect(400);
     await http.get(`/v1/food-cost?siteId=${site.id}`).set(auth(token)).expect(400);
 
