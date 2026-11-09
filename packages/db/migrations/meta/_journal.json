@@ -134,6 +134,13 @@
       "when": 1794237801241,
       "tag": "0018_waste_transfers",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794246067864,
+      "tag": "0019_pos_foodics",
+      "breakpoints": true
     }
   ]
 }

@@ -50,6 +50,8 @@ export const PERMISSIONS = [
   'einvoice:manage',
   'sales_invoice:read',
   'sales_invoice:manage',
+  'pos:read',
+  'pos:manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -72,14 +74,14 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Data Manager',
     nameAr: 'مدير البيانات',
     scope: 'org',
-    permissions: [...READ_ALL, 'location:manage', 'cost_centre:manage', 'brand:manage', 'item:manage', 'par:manage', 'supplier:manage', 'price:manage', 'task:decide', 'token:manage', 'stock:manage', 'stock:approve', 'po:manage', 'invoice:manage'],
+    permissions: [...READ_ALL, 'location:manage', 'cost_centre:manage', 'brand:manage', 'item:manage', 'par:manage', 'supplier:manage', 'price:manage', 'task:decide', 'token:manage', 'stock:manage', 'stock:approve', 'po:manage', 'invoice:manage', 'pos:manage'],
   },
   {
     key: 'ops_manager',
     name: 'Operations Manager',
     nameAr: 'مدير العمليات',
     scope: 'org',
-    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage', 'par:manage', 'supplier:manage', 'task:decide', 'token:manage', 'stock:manage', 'stock:approve', 'po:manage', 'po:approve', 'spend_limit:manage', 'invoice:manage', 'invoice:approve', 'sales_invoice:manage'],
+    permissions: [...READ_ALL, 'site:manage', 'location:manage', 'member:manage', 'par:manage', 'supplier:manage', 'task:decide', 'token:manage', 'stock:manage', 'stock:approve', 'po:manage', 'po:approve', 'spend_limit:manage', 'invoice:manage', 'invoice:approve', 'sales_invoice:manage', 'pos:manage'],
   },
   {
     key: 'site_manager',

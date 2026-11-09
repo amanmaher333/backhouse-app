@@ -65,6 +65,14 @@ const schema = z.object({
   /** Encrypts EGS signing keys and ZATCA secrets at rest (32+ characters). Required in production. */
   ZATCA_SECRET_KEY: z.string().min(32).optional(),
   WHATSAPP_PROMPT_TTL_HOURS: z.coerce.number().int().positive().default(72),
+  /** Foodics POS: 'simulated' (default) uses a built-in demo business; 'sandbox' and 'production' call Foodics. */
+  FOODICS_MODE: z.enum(['simulated', 'sandbox', 'production']).default('simulated'),
+  FOODICS_CLIENT_ID: z.string().optional(),
+  FOODICS_CLIENT_SECRET: z.string().optional(),
+  /** Where Foodics sends people back after they approve Backhouse. Defaults to PUBLIC_WEB_URL/integrations/foodics/callback. */
+  FOODICS_REDIRECT_URI: z.string().url().optional(),
+  /** Encrypts integration access tokens at rest (32+ characters). Falls back to ZATCA_SECRET_KEY. */
+  INTEGRATIONS_SECRET_KEY: z.string().min(32).optional(),
 });
 
 export type AppConfig = z.infer<typeof schema>;
