@@ -113,3 +113,9 @@ export const IconCard = (p: SVGProps<SVGSVGElement>) => (
 export const IconReceipt = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5zM9 8h6M9 12h6M9 16h3" /></svg>
 );
+export const IconStamp = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M5 21h14M6 17h12v-3a2 2 0 0 0-2-2h-2.5V9.5a3 3 0 1 0-3 0V12H8a2 2 0 0 0-2 2z" /></svg>
+);
+export const IconShieldCheck = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M12 3 4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6z" /><path d="M9 11.5h6M9 15h4M10 8h4" /></svg>
+);

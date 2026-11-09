@@ -28,6 +28,8 @@ import {
   IconChat,
   IconCard,
   IconReceipt,
+  IconStamp,
+  IconShieldCheck,
 } from './icons';
 import { InstallButton, LangButton, SyncPill, ThemeButton } from './toolbar';
 import { initials } from './ui';
@@ -44,6 +46,7 @@ const MAIN: NavItem[] = [
   { href: '/overview', label: 'overview', icon: IconHome },
   { href: '/orders', label: 'orders', icon: IconCart, perm: 'po:read' },
   { href: '/invoices', label: 'invoices', icon: IconReceipt, perm: 'invoice:read' },
+  { href: '/sales', label: 'salesInvoices', icon: IconStamp, perm: 'sales_invoice:read' },
   { href: '/stock', label: 'stock', icon: IconLayers, perm: 'stock:read' },
   { href: '/items', label: 'items', icon: IconBox, perm: 'item:read' },
   { href: '/suppliers', label: 'suppliers', icon: IconTruck, perm: 'supplier:read' },
@@ -58,6 +61,7 @@ const ADMIN: NavItem[] = [
   { href: '/audit', label: 'audit', icon: IconList, perm: 'audit:read' },
   { href: '/settings', label: 'settings', icon: IconSettings, perm: 'org:read' },
   { href: '/billing', label: 'billing', icon: IconCard, perm: 'billing:read' },
+  { href: '/einvoicing', label: 'einvoicing', icon: IconShieldCheck, perm: 'sales_invoice:read' },
   { href: '/developers', label: 'developers', icon: IconPlug, perm: 'token:manage' },
 ];
 

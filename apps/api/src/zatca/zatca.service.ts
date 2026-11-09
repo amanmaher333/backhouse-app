@@ -114,7 +114,8 @@ export class ZatcaService {
     if (!a.postalCode || !/^\d{5}$/.test(a.postalCode)) missing.push('postal code (5 digits)');
     return {
       party: {
-        name: le.registryName ?? le.nameAr ?? le.name,
+        // ZATCA expects the seller's name in Arabic on the invoice.
+        name: le.nameAr ?? le.registryName ?? le.name,
         vatNumber: le.vatNumber,
         id: le.crNumber ? { scheme: 'CRN', value: le.crNumber } : null,
         address: { street: a.street ?? '', building: a.buildingNumber ?? '', district: a.district ?? '', city: a.city ?? '', postalCode: a.postalCode ?? '', additionalNumber: a.additionalNumber ?? null, country: a.country ?? 'SA' },
@@ -587,8 +588,11 @@ export class ZatcaService {
       const notes = await tx.select({ id: salesInvoices.id, number: salesInvoices.number, type: salesInvoices.type, status: salesInvoices.status, total: salesInvoices.total }).from(salesInvoices).where(eq(salesInvoices.originalInvoiceId, inv.id));
       const { signedXml, clearedXml, ...rest } = inv;
       const overdue = inv.kind === 'simplified' && inv.status === 'issued' && inv.issuedAt && Date.now() - inv.issuedAt.getTime() > REPORTING_DEADLINE_MS;
+      // For cleared tax invoices, ZATCA's cleared version carries the QR code to print.
+      const clearedQr = clearedXml?.match(/<cbc:ID>QR<\/cbc:ID>\s*<cac:Attachment>\s*<cbc:EmbeddedDocumentBinaryObject[^>]*>([^<]+)</)?.[1];
       return {
         ...rest,
+        qr: clearedQr ?? rest.qr,
         hasXml: Boolean(signedXml),
         hasClearedXml: Boolean(clearedXml),
         reportingOverdue: Boolean(overdue),

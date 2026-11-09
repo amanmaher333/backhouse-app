@@ -122,6 +122,21 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Research: [`docs/research/`](docs/
 - **Invoice agent:** proposes approvals, credit-note requests with a drafted message, checks, and approval once a credit note arrives. It can approve clean matches under a limit on its own.
 - **Web:** Invoices list with tabs, upload, invoice page with every difference highlighted, entry by hand, invoices on the order page, invoice tasks in the inbox. MCP tools `list_supplier_invoices` and `get_supplier_invoice`.
 
+**Phase 3: ZATCA phase 2 e-invoicing (issuing)** (see [`docs/zatca.md`](docs/zatca.md)):
+
+- **Validated by ZATCA:** `pnpm --filter @boh/api zatca:check` gets **PASS** from ZATCA's own validator (Developer Portal) on all six document types.
+- **EGS units per legal entity:**
+  - onboarding with the Fatoora OTP: compliance certificate, ZATCA's compliance checks, production certificate;
+  - keys and secrets encrypted at rest.
+- **Tax invoices (B2B) cleared, simplified invoices (B2C) reported, credit and debit notes:**
+  - UBL 2.1 XML with the ICV and PIH chain, XAdES signature and phase-2 QR;
+  - signed documents can't be changed;
+  - the worker retries when ZATCA is unreachable.
+- **Web:**
+  - E-invoicing page: register, onboard with the OTP, compliance check results;
+  - Sales invoices: list, new invoice or note, printable bilingual invoice with QR, XML download.
+- **Modes:** simulated by default (`ZATCA_MODE=simulated`); `live` calls ZATCA.
+
 ## Layout
 
 ```
@@ -193,6 +208,6 @@ Set `ANTHROPIC_API_KEY` in `.env` for Claude-written text (optional; `AGENTS_LLM
 ## Next
 
 - **Phase B (rest):** push notifications; supplier messages by email.
-- **Phase 3 (rest):** ZATCA phase 2 issuing for suppliers on Backhouse, posting approved invoices to accounting systems, documents in object storage.
+- **Phase 3 (rest):** posting approved invoices to accounting systems; documents in object storage; PDF/A-3 and email delivery of issued invoices; Backhouse's own billing on phase 2; supplier accounts so suppliers can issue on Backhouse.
 
 See `docs/SPEC.md` §10.
