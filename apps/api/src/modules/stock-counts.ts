@@ -368,7 +368,7 @@ export class StockCountsService {
         entries = entries.map((e) => (e.problem === 'no_item' ? parseCountText(e.raw, all)[0] ?? e : e));
       }
     }
-    const names = new Map(catalogue.map((i) => [i.id, i]));
+    const names = new Map((c.scope === 'full' ? await this.countableItems(tx, { ...c, scope: 'partial' }) : catalogue).map((i) => [i.id, i]));
     const clear = entries.filter((e) => !e.problem && e.itemId && e.qty !== null);
     const recorded: string[] = [];
     if (apply && clear.length) {
@@ -383,6 +383,8 @@ export class StockCountsService {
         ...e,
         itemName: e.itemId ? names.get(e.itemId)?.name ?? null : null,
         itemNameAr: e.itemId ? names.get(e.itemId)?.nameAr ?? null : null,
+        packName: e.packId ? names.get(e.itemId!)?.packs.find((p) => p.id === e.packId)?.name ?? null : null,
+        packNameAr: e.packId ? names.get(e.itemId!)?.packs.find((p) => p.id === e.packId)?.nameAr ?? null : null,
         candidateNames: e.candidates.map((id) => ({ id, name: names.get(id)?.name, nameAr: names.get(id)?.nameAr })),
         recorded: apply && recorded.includes(e.itemId ?? ''),
       })),

@@ -8,6 +8,7 @@ import { arChannels, enChannels } from './i18n-channels';
 import { arBilling, enBilling } from './i18n-billing';
 import { arInvoices, enInvoices } from './i18n-invoices';
 import { arSales, enSales } from './i18n-sales';
+import { arCounts, enCounts } from './i18n-counts';
 
 export type Lang = 'en' | 'ar';
 
@@ -19,6 +20,7 @@ const en = {
   ...enBilling,
   ...enInvoices,
   ...enSales,
+  ...enCounts,
   appName: 'Backhouse',
   appSub: 'AI back office',
   // nav
@@ -191,6 +193,7 @@ const ar: Dict = {
   ...arBilling,
   ...arInvoices,
   ...arSales,
+  ...arCounts,
   appName: 'Backhouse',
   appSub: 'المكتب الخلفي الذكي',
   navMain: 'مساحة العمل',
@@ -406,8 +409,8 @@ export function I18nProvider({ children, initialLang }: { children: ReactNode; i
     fmtQty: (base, baseUnit) => {
       const n = Number(base);
       const nf = (x: number) => x.toLocaleString(lang === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB', { maximumFractionDigits: 3 });
-      if (baseUnit === 'g') return n >= 1000 ? `${nf(n / 1000)} ${lang === 'ar' ? 'كجم' : 'kg'}` : `${nf(n)} ${lang === 'ar' ? 'غ' : 'g'}`;
-      if (baseUnit === 'ml') return n >= 1000 ? `${nf(n / 1000)} ${lang === 'ar' ? 'لتر' : 'L'}` : `${nf(n)} ${lang === 'ar' ? 'مل' : 'ml'}`;
+      if (baseUnit === 'g') return Math.abs(n) >= 1000 ? `${nf(n / 1000)} ${lang === 'ar' ? 'كجم' : 'kg'}` : `${nf(n)} ${lang === 'ar' ? 'غ' : 'g'}`;
+      if (baseUnit === 'ml') return Math.abs(n) >= 1000 ? `${nf(n / 1000)} ${lang === 'ar' ? 'لتر' : 'L'}` : `${nf(n)} ${lang === 'ar' ? 'مل' : 'ml'}`;
       return `${nf(n)} ${lang === 'ar' ? 'حبة' : 'each'}`;
     },
     fmtUnitCost: (c, baseUnit) => {

@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Dialog, Empty, Field, PageHead, Toast } from '@/components/ui';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
 import type { ItemDetail, Site } from '@/lib/types';
 import type { StockRow } from '@/lib/types-procurement';
+import type { CountRow } from '@/lib/types-counts';
 
 export default function StockPage() {
   const { t, pick, fmtQty, fmtMoney } = useI18n();
@@ -19,6 +21,8 @@ export default function StockPage() {
     if (!siteId && sites?.[0]) setSiteId(sites[0].id);
   }, [sites, siteId]);
   const { data: rows, reload } = useApi<StockRow[]>(siteId ? `/sites/${siteId}/stock` : null, [siteId]);
+  const { data: activeCounts } = useApi<CountRow[]>(siteId ? `/stock-counts?status=active&siteId=${siteId}` : null, [siteId]);
+  const inProgress = activeCounts?.[0];
   const canCount = !!me?.memberships.some(
     (m) => m.permissions.some((p) => p === '*' || p === 'stock:manage' || p === 'stock:*') && (m.scope === 'org' || m.siteIds === null || m.siteIds.includes(siteId)),
   );
@@ -28,7 +32,25 @@ export default function StockPage() {
 
   return (
     <div className="page">
-      <PageHead title={t('stock')} sub={t('stockSub')} />
+      <PageHead
+        title={t('stock')}
+        sub={t('stockSub')}
+        action={
+          <Link className="btn btn-quiet" href="/stock/counts">
+            {t('counts')}
+          </Link>
+        }
+      />
+      {inProgress && (
+        <div className="notice notice-info" style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <span>
+            {t('openCountBanner')} · <bdi className="num">{inProgress.ref}</bdi> ({inProgress.counted}/{inProgress.lines})
+          </span>
+          <Link className="btn btn-sm btn-primary" href={`/stock/counts/${inProgress.id}`}>
+            {t('continueCounting')}
+          </Link>
+        </div>
+      )}
       <div className="filters">
         <select className="select" style={{ flex: '0 1 260px' }} value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label={t('site')}>
           {sites?.map((s) => (
