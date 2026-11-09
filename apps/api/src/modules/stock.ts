@@ -13,6 +13,52 @@ import { emitEvent } from '../agents/events.js';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
 
+type ItemRow = typeof items.$inferSelect;
+type PackRow = typeof packs.$inferSelect;
+
+/** A quantity as someone entered it: in a unit (kg, l, each…) or in one of the item's packs. */
+export interface QtyInput {
+  qty: number;
+  unit?: string;
+  packId?: string;
+}
+
+/** Convert an entered quantity to the item's base unit; a 400 with the item's name when it can't be. */
+export function baseQty(item: ItemRow, itemPacks: PackRow[], q: QtyInput): Decimal {
+  if (q.packId && !itemPacks.some((p) => p.id === q.packId)) throw new BadRequestException(`That pack doesn't belong to ${item.name}`);
+  const defs: PackDef[] = itemPacks.map((p) => ({ id: p.id, name: p.name, qty: p.qty, unit: p.unit ?? undefined, packId: p.parentPackId ?? undefined }));
+  try {
+    return toBase(q.qty, q.packId ? { packId: q.packId } : { unit: q.unit ?? item.baseUnit }, { baseUnit: item.baseUnit, packs: defs, conversions: item.conversions });
+  } catch (e) {
+    throw new BadRequestException(`${item.name}: ${(e as Error).message}`);
+  }
+}
+
+/** Items (stockable, by id) with their packs; a 400 if any is unknown or not stockable. */
+export async function stockableItems(tx: Tx, itemIds: string[]) {
+  const ids = [...new Set(itemIds)];
+  const rows = ids.length ? await tx.select().from(items).where(inArray(items.id, ids)) : [];
+  if (rows.length !== ids.length) throw new BadRequestException('Unknown item');
+  const bad = rows.find((i) => !i.isStockable);
+  if (bad) throw new BadRequestException(`${bad.name} isn't a stock item`);
+  const packRows = ids.length ? await tx.select().from(packs).where(inArray(packs.itemId, ids)) : [];
+  return new Map(rows.map((r) => [r.id, { item: r, packs: packRows.filter((p) => p.itemId === r.id) }]));
+}
+
+/** The site's items and packs for reading typed or spoken entries. */
+export async function countableCatalogue(tx: Tx) {
+  const rows = await tx.select().from(items).where(and(eq(items.isActive, true), eq(items.isStockable, true)));
+  const packRows = rows.length ? await tx.select().from(packs).where(inArray(packs.itemId, rows.map((r) => r.id))) : [];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    nameAr: r.nameAr,
+    code: r.code,
+    baseUnit: r.baseUnit,
+    packs: packRows.filter((p) => p.itemId === r.id).map((p) => ({ id: p.id, name: p.name, nameAr: p.nameAr, isCountable: p.isCountable })),
+  }));
+}
+
 export type MovementType = (typeof stockMovements.$inferInsert)['type'];
 
 export interface MovementInput {
