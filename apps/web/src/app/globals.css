@@ -1497,3 +1497,25 @@ input[type='time'].inline-input {
     grid-column: 1 / -1;
   }
 }
+
+/* ---------- Integrations ---------- */
+.integration-head {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.integration-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--t1);
+  color: var(--card);
+  font-weight: 700;
+  font-size: 20px;
+}
+.bar-track.accent > span {
+  background: var(--accent);
+}

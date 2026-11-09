@@ -62,6 +62,7 @@ const ADMIN: NavItem[] = [
   { href: '/settings', label: 'settings', icon: IconSettings, perm: 'org:read' },
   { href: '/billing', label: 'billing', icon: IconCard, perm: 'billing:read' },
   { href: '/einvoicing', label: 'einvoicing', icon: IconShieldCheck, perm: 'sales_invoice:read' },
+  { href: '/integrations', label: 'integrations', icon: IconPlug, perm: 'pos:read' },
   { href: '/developers', label: 'developers', icon: IconPlug, perm: 'token:manage' },
 ];
 
@@ -92,7 +93,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    if (status === 'anonymous') router.replace(`/login?next=${encodeURIComponent(path)}`);
+    if (status === 'anonymous') router.replace(`/login?next=${encodeURIComponent(path + window.location.search)}`);
   }, [status, router, path]);
   useEffect(() => setDrawer(false), [path]);
   useEffect(() => {

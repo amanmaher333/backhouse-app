@@ -12,7 +12,9 @@ function LoginForm() {
   const { t } = useI18n();
   const { begin, status } = useSession();
   const router = useRouter();
-  const next = useSearchParams().get('next') || '/';
+  const raw = useSearchParams().get('next');
+  // Only in-app paths: never another site.
+  const next = raw && raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/\\') ? raw : '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
