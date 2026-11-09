@@ -13,6 +13,7 @@ import { arWaste, enWaste } from './i18n-waste';
 import { arPos, enPos } from './i18n-pos';
 import { arRecipes, enRecipes } from './i18n-recipes';
 import { arFoodCost, enFoodCost } from './i18n-foodcost';
+import { arSavings, enSavings } from './i18n-savings';
 
 export type Lang = 'en' | 'ar';
 
@@ -29,6 +30,7 @@ const en = {
   ...enPos,
   ...enRecipes,
   ...enFoodCost,
+  ...enSavings,
   appName: 'Backhouse',
   appSub: 'AI back office',
   // nav
@@ -209,6 +211,7 @@ const ar: Dict = {
   ...arPos,
   ...arRecipes,
   ...arFoodCost,
+  ...arSavings,
   appName: 'Backhouse',
   appSub: 'المكتب الخلفي الذكي',
   navMain: 'مساحة العمل',

@@ -1586,3 +1586,26 @@ input[type='time'].inline-input {
   gap: 12px;
   margin-bottom: 6px;
 }
+
+/* Savings */
+.savings-total {
+  color: var(--accent-text);
+}
+.savings-trial {
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+.savings-kind,
+.savings-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.savings-entry {
+  padding: 8px 0;
+  border-top: 1px solid var(--line, rgba(127, 127, 127, 0.15));
+}
+.savings-entry:first-of-type {
+  border-top: 0;
+}

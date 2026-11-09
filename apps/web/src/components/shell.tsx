@@ -30,6 +30,7 @@ import {
   IconReceipt,
   IconStamp,
   IconShieldCheck,
+  IconCoins,
 } from './icons';
 import { InstallButton, LangButton, SyncPill, ThemeButton } from './toolbar';
 import { initials } from './ui';
@@ -44,6 +45,7 @@ interface NavItem {
 const MAIN: NavItem[] = [
   { href: '/inbox', label: 'inbox', icon: IconInbox, perm: 'agent:read' },
   { href: '/overview', label: 'overview', icon: IconHome },
+  { href: '/savings', label: 'savings', icon: IconCoins, perm: 'price:read' },
   { href: '/orders', label: 'orders', icon: IconCart, perm: 'po:read' },
   { href: '/invoices', label: 'invoices', icon: IconReceipt, perm: 'invoice:read' },
   { href: '/sales', label: 'salesInvoices', icon: IconStamp, perm: 'sales_invoice:read' },
