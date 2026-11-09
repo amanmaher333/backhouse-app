@@ -1,6 +1,8 @@
 import { ArgumentsHost, Catch, HttpException, Logger, type ExceptionFilter } from '@nestjs/common';
 import type { Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
+import type { AuthedRequest } from './auth.js';
+import { reportError } from './monitoring.js';
 
 interface PgError {
   code?: string;
@@ -62,6 +64,16 @@ export class ErrorFilter implements ExceptionFilter {
       return;
     }
     this.logger.error(err instanceof Error ? err.stack : String(err));
+    // Only unexpected errors reach Sentry; the mapped ones above are answers, not faults.
+    const req = host.switchToHttp().getRequest<AuthedRequest | undefined>();
+    reportError(err, {
+      source: 'http',
+      method: req?.method,
+      route: req?.route?.path ? `${req.baseUrl ?? ''}${req.route.path}` : req?.path,
+      requestId: req?.requestId,
+      userId: req?.auth?.userId,
+      orgId: req?.auth?.orgId,
+    });
     res.status(500).json({ statusCode: 500, error: 'InternalServerError', message: 'Unexpected error' });
   }
 }

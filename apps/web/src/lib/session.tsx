@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from './i18n';
+import { setReportToken } from './report-error';
 
 export interface Org {
   id: string;
@@ -108,10 +109,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       if (!res.ok) {
         token.current = null;
+        setReportToken(null);
         return false;
       }
       const data = await res.json();
       token.current = data.accessToken;
+      setReportToken(data.accessToken);
       return true;
     })().finally(() => {
       refreshing.current = null;
@@ -170,6 +173,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const begin = useCallback(
     async (data: { accessToken: string; orgId: string | null }) => {
       token.current = data.accessToken;
+      setReportToken(data.accessToken);
       try {
         if (data.orgId) localStorage.setItem(ORG_KEY, data.orgId);
       } catch {}
@@ -194,6 +198,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await fetch('/api/session/logout', { method: 'POST' });
     token.current = null;
+    setReportToken(null);
     try {
       localStorage.removeItem(ORG_KEY);
     } catch {}

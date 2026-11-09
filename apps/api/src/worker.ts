@@ -10,12 +10,14 @@ import { BillingService } from './billing/billing.service.js';
 import { VerificationService } from './verification/verification.js';
 import { ZatcaService } from './zatca/zatca.service.js';
 import { FoodicsService } from './integrations/foodics/foodics.service.js';
+import { flushMonitoring, initMonitoring, reportError } from './common/monitoring.js';
 
 /**
  * Agent worker: polls for agents with unprocessed events (and daily scans) and runs them.
  * Postgres is the queue (per-agent advisory locks), so several workers can run safely.
  */
 const config = loadConfig();
+initMonitoring(config, 'worker');
 const app = await NestFactory.createApplicationContext(AppModule.forRoot(config), { logger: ['error', 'warn', 'log'] });
 const runtime = app.get(AgentRuntime);
 const channels = app.get(ChannelsService);
@@ -56,7 +58,9 @@ while (!stopping) {
     if (cards || daily || sent) logger.log(`whatsapp (${channels.mode}): ${cards} cards and ${daily} digests queued, ${sent} messages sent`);
   } catch (err) {
     logger.error((err as Error).message);
+    reportError(err, { source: 'worker' });
   }
   await new Promise((res) => setTimeout(res, config.WORKER_POLL_MS));
 }
 await app.close();
+await flushMonitoring();
