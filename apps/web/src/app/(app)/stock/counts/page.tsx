@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Dialog, Empty, Field, PageHead } from '@/components/ui';
 import { IconPlus } from '@/components/icons';
 import { CountStatusTag } from '@/components/counts';
+import { StockTabs } from '@/components/stock';
 import { useI18n } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
 import type { Site } from '@/lib/types';
@@ -35,6 +36,7 @@ export default function CountsPage() {
           )
         }
       />
+      <StockTabs />
       <div className="filters">
         <div className="segmented" role="group">
           {(['active', 'all'] as const).map((s) => (
@@ -53,9 +55,6 @@ export default function CountsPage() {
             ))}
           </select>
         )}
-        <Link className="btn btn-quiet" href="/stock" style={{ marginInlineStart: 'auto' }}>
-          {t('stock')}
-        </Link>
       </div>
 
       {rows && rows.length === 0 ? (

@@ -11,3 +11,4 @@ export * from './billing.js';
 export { Decimal } from 'decimal.js';
 export * from './invoices.js';
 export * from './counts.js';
+export * from './waste.js';

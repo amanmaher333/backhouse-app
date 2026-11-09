@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Dialog, Empty, Field, PageHead, Toast } from '@/components/ui';
+import { StockTabs } from '@/components/stock';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
 import type { ItemDetail, Site } from '@/lib/types';
@@ -32,15 +33,8 @@ export default function StockPage() {
 
   return (
     <div className="page">
-      <PageHead
-        title={t('stock')}
-        sub={t('stockSub')}
-        action={
-          <Link className="btn btn-quiet" href="/stock/counts">
-            {t('counts')}
-          </Link>
-        }
-      />
+      <PageHead title={t('stock')} sub={t('stockSub')} />
+      <StockTabs />
       {inProgress && (
         <div className="notice notice-info" style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <span>

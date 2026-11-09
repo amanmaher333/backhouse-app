@@ -25,7 +25,7 @@ import { Access, Requires } from '../common/auth.js';
 import type { AccessContext } from '../common/access.js';
 import { audit } from '../common/audit.js';
 import { emitEvent } from '../agents/events.js';
-import { StockModule, StockService } from './stock.js';
+import { StockModule, StockService, baseQty } from './stock.js';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
 type CountRow = typeof stockCounts.$inferSelect;
@@ -293,7 +293,7 @@ export class StockCountsService {
         continue;
       }
       const item = itemRows.find((i) => i.id === l.itemId)!;
-      const base = this.toBaseQty(item, packRows.filter((p) => p.itemId === item.id), l);
+      const base = baseQty(item, packRows.filter((p) => p.itemId === item.id), { qty: l.qty!, unit: l.unit, packId: l.packId });
       const counted = l.mode === 'add' && line.countedQty !== null ? base.plus(line.countedQty) : base;
       const [after] = await tx
         .update(stockCountLines)
@@ -313,16 +313,6 @@ export class StockCountsService {
     }
     await tx.update(stockCounts).set({ updatedAt: now }).where(eq(stockCounts.id, c.id));
     return [...byItem.values()];
-  }
-
-  private toBaseQty(item: ItemRow, itemPacks: PackRow[], l: LineInput) {
-    if (l.packId && !itemPacks.some((p) => p.id === l.packId)) throw new BadRequestException(`That pack doesn't belong to ${item.name}`);
-    const defs: PackDef[] = itemPacks.map((p) => ({ id: p.id, name: p.name, qty: p.qty, unit: p.unit ?? undefined, packId: p.parentPackId ?? undefined }));
-    try {
-      return toBase(l.qty!, l.packId ? { packId: l.packId } : { unit: l.unit ?? item.baseUnit }, { baseUnit: item.baseUnit, packs: defs, conversions: item.conversions });
-    } catch (e) {
-      throw new BadRequestException(`${item.name}: ${(e as Error).message}`);
-    }
   }
 
   recordLines(a: AccessContext, id: string, dto: LinesDto) {

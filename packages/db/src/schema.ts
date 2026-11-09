@@ -909,6 +909,98 @@ export const stockCountLines = pgTable(
   ],
 );
 
+/** Stock thrown away, with why. Each entry posts a 'waste' movement; a mistake is voided (reversed), never deleted. */
+export const wasteEntries = pgTable(
+  'waste_entries',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    siteId: uuid('site_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    /** Quantity wasted, in the item's base unit (positive). */
+    qtyBase: numeric('qty_base', { precision: 18, scale: 6 }).notNull(),
+    entryQty: numeric('entry_qty', { precision: 18, scale: 6 }).notNull(),
+    entryUnit: text('entry_unit'),
+    entryPackId: uuid('entry_pack_id'),
+    entryText: text('entry_text'),
+    reason: text('reason').notNull(),
+    note: text('note'),
+    unitCost: numeric('unit_cost', { precision: 18, scale: 8 }).notNull().default('0'),
+    value: numeric('value', { precision: 16, scale: 2 }).notNull().default('0'),
+    source: text('source').notNull().default('app'),
+    recordedBy: uuid('recorded_by'),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+    voidedAt: timestamp('voided_at', { withTimezone: true }),
+    voidedBy: uuid('voided_by'),
+    voidReason: text('void_reason'),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.siteId], foreignColumns: [sites.orgId, sites.id] }),
+    foreignKey({ columns: [t.orgId, t.itemId], foreignColumns: [items.orgId, items.id] }),
+    index('waste_entries_site_idx').on(t.siteId, t.recordedAt),
+  ],
+);
+
+export const transferStatus = pgEnum('transfer_status', ['draft', 'sent', 'received', 'cancelled']);
+
+/** Stock moved from one site to another (e.g. central kitchen to a branch). */
+export const stockTransfers = pgTable(
+  'stock_transfers',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    ref: text('ref').notNull(),
+    fromSiteId: uuid('from_site_id').notNull(),
+    toSiteId: uuid('to_site_id').notNull(),
+    status: transferStatus('status').notNull().default('draft'),
+    note: text('note'),
+    /** Value sent (at the source's average cost), and the value of what didn't arrive. */
+    value: numeric('value', { precision: 16, scale: 2 }),
+    shortValue: numeric('short_value', { precision: 16, scale: 2 }),
+    source: text('source').notNull().default('app'),
+    createdBy: uuid('created_by'),
+    createdAt: createdAt(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    sentBy: uuid('sent_by'),
+    receivedAt: timestamp('received_at', { withTimezone: true }),
+    receivedBy: uuid('received_by'),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('stock_transfers_org_id_id_uq').on(t.orgId, t.id),
+    unique('stock_transfers_org_ref_uq').on(t.orgId, t.ref),
+    foreignKey({ columns: [t.orgId, t.fromSiteId], foreignColumns: [sites.orgId, sites.id] }),
+    foreignKey({ columns: [t.orgId, t.toSiteId], foreignColumns: [sites.orgId, sites.id] }),
+    check('stock_transfers_sites_chk', sql`${t.fromSiteId} <> ${t.toSiteId}`),
+    index('stock_transfers_from_idx').on(t.fromSiteId, t.status),
+    index('stock_transfers_to_idx').on(t.toSiteId, t.status),
+  ],
+);
+
+export const stockTransferLines = pgTable(
+  'stock_transfer_lines',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    transferId: uuid('transfer_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    /** Quantity sent, in the item's base unit. */
+    qtyBase: numeric('qty_base', { precision: 18, scale: 6 }).notNull(),
+    entryQty: numeric('entry_qty', { precision: 18, scale: 6 }).notNull(),
+    entryUnit: text('entry_unit'),
+    entryPackId: uuid('entry_pack_id'),
+    /** Source's average cost when sent; the destination receives at this cost. */
+    unitCost: numeric('unit_cost', { precision: 18, scale: 8 }),
+    receivedQty: numeric('received_qty', { precision: 18, scale: 6 }),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.transferId], foreignColumns: [stockTransfers.orgId, stockTransfers.id] }).onDelete('cascade'),
+    foreignKey({ columns: [t.orgId, t.itemId], foreignColumns: [items.orgId, items.id] }),
+    uniqueIndex('stock_transfer_lines_item_uq').on(t.transferId, t.itemId),
+  ],
+);
+
 export const poStatus = pgEnum('po_status', ['draft', 'pending_approval', 'approved', 'sent', 'partially_received', 'received', 'closed', 'cancelled']);
 
 export const purchaseOrders = pgTable(

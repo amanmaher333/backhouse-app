@@ -127,6 +127,13 @@
       "when": 1794235307440,
       "tag": "0017_stock_counts",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794237801241,
+      "tag": "0018_waste_transfers",
+      "breakpoints": true
     }
   ]
 }
