@@ -65,5 +65,6 @@ Hire the **Cost Controller** under Agents. Each week it puts a food cost report 
 
   Claude writes the headline and summary from those figures when an Anthropic key is set (it never invents numbers); otherwise bilingual templates do.
 - **Missing counts:** if stock wasn't counted at both ends of the week, the report doesn't give an actual food cost, gap or losses. It shows the theoretical food cost and asks for counts, and it offers **Start a stock count**: one tap creates a full blind count at the site, unless one is already open.
-- **High priority** when the gap reaches the threshold (3 points by default, a setting), when over 20% of sales have no recipe, or when the counts are missing.
+- **No recipes yet:** if nothing sold that week has a recipe, there's no food cost to compare. The report says so, gives no percentage, and names the best sellers to add recipes for first.
+- **High priority** when the gap reaches the threshold (3 points by default, a setting), when over 20% of sales have no recipe, when nothing sold has a recipe, or when the counts are missing.
 - **Permissions:** the agent's role can read sites, items, prices, stock, recipes and POS data. It also has `stock:manage`, but only so it can start a count; its guardrail allows no other action.

@@ -34,6 +34,7 @@ export const enFoodCost = {
   needTwoCounts: 'Post at least two stock counts at this site to compare between counts.',
   openFoodCost: 'Open the food cost report',
   noCountsWeek: 'Stock wasn’t counted at both ends of this week, so actual food cost can’t be worked out yet.',
+  noRecipesWeek: 'None of the products sold this week has a recipe, so there’s no food cost to compare yet.',
 };
 
 export const arFoodCost: Record<keyof typeof enFoodCost, string> = {
@@ -70,4 +71,5 @@ export const arFoodCost: Record<keyof typeof enFoodCost, string> = {
   needTwoCounts: 'رحّل جردين على الأقل في هذا الفرع للمقارنة بين جردين.',
   openFoodCost: 'افتح تقرير تكلفة الطعام',
   noCountsWeek: 'لم يُجرد المخزون في بداية هذا الأسبوع ونهايته، لذا لا يمكن حساب تكلفة الطعام الفعلية بعد.',
+  noRecipesWeek: 'لا توجد وصفة لأي من المنتجات المباعة هذا الأسبوع، لذا لا توجد تكلفة طعام للمقارنة بعد.',
 };

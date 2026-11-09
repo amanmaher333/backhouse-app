@@ -97,4 +97,24 @@ describe('Cost Controller', () => {
     const counts = (await http.get(`/v1/stock-counts?siteId=${site.id}`).set(auth(token)).expect(200)).body;
     expect(counts).toEqual([expect.objectContaining({ status: 'open', source: 'agent', note: 'Started from the Cost Controller weekly report' })]);
   });
+
+  it('says there are no recipes yet instead of reporting a food cost', async () => {
+    const o = await http.post('/v1/auth/signup').send({ email: `${uniq()}@t.sa`, password: PASSWORD, fullName: 'Owner', organization: { name: `Org ${uniq()}` } }).expect(201);
+    const token = o.body.accessToken as string;
+    await http.post('/v1/sites').set(auth(token)).send({ legalEntityId: o.body.legalEntity.id, name: 'Olaya', timezone: 'Asia/Riyadh' }).expect(201);
+    const { url } = (await http.post('/v1/integrations/foodics/connect').set(auth(token)).expect(200)).body;
+    const u = new URL(url);
+    await http.post('/v1/integrations/foodics/callback').set(auth(token)).send({ code: u.searchParams.get('code'), state: u.searchParams.get('state') }).expect(200);
+    await http.post('/v1/integrations/foodics/sync').set(auth(token)).expect(200);
+    await http.post('/v1/agents').set(auth(token)).send({ kind: 'cost_controller' }).expect(201);
+    const task = (await http.get('/v1/agent-tasks').set(auth(token)).expect(200)).body.find((t: any) => t.kind === 'weekly_food_cost');
+    expect(task.evidence.hasRecipes).toBe(false);
+    expect(task.title).toBe('Food cost last week at Olaya: no recipes yet');
+    expect(task.titleAr).toContain('لا توجد وصفات بعد');
+    expect(task.title).not.toMatch(/\d+(\.\d+)?%/);
+    // Best sellers to start with (the demo burger outsells the rest).
+    expect(task.summary).toContain('Start with the best sellers: Chicken Burger');
+    expect(task.summary).not.toMatch(/\d+(\.\d+)?%/);
+    expect(task.priority).toBe(1);
+  });
 });
