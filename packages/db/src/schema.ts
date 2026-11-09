@@ -1718,3 +1718,221 @@ export const salesInvoiceLines = pgTable(
     index('sales_invoice_lines_invoice_idx').on(t.invoiceId, t.lineNo),
   ],
 );
+
+/* =====================================================================
+ * Phase 5: POS integrations (Foodics first)
+ * ===================================================================== */
+
+/** One POS account connected to an organisation. The access token is encrypted at rest. */
+export const posConnections = pgTable(
+  'pos_connections',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    provider: text('provider').notNull(),
+    /** 'connected', 'disconnected' or 'error' (token revoked or rejected). */
+    status: text('status').notNull().default('connected'),
+    businessId: text('business_id').notNull(),
+    businessReference: text('business_reference').notNull(),
+    businessName: text('business_name').notNull(),
+    currency: text('currency'),
+    timezone: text('timezone'),
+    scopes: text('scopes').array().notNull().default(sql`'{}'::text[]`),
+    tokenSealed: text('token_sealed'),
+    /** The supplier and user created for Backhouse in the POS, used on purchases it records. */
+    posSupplierId: text('pos_supplier_id'),
+    posUserId: text('pos_user_id'),
+    /** Record goods receipts as purchases in the POS inventory. */
+    pushPurchases: boolean('push_purchases').notNull().default(true),
+    /** Orders are imported in reference order; the last one imported. */
+    lastOrderReference: bigint('last_order_reference', { mode: 'number' }).notNull().default(0),
+    /** Don't import orders older than this business date. */
+    importFrom: text('import_from'),
+    catalogSyncedAt: timestamp('catalog_synced_at', { withTimezone: true }),
+    ordersSyncedAt: timestamp('orders_synced_at', { withTimezone: true }),
+    needsSync: boolean('needs_sync').notNull().default(true),
+    lastError: text('last_error'),
+    connectedBy: uuid('connected_by'),
+    connectedAt: timestamp('connected_at', { withTimezone: true }).notNull().defaultNow(),
+    disconnectedAt: timestamp('disconnected_at', { withTimezone: true }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('pos_connections_org_id_id_uq').on(t.orgId, t.id),
+    index('pos_connections_org_idx').on(t.orgId, t.provider),
+    // One live connection per POS account across Backhouse.
+    uniqueIndex('pos_connections_business_live_uq').on(t.provider, t.businessReference).where(sql`status <> 'disconnected'`),
+  ],
+);
+
+/** OAuth "state" values while someone is connecting; checked when the POS sends them back. */
+export const posOauthStates = pgTable('pos_oauth_states', {
+  state: text('state').primaryKey(),
+  orgId: uuid('org_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  provider: text('provider').notNull(),
+  createdAt: createdAt(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});
+
+/** POS branches and warehouses, each mapped to one of our sites. */
+export const posLocations = pgTable(
+  'pos_locations',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    connectionId: uuid('connection_id').notNull(),
+    externalId: text('external_id').notNull(),
+    kind: text('kind').notNull(),
+    name: text('name').notNull(),
+    nameAr: text('name_ar'),
+    reference: text('reference'),
+    siteId: uuid('site_id'),
+    /** 'auto' when Backhouse matched it by name, 'human' when someone chose. */
+    mappedBy: text('mapped_by'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.connectionId], foreignColumns: [posConnections.orgId, posConnections.id] }).onDelete('cascade'),
+    foreignKey({ columns: [t.orgId, t.siteId], foreignColumns: [sites.orgId, sites.id] }),
+    uniqueIndex('pos_locations_ext_uq').on(t.connectionId, t.externalId),
+  ],
+);
+
+/** POS inventory items, each mapped to one of our items, with how its storage unit converts. */
+export const posItems = pgTable(
+  'pos_items',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    connectionId: uuid('connection_id').notNull(),
+    externalId: text('external_id').notNull(),
+    sku: text('sku'),
+    name: text('name').notNull(),
+    nameAr: text('name_ar'),
+    storageUnit: text('storage_unit'),
+    ingredientUnit: text('ingredient_unit'),
+    storageFactor: numeric('storage_factor', { precision: 18, scale: 6 }),
+    itemId: uuid('item_id'),
+    mappedBy: text('mapped_by'),
+    /** Our base units in one POS storage unit, set by a person when the units don't line up. */
+    manualFactor: numeric('manual_factor', { precision: 18, scale: 6 }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.connectionId], foreignColumns: [posConnections.orgId, posConnections.id] }).onDelete('cascade'),
+    foreignKey({ columns: [t.orgId, t.itemId], foreignColumns: [items.orgId, items.id] }),
+    uniqueIndex('pos_items_ext_uq').on(t.connectionId, t.externalId),
+    index('pos_items_item_idx').on(t.itemId),
+  ],
+);
+
+/** Menu products sold in the POS (recipes link to these). */
+export const posProducts = pgTable(
+  'pos_products',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    connectionId: uuid('connection_id').notNull(),
+    externalId: text('external_id').notNull(),
+    sku: text('sku'),
+    name: text('name').notNull(),
+    nameAr: text('name_ar'),
+    category: text('category'),
+    price: numeric('price', { precision: 14, scale: 4 }),
+    isActive: boolean('is_active').notNull().default(true),
+    /** The POS's own recipe (inventory item id → quantity in its ingredient unit), when it keeps one. */
+    posIngredients: jsonb('pos_ingredients').$type<{ externalItemId: string; quantity: number }[]>(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.connectionId], foreignColumns: [posConnections.orgId, posConnections.id] }).onDelete('cascade'),
+    uniqueIndex('pos_products_ext_uq').on(t.connectionId, t.externalId),
+  ],
+);
+
+/** Imported orders, kept so an updated order (e.g. a return) replaces what it added. */
+export const posOrders = pgTable(
+  'pos_orders',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    orgId: uuid('org_id').notNull(),
+    connectionId: uuid('connection_id').notNull(),
+    externalId: text('external_id').notNull(),
+    reference: bigint('reference', { mode: 'number' }),
+    locationExternalId: text('location_external_id'),
+    businessDate: text('business_date').notNull(),
+    status: integer('status').notNull(),
+    totalPrice: numeric('total_price', { precision: 16, scale: 2 }),
+    lines: jsonb('lines').$type<{ productId: string; qty: string; net: string }[]>().notNull(),
+    importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.connectionId], foreignColumns: [posConnections.orgId, posConnections.id] }).onDelete('cascade'),
+    uniqueIndex('pos_orders_ext_uq').on(t.connectionId, t.externalId),
+  ],
+);
+
+/** Sales per POS location, product and business day. */
+export const posSalesDaily = pgTable(
+  'pos_sales_daily',
+  {
+    orgId: uuid('org_id').notNull(),
+    connectionId: uuid('connection_id').notNull(),
+    locationExternalId: text('location_external_id').notNull(),
+    productExternalId: text('product_external_id').notNull(),
+    businessDate: text('business_date').notNull(),
+    qty: numeric('qty', { precision: 16, scale: 3 }).notNull().default('0'),
+    net: numeric('net', { precision: 16, scale: 2 }).notNull().default('0'),
+    orders: integer('orders').notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.connectionId, t.locationExternalId, t.productExternalId, t.businessDate] }),
+    foreignKey({ columns: [t.orgId, t.connectionId], foreignColumns: [posConnections.orgId, posConnections.id] }).onDelete('cascade'),
+    index('pos_sales_daily_date_idx').on(t.connectionId, t.businessDate),
+  ],
+);
+
+/** Things Backhouse records in the POS (purchases from goods receipts), and how it went. */
+export const posPushes = pgTable(
+  'pos_pushes',
+  {
+    id: id(),
+    orgId: uuid('org_id').notNull(),
+    connectionId: uuid('connection_id').notNull(),
+    sourceType: text('source_type').notNull(),
+    sourceId: uuid('source_id').notNull(),
+    /** 'pending', 'pushed', 'needs_mapping', 'failed' or 'skipped'. */
+    status: text('status').notNull().default('pending'),
+    externalId: text('external_id'),
+    externalReference: text('external_reference'),
+    detail: jsonb('detail'),
+    error: text('error'),
+    attempts: integer('attempts').notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.orgId, t.connectionId], foreignColumns: [posConnections.orgId, posConnections.id] }).onDelete('cascade'),
+    uniqueIndex('pos_pushes_source_uq').on(t.connectionId, t.sourceType, t.sourceId),
+    index('pos_pushes_status_idx').on(t.status),
+  ],
+);
+
+/** Webhook calls from POS providers, before we know which organisation they belong to. */
+export const posWebhookEvents = pgTable(
+  'pos_webhook_events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    provider: text('provider').notNull(),
+    event: text('event').notNull(),
+    businessReference: text('business_reference'),
+    objectId: text('object_id'),
+    orgId: uuid('org_id'),
+    outcome: text('outcome'),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+  },
+  (t) => [index('pos_webhook_events_pending_idx').on(t.processedAt)],
+);
+

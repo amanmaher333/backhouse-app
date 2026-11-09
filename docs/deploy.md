@@ -31,6 +31,7 @@ Pushes to `main` redeploy automatically.
 | `NODE_ENV` | `production` |
 | `AGENTS_LLM` / `ANTHROPIC_API_KEY` | optional: AI-written task text and invoice reading |
 | `WHATSAPP_*`, `MOYASAR_*`, `WATHQ_API_KEY`, `INBOUND_EMAIL_SECRET`, `ZATCA_MODE=live` | when those integrations go live; until then everything runs in simulated mode |
+| `FOODICS_MODE`, `FOODICS_CLIENT_ID`, `FOODICS_CLIENT_SECRET`, `INTEGRATIONS_SECRET_KEY` | Foodics (see `docs/foodics.md`); simulated until set |
 
 **web:**
 

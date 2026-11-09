@@ -9,6 +9,7 @@ import { DigestService } from './channels/digest.js';
 import { BillingService } from './billing/billing.service.js';
 import { VerificationService } from './verification/verification.js';
 import { ZatcaService } from './zatca/zatca.service.js';
+import { FoodicsService } from './integrations/foodics/foodics.service.js';
 
 /**
  * Agent worker: polls for agents with unprocessed events (and daily scans) and runs them.
@@ -22,6 +23,7 @@ const digests = app.get(DigestService);
 const billing = app.get(BillingService);
 const verification = app.get(VerificationService);
 const zatca = app.get(ZatcaService);
+const foodics = app.get(FoodicsService);
 const logger = new Logger('Worker');
 let stopping = false;
 process.on('SIGINT', () => (stopping = true));
@@ -44,6 +46,9 @@ while (!stopping) {
     // ZATCA: send signed invoices that couldn't be cleared or reported yet.
     const z = await zatca.submitDue();
     if (Object.keys(z).length) logger.log(`zatca (${zatca.mode}): ${JSON.stringify(z)}`);
+    // Foodics: webhooks, catalogue refresh, sales import, purchases recorded in Foodics.
+    const f = await foodics.runDue();
+    if (f.catalogs || f.orders || f.pushed) logger.log(`foodics (${foodics.mode}): ${f.catalogs} catalogues, ${f.orders} orders, ${f.pushed} purchases recorded`);
     // WhatsApp: approval cards for new tasks, then anything queued (retries included).
     const cards = await channels.notifyPending();
     const daily = await digests.runDue();

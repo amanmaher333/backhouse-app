@@ -12,3 +12,4 @@ export { Decimal } from 'decimal.js';
 export * from './invoices.js';
 export * from './counts.js';
 export * from './waste.js';
+export * from './pos.js';
