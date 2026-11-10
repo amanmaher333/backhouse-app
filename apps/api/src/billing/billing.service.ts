@@ -89,6 +89,29 @@ export class BillingService {
     return computeBill({ interval, activeSites: siteCount?.n ?? 0, agents: hired.map((a) => ({ kind: a.kind, name: a.name, nameAr: a.nameAr ?? a.name })) });
   }
 
+  /** What one month of the current plan costs (sites and hired agents as they are now). */
+  monthlyEstimate(orgId: string): Promise<Bill> {
+    return this.db.system((tx) => this.billFor(tx, orgId, 'month'));
+  }
+
+  /** Subscription invoices paid for periods issued in [from, to): what Backhouse actually cost. */
+  async paidBetween(orgId: string, from: Date, to: Date): Promise<{ total: string; count: number }> {
+    const [r] = await this.db.system((tx) =>
+      tx
+        .select({ total: sql<string>`coalesce(sum(${billingInvoices.total}), 0)::text`, count: sql<number>`count(*)::int` })
+        .from(billingInvoices)
+        .where(and(eq(billingInvoices.orgId, orgId), eq(billingInvoices.status, 'paid'), sql`${billingInvoices.issuedAt} >= ${from}`, sql`${billingInvoices.issuedAt} < ${to}`)),
+    );
+    return { total: Number(r?.total ?? 0).toFixed(2), count: r?.count ?? 0 };
+  }
+
+  /** When the trial began (the subscription is created with it). */
+  async trialStartedAt(orgId: string): Promise<Date> {
+    const [s] = await this.db.system((tx) => tx.select({ createdAt: subscriptions.createdAt, trialEndsAt: subscriptions.trialEndsAt }).from(subscriptions).where(eq(subscriptions.orgId, orgId)));
+    if (s?.trialEndsAt) return new Date(Math.min(s.createdAt.getTime(), s.trialEndsAt.getTime() - TRIAL_DAYS * 86400_000));
+    return s?.createdAt ?? new Date();
+  }
+
   /** Everything the Billing page shows. */
   async overview(a: AccessContext) {
     return this.db.system(async (tx) => {

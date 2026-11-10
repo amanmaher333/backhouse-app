@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { ArmButton, Dialog, Empty, Field, PageHead, Toast } from '@/components/ui';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
+import type { SavingsReport } from '@/lib/types-savings';
 import { daysLabel } from '@/components/shell';
 
 interface BillLine {
@@ -92,6 +93,7 @@ export default function BillingPage() {
 
       {!b.entitled && <div className="notice notice-error">{t('readOnlyNotice')}</div>}
       {b.status === 'past_due' && b.nextRetryAt && <div className="notice notice-error">{tpl(t('pastDueNotice'), { date: fmtDate(b.nextRetryAt) })}</div>}
+      {b.status === 'trialing' && can('price:read') && <TrialValue />}
 
       <section className="card">
         <div className="card-head">
@@ -366,5 +368,26 @@ function CardDialog({ provider, onClose, onSaved }: { provider: 'simulated' | 'm
         </Field>
       </div>
     </Dialog>
+  );
+}
+
+/** During the trial: what Backhouse has saved so far, against the monthly price (from the Savings report). */
+function TrialValue() {
+  const { t, fmtMoney, fmtDate } = useI18n();
+  const { data: r } = useApi<SavingsReport>('/savings');
+  if (!r?.trial) return null;
+  const tr = r.trial;
+  const money = (v: string) => fmtMoney(v, 2, r.currency);
+  return (
+    <section className="card savings-trial" style={{ gap: 6 }}>
+      <div className="card-title" style={{ fontSize: 15 }}>{t('trialTitle')}</div>
+      <div>
+        {tpl(t('trialBody'), { date: fmtDate(tr.startedOn), saved: money(tr.saved), price: money(tr.monthlyPrice) })}{' '}
+        {tr.multiple !== null && tr.multiple >= 1 && <strong>{tpl(t('trialMultiple'), { n: String(tr.multiple) })}</strong>}
+      </div>
+      <Link href="/savings" className="link-btn" style={{ justifySelf: 'start' }}>
+        {t('savings')} →
+      </Link>
+    </section>
   );
 }

@@ -119,3 +119,6 @@ export const IconStamp = (p: SVGProps<SVGSVGElement>) => (
 export const IconShieldCheck = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M12 3 4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6z" /><path d="M9 11.5h6M9 15h4M10 8h4" /></svg>
 );
+export const IconCoins = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><ellipse cx="9" cy="7" rx="5.5" ry="2.5" /><path d="M3.5 7v4c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5V7" /><path d="M9.5 16.4c.7.4 2.3.6 3.5.6 3 0 5.5-1.1 5.5-2.5v-4" /><path d="M3.5 11v4c0 1.4 2.5 2.5 5.5 2.5" /><path d="M14.5 10.6c2.3.2 4 1.1 4 2.4" /></svg>
+);
