@@ -10,6 +10,7 @@ import { BillingService } from './billing/billing.service.js';
 import { VerificationService } from './verification/verification.js';
 import { ZatcaService } from './zatca/zatca.service.js';
 import { FoodicsService } from './integrations/foodics/foodics.service.js';
+import { MonthlySavingsService } from './modules/savings-monthly.js';
 import { flushMonitoring, initMonitoring, reportError } from './common/monitoring.js';
 
 /**
@@ -26,6 +27,7 @@ const billing = app.get(BillingService);
 const verification = app.get(VerificationService);
 const zatca = app.get(ZatcaService);
 const foodics = app.get(FoodicsService);
+const monthlySavings = app.get(MonthlySavingsService);
 const logger = new Logger('Worker');
 let stopping = false;
 process.on('SIGINT', () => (stopping = true));
@@ -54,8 +56,9 @@ while (!stopping) {
     // WhatsApp: approval cards for new tasks, then anything queued (retries included).
     const cards = await channels.notifyPending();
     const daily = await digests.runDue();
+    const monthly = await monthlySavings.runDue();
     const sent = await channels.deliver();
-    if (cards || daily || sent) logger.log(`whatsapp (${channels.mode}): ${cards} cards and ${daily} digests queued, ${sent} messages sent`);
+    if (cards || daily || monthly || sent) logger.log(`whatsapp (${channels.mode}): ${cards} cards, ${daily} digests and ${monthly} savings reports queued, ${sent} messages sent`);
   } catch (err) {
     logger.error((err as Error).message);
     reportError(err, { source: 'worker' });

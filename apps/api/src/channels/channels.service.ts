@@ -37,7 +37,7 @@ const MAX_ATTEMPTS = 5;
 const MAX_RECIPIENTS = 10;
 const SHOW_DECISIONS_MAX = 5;
 /** Messages Kitchain starts itself: free-form only inside the 24-hour window, a template otherwise. */
-const SCHEDULED_KINDS = new Set(['approval_card', 'digest', 'supplier_order', 'supplier_followup', 'supplier_update']);
+const SCHEDULED_KINDS = new Set(['approval_card', 'digest', 'monthly_savings', 'supplier_order', 'supplier_followup', 'supplier_update']);
 
 /** One message as the webhook delivers it (the parts Kitchain uses). */
 export interface InboundMessage {
@@ -120,6 +120,7 @@ export class ChannelsService {
             approvalsEnabled: row.approvalsEnabled,
             digestEnabled: row.digestEnabled,
             digestHour: row.digestHour,
+            monthlySavingsEnabled: row.monthlySavingsEnabled,
             timeZone: row.timeZone,
             windowOpen: inServiceWindow(row.lastInboundAt),
           }
@@ -138,7 +139,7 @@ export class ChannelsService {
     return { code, expiresAt, waLink: `https://wa.me/${waId(this.config.WHATSAPP_BUSINESS_NUMBER)}?text=${encodeURIComponent(code)}`, businessNumber: this.config.WHATSAPP_BUSINESS_NUMBER };
   }
 
-  async updateMine(userId: string, dto: { approvalsEnabled?: boolean; digestEnabled?: boolean; digestHour?: number; timeZone?: string }) {
+  async updateMine(userId: string, dto: { approvalsEnabled?: boolean; digestEnabled?: boolean; digestHour?: number; monthlySavingsEnabled?: boolean; timeZone?: string }) {
     const [row] = await this.db.user(userId, (tx) =>
       tx.update(userChannels).set(dto).where(and(eq(userChannels.userId, userId), eq(userChannels.channel, 'whatsapp'))).returning(),
     );

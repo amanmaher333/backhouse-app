@@ -24,7 +24,7 @@ import { TransfersModule } from './modules/transfers.js';
 import { FoodicsModule } from './integrations/foodics/foodics.module.js';
 import { RecipesModule } from './modules/recipes.js';
 import { FoodCostModule } from './modules/food-cost.js';
-import { SavingsModule } from './modules/savings.js';
+import { SavingsModule } from './modules/savings.module.js';
 import { ProcurementModule } from './modules/procurement.js';
 import { AccessTokenVerifier } from './common/access-tokens.js';
 import { ChannelsModule } from './channels/channels.module.js';

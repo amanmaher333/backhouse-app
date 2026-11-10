@@ -24,10 +24,15 @@ Not counted (yet): price rises a supplier withdrew after a message, waste reduct
 
 Amounts include VAT where the source does (credit notes and invoices), and so does the subscription cost they are compared with.
 
+## Monthly report on WhatsApp
+
+On the 1st of each month, at each person's digest hour, Kitchain sends last month's savings to people who can see prices: the total, each kind with money in it, what is still being claimed, and the comparison with what Kitchain cost. Quiet months are skipped. The template (`boh_monthly_savings`), scheduling and opt-out are in `docs/whatsapp-templates.md`. The message links to the Savings page for that month (`/savings?from=…&to=…`).
+
 ## Code
 
 - `packages/domain/src/savings.ts`: totals, the switch formula, open claims, multiples, months.
 - `apps/api/src/modules/savings.ts`: queries per kind; `SavingsService.entries()` is reused for the trial figure.
 - `apps/api/src/billing/billing.service.ts`: `monthlyEstimate`, `paidBetween`, `trialStartedAt`.
-- `apps/web/src/app/(app)/savings/page.tsx` and the `TrialValue` card on the Billing page.
-- Test: `apps/api/test/savings.e2e.test.ts` creates each kind through the API (dispute and credit note, duplicate, open claim, Price Watch switch and a delivery).
+- `apps/api/src/modules/savings-monthly.ts`: the monthly WhatsApp report (worker `runDue`, preview); `savings.module.ts` wires the endpoints.
+- `apps/web/src/app/(app)/savings/page.tsx` and the `TrialValue` card on the Billing page; the report's switch and preview are on the WhatsApp page.
+- Tests: `apps/api/test/monthly-savings.e2e.test.ts` (sent once on the 1st, quiet months skipped, template outside the window, opt-out, preview) and `apps/api/test/savings.e2e.test.ts` creates each kind through the API (dispute and credit note, duplicate, open claim, Price Watch switch and a delivery).

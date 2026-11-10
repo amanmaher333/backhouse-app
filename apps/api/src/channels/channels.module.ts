@@ -18,6 +18,8 @@ const PrefsSchema = z
     approvalsEnabled: z.boolean().optional(),
     digestEnabled: z.boolean().optional(),
     digestHour: z.number().int().min(0).max(23).optional(),
+    /** The monthly savings report (on the 1st, at the digest hour). */
+    monthlySavingsEnabled: z.boolean().optional(),
     /** Any IANA time zone (the digest's local hour). */
     timeZone: z.string().max(64).refine(isValidTimeZone, 'Unknown time zone').optional(),
   })

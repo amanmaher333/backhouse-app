@@ -10,7 +10,7 @@ interface Mine {
   mode: 'cloud' | 'simulated';
   businessNumber: string;
   simulator: boolean;
-  linked: { address: string; verifiedAt: string; approvalsEnabled: boolean; digestEnabled: boolean; digestHour: number; timeZone: string; windowOpen: boolean } | null;
+  linked: { address: string; verifiedAt: string; approvalsEnabled: boolean; digestEnabled: boolean; digestHour: number; monthlySavingsEnabled: boolean; timeZone: string; windowOpen: boolean } | null;
 }
 interface LinkCode {
   code: string;
@@ -97,6 +97,7 @@ export default function WhatsAppPage() {
                   />
                 </div>
                 <DigestPrefs linked={mine.linked} onChange={reload} onSent={() => setToast(t('digestSent'))} />
+                {can('price:read') && <SavingsPrefs linked={mine.linked} onChange={reload} onSent={() => setToast(t('savingsSent'))} />}
               </>
             ) : code ? (
               <div className="wa-code">
@@ -241,6 +242,50 @@ function DigestPrefs({ linked, onChange, onSent }: { linked: NonNullable<Mine['l
       {preview && (
         <div className="wa-preview">
           {preview.empty && <div className="faint" style={{ fontSize: 13, marginBottom: 8 }}>{t('digestEmpty')}</div>}
+          <div className="wa-bubble-text">{waText(preview.text)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The monthly savings report: on the 1st, at the digest hour, for organisations where the person sees prices. */
+function SavingsPrefs({ linked, onChange, onSent }: { linked: NonNullable<Mine['linked']>; onChange: () => void; onSent: () => void }) {
+  const { t } = useI18n();
+  const { api } = useSession();
+  const [preview, setPreview] = useState<{ text: string; empty: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = async (send: boolean) => {
+    setBusy(true);
+    try {
+      setPreview(await api<{ text: string; empty: boolean }>('/savings/monthly-message', { method: 'POST', body: { send } }));
+      if (send) onSent();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="wa-digest">
+      <div className="wa-toggle">
+        <div>
+          <div style={{ fontWeight: 500 }}>{t('monthlySavings')}</div>
+          <div className="faint" style={{ fontSize: 13 }}>
+            {t('monthlySavingsHint')}
+          </div>
+        </div>
+        <button className="switch" role="switch" aria-checked={linked.monthlySavingsEnabled} aria-label={t('monthlySavings')} onClick={async () => { await api('/me/whatsapp', { method: 'PATCH', body: { monthlySavingsEnabled: !linked.monthlySavingsEnabled } }); onChange(); }} />
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run(false)}>
+          {t('previewSavings')}
+        </button>
+        <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run(true)}>
+          {t('sendDigestNow')}
+        </button>
+      </div>
+      {preview && (
+        <div className="wa-preview">
+          {preview.empty && <div className="faint" style={{ fontSize: 13, marginBottom: 8 }}>{t('savingsEmptyMonth')}</div>}
           <div className="wa-bubble-text">{waText(preview.text)}</div>
         </div>
       )}

@@ -1156,6 +1156,8 @@ export const userChannels = pgTable(
     approvalsEnabled: boolean('approvals_enabled').notNull().default(true),
     /** Daily digest: on/off, local hour (0-23) and time zone. */
     digestEnabled: boolean('digest_enabled').notNull().default(true),
+    /** Monthly savings report on WhatsApp (sent on the 1st, at the digest hour). */
+    monthlySavingsEnabled: boolean('monthly_savings_enabled').notNull().default(true),
     digestHour: smallint('digest_hour').notNull().default(8),
     timeZone: text('time_zone').notNull().default('Asia/Riyadh'),
     createdAt: createdAt(),
@@ -1273,6 +1275,27 @@ export const approvalPrompts = pgTable(
 );
 
 /** One row per person, org and local day a digest went out: makes the schedule idempotent across workers. */
+/** One monthly savings report per person, organisation and month (claims it, so it is sent once). */
+export const savingsReports = pgTable(
+  'savings_reports',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    /** The month reported, YYYY-MM. */
+    period: text('period').notNull(),
+    saved: numeric('saved', { precision: 16, scale: 2 }).notNull().default('0'),
+    inProgress: numeric('in_progress', { precision: 16, scale: 2 }).notNull().default('0'),
+    outboundMessageId: uuid('outbound_message_id'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('savings_reports_user_org_period_uq').on(t.userId, t.orgId, t.period)],
+);
+
 export const digestRuns = pgTable(
   'digest_runs',
   {

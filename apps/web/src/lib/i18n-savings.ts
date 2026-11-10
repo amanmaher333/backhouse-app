@@ -36,6 +36,11 @@ export const enSavings = {
   creditNoteRef: 'credit note {ref}',
   spentAt: '{spend} bought, {pct}% cheaper',
   switchedOn: 'switched {date}',
+  monthlySavings: 'Monthly savings report',
+  monthlySavingsHint: 'On the 1st of each month, at your digest time: what Kitchain saved you last month and what is still being claimed. Skipped when there is nothing to report.',
+  previewSavings: 'Preview last month’s report',
+  savingsSent: 'Savings report sent to your WhatsApp',
+  savingsEmptyMonth: 'Nothing saved or claimed last month, so no report would be sent.',
 };
 
 export const arSavings: Record<keyof typeof enSavings, string> = {
@@ -74,4 +79,9 @@ export const arSavings: Record<keyof typeof enSavings, string> = {
   creditNoteRef: 'إشعار دائن {ref}',
   spentAt: 'مشتريات {spend}، أرخص بنسبة {pct}٪',
   switchedOn: 'تم التغيير {date}',
+  monthlySavings: 'تقرير التوفير الشهري',
+  monthlySavingsHint: 'في أول كل شهر، في وقت ملخصك اليومي: ما وفّره لك Kitchain في الشهر الماضي وما زال قيد المطالبة. لا يُرسل إذا لم يكن هناك ما يُذكر.',
+  previewSavings: 'معاينة تقرير الشهر الماضي',
+  savingsSent: 'تم إرسال تقرير التوفير إلى واتساب',
+  savingsEmptyMonth: 'لا توفير ولا مطالبات في الشهر الماضي، فلن يُرسل تقرير.',
 };

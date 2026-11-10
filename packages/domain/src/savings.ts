@@ -72,3 +72,32 @@ export function monthRange(date: string, offset = 0): { from: string; to: string
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   return { from: iso(first), to: iso(last) };
 }
+
+/**
+ * When the monthly savings report is due for someone: on the 1st of the month from their chosen hour,
+ * or later on the 2nd and 3rd if the worker missed it. `period` is the month just ended.
+ */
+export function monthlyReportDue(now: Date, timeZone: string, hour: number): { due: boolean; period: string; from: string; to: string } {
+  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' });
+  const p = Object.fromEntries(fmt.formatToParts(now).map((x) => [x.type, x.value]));
+  const day = Number(p.day);
+  const due = (day === 1 && Number(p.hour) >= hour) || day === 2 || day === 3;
+  const range = monthRange(`${p.year}-${p.month}-01`, -1);
+  return { due, period: range.from.slice(0, 7), ...range };
+}
+
+/** Nothing saved and nothing being claimed: no message that month. */
+export const savingsNothingToReport = (t: Pick<SavingsTotals, 'saved' | 'inProgress'>) => new Decimal(t.saved).lte(0) && new Decimal(t.inProgress).lte(0);
+
+const KIND_LABEL: Record<Exclude<SavingKind, 'claim_open'>, { en: string; ar: string }> = {
+  credit_note: { en: 'Credit notes received', ar: 'إشعارات دائنة مستلمة' },
+  duplicate: { en: 'Duplicate invoices stopped', ar: 'فواتير مكررة أوقفت' },
+  supplier_switch: { en: 'Cheaper suppliers', ar: 'موردون أرخص' },
+};
+
+/** The lines of a monthly report: each kind with money in it, then what is still being claimed. */
+export function monthlySavingsLines(t: SavingsTotals, lang: 'en' | 'ar', money: (amount: string) => string): string[] {
+  const out = SAVED_KINDS.filter((k) => new Decimal(t.byKind[k].amount).gt(0)).map((k) => `${KIND_LABEL[k as Exclude<SavingKind, 'claim_open'>][lang]}: ${money(t.byKind[k].amount)}`);
+  if (new Decimal(t.inProgress).gt(0)) out.push(lang === 'ar' ? `قيد المطالبة: ${money(t.inProgress)}` : `Still being claimed: ${money(t.inProgress)}`);
+  return out;
+}

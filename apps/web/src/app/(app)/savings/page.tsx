@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useMemo, useState } from 'react';
 import { Empty, PageHead } from '@/components/ui';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { useApi } from '@/lib/session';
 import type { SavingKind, SavingRow, SavingsReport } from '@/lib/types-savings';
 
-type Preset = 'month' | 'last' | '3m' | 'all';
+type Preset = 'month' | 'last' | '3m' | 'all' | 'link';
 const KINDS: SavingKind[] = ['credit_note', 'duplicate', 'supplier_switch'];
 
 /** First and last day of the month containing `date` (YYYY-MM-DD), shifted by `offset` months. */
@@ -19,15 +20,31 @@ function month(date: string, offset = 0) {
 }
 
 export default function SavingsPage() {
+  return (
+    <Suspense>
+      <Savings />
+    </Suspense>
+  );
+}
+
+const isDate = (s: string | null): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+function Savings() {
   const { t, pick, fmtMoney, fmtDate } = useI18n();
-  const [preset, setPreset] = useState<Preset>('month');
+  // The monthly WhatsApp report links here with the month it covers.
+  const params = useSearchParams();
+  const linkFrom = params.get('from');
+  const linkTo = params.get('to');
+  const linked = isDate(linkFrom) && isDate(linkTo) ? { from: linkFrom, to: linkTo } : null;
+  const [preset, setPreset] = useState<Preset>(linked ? 'link' : 'month');
   const [today, setToday] = useState(() => new Date().toISOString().slice(0, 10));
   const query = useMemo(() => {
+    if (preset === 'link' && linked) return `?from=${linked.from}&to=${linked.to}`;
     if (preset === 'month') return '';
     if (preset === 'last') { const p = month(today, -1); return `?from=${p.from}&to=${p.to}`; }
     if (preset === '3m') return `?from=${month(today, -2).from}&to=${today}`;
     return `?from=2020-01-01&to=${today}`;
-  }, [preset, today]);
+  }, [preset, today, linked?.from, linked?.to]);
   const { data: r, error } = useApi<SavingsReport>(`/savings${query}`, [query]);
   if (r && r.today !== today) setToday(r.today);
   const money = (v: string | null | undefined) => fmtMoney(v ?? '0', 2, r?.currency);
