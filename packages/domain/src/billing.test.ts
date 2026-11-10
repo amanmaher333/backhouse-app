@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addInterval, companyNameSimilarity, computeBill, decodeZatcaQr, toHalalas, zatcaQr } from './billing.js';
+import { addInterval, companyNameSimilarity, computeBill, decodeZatcaQr, toHalalas, trialReminderDue, zatcaQr } from './billing.js';
 
 describe('computeBill', () => {
   it('charges the platform fee plus each agent per active site, with VAT', () => {
@@ -47,5 +47,16 @@ describe('companyNameSimilarity', () => {
     expect(companyNameSimilarity('مؤسسة الوطنية للأغذية', 'الوطنيه للاغذيه')).toBe(1);
     expect(companyNameSimilarity('Najd Kitchens', 'Riyadh Bakery Trading')).toBe(0);
     expect(companyNameSimilarity('Najd Kitchens Riyadh', 'Najd Kitchens')).toBe(1);
+  });
+});
+
+describe('trial reminder', () => {
+  const end = new Date('2026-12-10T09:00:00Z'); // 12:00 in Riyadh
+  it('is due in the last three days, from the chosen hour, and any time on the last day', () => {
+    expect(trialReminderDue(new Date('2026-12-07T08:59:00Z'), end, 'Asia/Riyadh', 8)).toBe(false); // more than 3 days left
+    expect(trialReminderDue(new Date('2026-12-07T09:30:00Z'), end, 'Asia/Riyadh', 13)).toBe(false); // 12:30 local, before 13:00
+    expect(trialReminderDue(new Date('2026-12-07T10:00:00Z'), end, 'Asia/Riyadh', 13)).toBe(true); // 13:00 local
+    expect(trialReminderDue(new Date('2026-12-09T22:00:00Z'), end, 'Asia/Riyadh', 8)).toBe(true); // 01:00 local, last day
+    expect(trialReminderDue(new Date('2026-12-10T09:00:00Z'), end, 'Asia/Riyadh', 8)).toBe(false); // ended
   });
 });

@@ -36,6 +36,14 @@ Paying (Billing, then **Pay now**, or choosing a plan) restores full use straigh
 
 **How renewals run:** the worker (`BillingService.runDue`) handles trials, renewals and retries. Each subscription is processed under a row lock, so two workers never charge twice.
 
+### Trial ending reminder
+
+Three days before the trial ends, at their digest hour (any hour on the last day), people who can manage billing and see prices get a WhatsApp message, once:
+- **No plan chosen yet:** what Kitchain saved during the trial, line by line, with what is still being claimed shown separately; the monthly price, and how many times the savings already cover it; days left and a link to Billing.
+- **Plan and card already set:** that the plan starts by itself on that date, and that there is nothing to do.
+
+`trial_notices` records each one (person, organisation, kind) with the figures it showed. Template `boh_trial_ending` (see `docs/whatsapp-templates.md`). Code: `apps/api/src/modules/trial-ending.ts`.
+
 ## Payments
 
 `BILLING_PROVIDER=simulated` is the default, and no money moves. Test cards on the Billing page:

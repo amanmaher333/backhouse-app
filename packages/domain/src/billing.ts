@@ -137,3 +137,18 @@ export function companyNameSimilarity(a: string, b: string): number {
   for (const t of x) if (y.has(t)) common++;
   return common / Math.min(x.size, y.size);
 }
+
+/** How many days before the trial ends the reminder goes out. */
+export const TRIAL_REMINDER_DAYS = 3;
+
+/**
+ * Whether the "trial ends soon" reminder is due: within TRIAL_REMINDER_DAYS of the end, from the
+ * person's chosen local hour; in the last 24 hours at any hour, so it is never missed.
+ */
+export function trialReminderDue(now: Date, trialEndsAt: Date, timeZone: string, hour: number): boolean {
+  const left = trialEndsAt.getTime() - now.getTime();
+  if (left <= 0 || left > TRIAL_REMINDER_DAYS * 86400_000) return false;
+  if (left <= 86400_000) return true;
+  const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', hourCycle: 'h23' }).format(now));
+  return h >= hour;
+}

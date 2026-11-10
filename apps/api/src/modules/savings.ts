@@ -1,19 +1,14 @@
-import { Controller, Get, Injectable, Module, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { createZodDto } from 'nestjs-zod';
+import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import { and, asc, eq, gte, inArray, isNotNull, lte, ne, sql } from 'drizzle-orm';
 import { type Tx, agentTasks, goodsReceiptLines, goodsReceipts, items, organizations, purchaseOrderLines, supplierInvoices, supplierItems, tradingRelationships } from '@boh/db';
 import { Decimal, country, monthRange, openClaim, savingsMultiple, summariseSavings, switchSaving, zonedTimeToUtc, type SavingKind } from '@boh/domain';
 import { DbService } from '../common/db.service.js';
-import { Access, Requires } from '../common/auth.js';
 import type { AccessContext } from '../common/access.js';
-import { BillingModule } from '../billing/billing.module.js';
 import { BillingService } from '../billing/billing.service.js';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const SavingsSchema = z.object({ from: date.optional(), to: date.optional() }).refine((q) => !q.from || !q.to || q.from <= q.to, { message: 'from must be on or before to' });
-class SavingsDto extends createZodDto(SavingsSchema) {}
+export const SavingsSchema = z.object({ from: date.optional(), to: date.optional() }).refine((q) => !q.from || !q.to || q.from <= q.to, { message: 'from must be on or before to' });
 
 const localDate = (t: Date, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
 const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
@@ -187,16 +182,3 @@ export class SavingsService {
     return out;
   }
 }
-
-@ApiTags('savings')
-@ApiBearerAuth()
-@Controller('savings')
-export class SavingsController {
-  constructor(private readonly svc: SavingsService) {}
-
-  @Get() @Requires('price:read')
-  report(@Access() a: AccessContext, @Query() q: SavingsDto) { return this.svc.report(a, q); }
-}
-
-@Module({ imports: [BillingModule], controllers: [SavingsController], providers: [SavingsService], exports: [SavingsService] })
-export class SavingsModule {}

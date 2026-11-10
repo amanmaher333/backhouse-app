@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { monthRange, openClaim, savingsMultiple, summariseSavings, switchSaving } from './savings.js';
+import { monthlyReportDue, monthlySavingsLines, monthRange, openClaim, savingsMultiple, savingsNothingToReport, summariseSavings, switchSaving } from './savings.js';
 
 describe('savings', () => {
   it('values a supplier switch at the price gap on what was actually bought', () => {
@@ -42,5 +42,27 @@ describe('savings', () => {
     expect(monthRange('2026-11-09', -1)).toEqual({ from: '2026-10-01', to: '2026-10-31' });
     expect(monthRange('2026-01-15', -1)).toEqual({ from: '2025-12-01', to: '2025-12-31' });
     expect(monthRange('2028-02-10')).toEqual({ from: '2028-02-01', to: '2028-02-29' });
+  });
+});
+
+describe('monthly savings report', () => {
+  it('is due from the chosen hour on the 1st, with catch-up on the 2nd and 3rd', () => {
+    // 08:00 in Riyadh is 05:00 UTC.
+    expect(monthlyReportDue(new Date('2026-12-01T04:59:00Z'), 'Asia/Riyadh', 8)).toEqual({ due: false, period: '2026-11', from: '2026-11-01', to: '2026-11-30' });
+    expect(monthlyReportDue(new Date('2026-12-01T05:00:00Z'), 'Asia/Riyadh', 8).due).toBe(true);
+    expect(monthlyReportDue(new Date('2026-12-03T20:00:00Z'), 'Asia/Riyadh', 8).due).toBe(true);
+    expect(monthlyReportDue(new Date('2026-12-03T21:00:00Z'), 'Asia/Riyadh', 8).due).toBe(false); // already the 4th in Riyadh
+    // New year: December is reported in January.
+    expect(monthlyReportDue(new Date('2027-01-01T09:00:00Z'), 'Asia/Riyadh', 8)).toMatchObject({ due: true, period: '2026-12', from: '2026-12-01', to: '2026-12-31' });
+  });
+
+  it('lists only kinds with money, then open claims', () => {
+    const t = summariseSavings([{ kind: 'credit_note', amount: '115' }, { kind: 'supplier_switch', amount: '71.92' }, { kind: 'claim_open', amount: '60.38' }]);
+    const money = (a: string) => `SAR ${a}`;
+    expect(monthlySavingsLines(t, 'en', money)).toEqual(['Credit notes received: SAR 115.00', 'Cheaper suppliers: SAR 71.92', 'Still being claimed: SAR 60.38']);
+    expect(monthlySavingsLines(t, 'ar', money)[2]).toBe('قيد المطالبة: SAR 60.38');
+    expect(savingsNothingToReport(t)).toBe(false);
+    expect(savingsNothingToReport(summariseSavings([]))).toBe(true);
+    expect(savingsNothingToReport(summariseSavings([{ kind: 'claim_open', amount: '5' }]))).toBe(false);
   });
 });

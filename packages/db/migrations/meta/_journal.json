@@ -148,6 +148,20 @@
       "when": 1794249417957,
       "tag": "0020_recipes",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794315956491,
+      "tag": "0021_monthly_savings",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794318144910,
+      "tag": "0022_trial_notices",
+      "breakpoints": true
     }
   ]
 }

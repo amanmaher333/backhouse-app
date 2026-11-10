@@ -56,7 +56,7 @@ Buttons, in this order:
 |---|---|---|---|---|
 | 0 | Quick reply | اعتماد | Approve | payload set per message |
 | 1 | Quick reply | رفض | Reject | payload set per message |
-| 2 | URL (dynamic) | افتح في Kitchain | Open in Kitchain | `https://app.boh.sa/inbox?task={{1}}` |
+| 2 | URL (dynamic) | افتح في Kitchain | Open in Kitchain | `https://app.kitchain.online/inbox?task={{1}}` |
 
 ### `boh_task_notice`
 
@@ -89,7 +89,7 @@ Buttons, in this order:
 | # | Type | Arabic | English | Value |
 |---|---|---|---|---|
 | 0 | Quick reply | رفض | Reject | payload set per message |
-| 1 | URL (dynamic) | افتح في Kitchain | Open in Kitchain | `https://app.boh.sa/inbox?task={{1}}` |
+| 1 | URL (dynamic) | افتح في Kitchain | Open in Kitchain | `https://app.kitchain.online/inbox?task={{1}}` |
 
 ### `boh_daily_digest`
 
@@ -113,7 +113,7 @@ Buttons, in this order:
 | # | Type | Arabic | English | Value |
 |---|---|---|---|---|
 | 0 | Quick reply | اعرض القرارات | Show decisions | payload set per message |
-| 1 | URL (dynamic) | افتح في Kitchain | Open in Kitchain | `https://app.boh.sa/{{1}}` (suffix `inbox`) |
+| 1 | URL (dynamic) | افتح في Kitchain | Open in Kitchain | `https://app.kitchain.online/{{1}}` (suffix `inbox`) |
 
 **Show decisions** is the key button. Tapping it opens the 24-hour window, so Kitchain then re-sends up to five waiting approval cards as interactive messages. Those don't need a template and aren't charged separately.
 
@@ -126,6 +126,77 @@ Inside the window, the digest goes out as a full message: the waiting decisions,
 - **Skipped when late:** if the worker was down, a missed digest is still sent up to 4 hours after the chosen hour; after that, that day's is skipped.
 - **Quiet days:** nothing is sent; the empty run is still recorded.
 - **What it covers:** only what the person's permissions allow (sites, prices, spend approval).
+
+### `boh_monthly_savings` (Utility)
+
+The monthly savings report, sent outside the 24-hour window. Facts from the customer's own records, no offers: that keeps it **Utility**. Variables:
+
+- `{{1}}` the organisation
+- `{{2}}` the month, e.g. "October 2026"
+- `{{3}}` the amount saved, e.g. "SAR 756.17"
+- `{{4}}` the breakdown, e.g. "Credit notes received: SAR 115.00 · Duplicate invoices stopped: SAR 569.25 · Still being claimed: SAR 60.38"
+
+Arabic body:
+
+```
+💰 {{1}} · التوفير في {{2}}
+وفّر لك Kitchain {{3}}.
+{{4}}
+```
+
+English body:
+
+```
+💰 {{1}} · Savings in {{2}}
+Kitchain saved you {{3}}.
+{{4}}
+```
+
+Button:
+
+| # | Type | Arabic | English | Value |
+|---|---|---|---|---|
+| 0 | URL (dynamic) | اعرض التفاصيل | See the details | `https://app.kitchain.online/{{1}}` (suffix `savings?from=…&to=…`) |
+
+Inside the window it goes out as a full message: the total, each kind with money in it, what is still being claimed, and how it compares with what Kitchain cost (or, during the trial, with the monthly price).
+
+### Monthly savings scheduling
+
+- **When:** on the 1st of each month at the person's digest hour and time zone, for the month just ended. If the worker was down it catches up on the 2nd and 3rd.
+- **Who:** people with WhatsApp linked who can see prices (`price:read`) in that organisation, unless they turned the report off on the WhatsApp page.
+- **Once:** a `savings_reports` row (person, organisation, month) claims it, with the figures; months with nothing saved and nothing being claimed are recorded but not sent.
+- **Preview:** the WhatsApp page shows last month's report and can send it straight away.
+
+### `boh_trial_ending` (Utility)
+
+Three days before the trial ends, outside the 24-hour window. It's about the customer's own account and billing, so it stays **Utility**. Variables:
+
+- `{{1}}` the organisation
+- `{{2}}` the end date, e.g. "13 November 2026"
+- `{{3}}` saved during the trial, e.g. "SAR 756.17"
+- `{{4}}` the monthly price, e.g. "SAR 632.50"
+
+Arabic body:
+
+```
+⏳ {{1}} · تنتهي فترتك التجريبية في {{2}}
+وفّر لك Kitchain خلال الفترة التجريبية {{3}}. تكلفة الباقة {{4}} شهريًا.
+```
+
+English body:
+
+```
+⏳ {{1}} · Your Kitchain trial ends on {{2}}
+During the trial Kitchain saved you {{3}}. The plan is {{4}} a month.
+```
+
+Button:
+
+| # | Type | Arabic | English | Value |
+|---|---|---|---|---|
+| 0 | URL (dynamic) | الفوترة | Billing | `https://app.kitchain.online/{{1}}` (suffix `billing`) |
+
+Inside the window the full message lists the savings by kind, shows open claims separately, and says how many times the savings cover the price. If a plan is already chosen it says the plan starts by itself and asks for nothing. Who gets it and when: `docs/billing-and-verification.md`.
 
 ## Supplier templates
 
@@ -157,7 +228,7 @@ Buttons, in this order:
 |---|---|---|---|
 | 0 | Quick reply | تأكيد / Confirm | payload set per message |
 | 1 | Quick reply | مشكلة / Problem | payload set per message |
-| 2 | URL (dynamic) | عرض الطلب | `https://app.boh.sa/s/{{1}}` (suffix: the order's private token) |
+| 2 | URL (dynamic) | عرض الطلب | `https://app.kitchain.online/s/{{1}}` (suffix: the order's private token) |
 
 ### `boh_supplier_followup` (Utility)
 
@@ -193,7 +264,7 @@ Body:
 {{3}}
 ```
 
-Button: URL "افتح الطلب" / "Open order", `https://app.boh.sa/{{1}}` (suffix `orders/<id>`).
+Button: URL "افتح الطلب" / "Open order", `https://app.kitchain.online/{{1}}` (suffix `orders/<id>`).
 
 ### How supplier replies work
 
