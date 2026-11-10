@@ -1,9 +1,9 @@
 import { Decimal } from 'decimal.js';
 
 /**
- * What Backhouse saved an organisation, from records only (never estimates of things that didn't happen).
+ * What Kitchain saved an organisation, from records only (never estimates of things that didn't happen).
  *
- * - credit_note: a supplier credit note received against an invoice Backhouse disputed.
+ * - credit_note: a supplier credit note received against an invoice Kitchain disputed.
  * - duplicate: an invoice rejected because it repeated one already received.
  * - supplier_switch: deliveries from a cheaper supplier after Price Watch switched to it, valued at the
  *   price gap at the time of the switch.

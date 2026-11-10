@@ -1,5 +1,5 @@
 /*
- * Countries Backhouse supports, for forms (the API holds the full rules in
+ * Countries Kitchain supports, for forms (the API holds the full rules in
  * @boh/domain's country profiles and checks every number server-side).
  */
 

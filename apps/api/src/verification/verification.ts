@@ -34,7 +34,7 @@ export const NAME_MATCH_THRESHOLD = 0.6;
 const MAX_PENDING_ATTEMPTS = 10;
 
 /**
- * Company checks against the commercial register, with no one at Backhouse involved in the
+ * Company checks against the commercial register, with no one at Kitchain involved in the
  * normal case: an active CR whose name matches is verified on the spot; a missing or
  * expired CR is rejected with the reason; a name mismatch goes to a short review queue.
  */
@@ -58,10 +58,10 @@ export class VerificationService {
     let decision: { status: 'verified' | 'needs_review' | 'rejected' | 'pending'; reason: string | null; registry: Record<string, unknown> | null; score: number | null };
     const profile = country(le.country);
     let provider: string = this.registry.name;
-    // Only Saudi CRs can be checked automatically (Wathq); elsewhere Backhouse reviews the licence.
+    // Only Saudi CRs can be checked automatically (Wathq); elsewhere Kitchain reviews the licence.
     if (profile.registry !== 'wathq') {
       provider = 'manual';
-      decision = { status: 'needs_review', reason: `No automatic register check for ${profile.name}; Backhouse reviews the commercial registration`, registry: null, score: null };
+      decision = { status: 'needs_review', reason: `No automatic register check for ${profile.name}; Kitchain reviews the commercial registration`, registry: null, score: null };
     } else try {
       const rec = await this.registry.lookupCr(le.crNumber, le.name);
       if (!rec.found) decision = { status: 'rejected', reason: 'CR number not found in the commercial register', registry: null, score: null };
@@ -138,9 +138,9 @@ export class VerificationService {
     return done;
   }
 
-  // ---------- Backhouse review queue (the only manual step) ----------
+  // ---------- Kitchain review queue (the only manual step) ----------
 
-  /** Platform admins are members of Backhouse's own organisation (type "platform"). */
+  /** Platform admins are members of Kitchain's own organisation (type "platform"). */
   async assertPlatformAdmin(userId: string) {
     const [row] = await this.db.system((tx) =>
       tx
@@ -149,7 +149,7 @@ export class VerificationService {
         .innerJoin(organizations, eq(organizations.id, memberships.orgId))
         .where(and(eq(memberships.userId, userId), eq(organizations.type, 'platform'))),
     );
-    if (!row) throw new ForbiddenException('Backhouse staff only');
+    if (!row) throw new ForbiddenException('Kitchain staff only');
   }
 
   async reviewQueue(userId: string, status: string) {

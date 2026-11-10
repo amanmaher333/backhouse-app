@@ -76,7 +76,7 @@ function sign(body: string) {
 }
 const email = (body: Record<string, unknown>, signature?: string) => {
   const raw = JSON.stringify(body);
-  return http.post('/v1/webhooks/invoice-email').set('Content-Type', 'application/json').set('X-Backhouse-Signature', signature ?? sign(raw)).send(raw);
+  return http.post('/v1/webhooks/invoice-email').set('Content-Type', 'application/json').set('X-Kitchain-Signature', signature ?? sign(raw)).send(raw);
 };
 
 beforeAll(async () => {
@@ -300,7 +300,7 @@ describe('supplier invoices by email', () => {
     const x = await setup();
     const box = (await http.get('/v1/supplier-invoices/inbox').set(auth(x.token)).expect(200)).body;
     expect(box).toMatchObject({ enabled: true, readsAutomatically: false });
-    expect(box.address).toMatch(/^invoices\+[a-f0-9]{12}@in\.backhouse\.sa$/);
+    expect(box.address).toMatch(/^invoices\+[a-f0-9]{12}@in\.kitchain\.online$/);
     expect((await http.get('/v1/supplier-invoices/inbox').set(auth(x.token)).expect(200)).body.address).toBe(box.address);
 
     const messageId = `<${uniq()}@mail.wafra.sa>`;
@@ -336,7 +336,10 @@ describe('supplier invoices by email', () => {
     const confirmed = (await http.patch(`/v1/supplier-invoices/${inv.id}`).set(auth(x.token)).send({ acknowledge: true }).expect(200)).body;
     expect(confirmed.status).toBe('matched');
 
-    expect((await email({ messageId: uniq(), from: 'a@b.com', to: 'invoices+nothing@in.backhouse.sa', attachments: [] }).expect(200)).body.outcome).toBe('unknown_address');
+    expect((await email({ messageId: uniq(), from: 'a@b.com', to: 'invoices+nothing@in.kitchain.online', attachments: [] }).expect(200)).body.outcome).toBe('unknown_address');
+    // The header's name before the rename still works.
+    const legacy = JSON.stringify({ messageId: uniq(), from: 'a@b.com', to: 'invoices+nothing@in.kitchain.online', attachments: [] });
+    expect((await http.post('/v1/webhooks/invoice-email').set('Content-Type', 'application/json').set('X-Backhouse-Signature', sign(legacy)).send(legacy).expect(200)).body.outcome).toBe('unknown_address');
     expect((await email({ messageId: uniq(), from: 'billing@wafra.sa', to: box.address, attachments: [] }).expect(200)).body.outcome).toBe('no_invoice_attachments');
   });
 });

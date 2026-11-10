@@ -692,7 +692,7 @@ export class InvoicesService {
 
   /**
    * Ask the supplier for a credit note. With send, suppliers who take orders on WhatsApp
-   * get it from Backhouse directly; otherwise a ready-to-send email/WhatsApp message is returned.
+   * get it from Kitchain directly; otherwise a ready-to-send email/WhatsApp message is returned.
    */
   async disputeInTx(tx: Tx, a: AccessContext, id: string, opts: { message?: string | null; messageAr?: string | null; send?: boolean; approver?: AccessContext } = {}) {
     const inv = await this.load(tx, id);

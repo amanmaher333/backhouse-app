@@ -1,6 +1,6 @@
 # ZATCA phase 2 e-invoicing (issuing)
 
-Backhouse issues ZATCA phase 2 ("integration phase") e-invoices for an organisation's legal entities: for example a central kitchen selling to franchisees, or catering and event sales. This covers:
+Kitchain issues ZATCA phase 2 ("integration phase") e-invoices for an organisation's legal entities: for example a central kitchen selling to franchisees, or catering and event sales. This covers:
 - tax invoices (B2B), which ZATCA **clears** before they are shared;
 - simplified tax invoices (B2C), which are **reported** within 24 hours;
 - credit and debit notes for both.
@@ -22,8 +22,8 @@ The Developer Portal's *production* certificate is a fixed placeholder that does
    - the environment: Simulation to rehearse, Production for real invoices;
    - which invoice kinds it issues.
 
-   Backhouse generates a secp256k1 signing key and ZATCA's certificate signing request.
-3. **Onboard:** in the Fatoora portal (fatoora.zatca.gov.sa), choose *Onboard new solution unit/device*, generate a one-time code and enter it. Backhouse then:
+   Kitchain generates a secp256k1 signing key and ZATCA's certificate signing request.
+3. **Onboard:** in the Fatoora portal (fatoora.zatca.gov.sa), choose *Onboard new solution unit/device*, generate a one-time code and enter it. Kitchain then:
    - gets the compliance certificate;
    - submits ZATCA's compliance checks (a sample of each document type the unit issues);
    - gets the production certificate.
@@ -66,7 +66,7 @@ Behind an HTTP proxy, run Node with `NODE_USE_ENV_PROXY=1` (Node ≥ 22.21) so `
 
 - **Certificate request:** ZATCA's CSR is built with a small DER encoder (`apps/api/src/zatca/der.ts`, `crypto.ts`), because Node has no CSR builder. It carries:
   - the template name per environment (`TSTZATCA-` for the sandbox, `PREZATCA-` for simulation, `ZATCA-Code-Signing` for production);
-  - the EGS serial `1-Backhouse|2-1.0|3-<uuid>`;
+  - the EGS serial `1-Kitchain|2-1.0|3-<uuid>`;
   - the VAT number, invoice types, location and industry, in the subject alternative name.
 - **Canonical XML:** documents are built as trees and written in canonical form (`xml.ts`).
   - The invoice hash is inclusive C14N 1.1 of the document without `ext:UBLExtensions`, `cac:Signature` and the QR reference. The unit tests check this against libxml2 (`xmllint --c14n11`).
@@ -79,7 +79,7 @@ Behind an HTTP proxy, run Node with `NODE_USE_ENV_PROXY=1` (Node ≥ 22.21) so `
 ## Not yet
 
 - **PDF/A-3:** a PDF/A-3 with the XML embedded, for sending to buyers. For now, print the page and send the XML alongside.
-- **Delivery:** emailing invoices to buyers, and delivering them straight into a buyer's Backhouse invoice inbox when the buyer is on Backhouse.
-- **Billing:** Backhouse's own billing invoices through the same engine (they still carry the phase-1 QR).
+- **Delivery:** emailing invoices to buyers, and delivering them straight into a buyer's Kitchain invoice inbox when the buyer is on Kitchain.
+- **Billing:** Kitchain's own billing invoices through the same engine (they still carry the phase-1 QR).
 - **Renewal:** certificate renewal before expiry (`PATCH /production/csids`). The expiry date is shown on the unit.
-- **Suppliers:** supplier accounts, so suppliers on Backhouse can issue to restaurants.
+- **Suppliers:** supplier accounts, so suppliers on Kitchain can issue to restaurants.

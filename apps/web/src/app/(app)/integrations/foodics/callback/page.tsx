@@ -7,7 +7,7 @@ import { PageHead } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
 import { ApiError, useSession } from '@/lib/session';
 
-/** Foodics sends the owner back here with ?code&state after they approve Backhouse. */
+/** Foodics sends the owner back here with ?code&state after they approve Kitchain. */
 function Callback() {
   const { t } = useI18n();
   const { api, status } = useSession();

@@ -1,12 +1,12 @@
 # Billing and company verification
 
-Both run without anyone at Backhouse in the normal case. People are needed only for a short review queue (company names that don't match the register) and for disputes.
+Both run without anyone at Kitchain in the normal case. People are needed only for a short review queue (company names that don't match the register) and for disputes.
 
 ## Plans (launch prices, SAR, before 15% VAT)
 
 | Part | Price |
 |---|---|
-| Backhouse platform, per organisation | 400 / month |
+| Kitchain platform, per organisation | 400 / month |
 | Purchasing agent, per active site | 350 / month |
 | Price Watch agent, per active site | 150 / month |
 | Any other agent, per active site | 250 / month |
@@ -25,7 +25,7 @@ Prices live in `packages/domain/src/billing.ts` (`computeBill`). Each bill is wo
 | `suspended` | The third attempt failed. | read-only |
 | `canceled` | Cancelled, and the paid period has ended. | read-only |
 | `expired` | The trial ended without a plan. | read-only |
-| `free` | Suppliers, and Backhouse's own organisation. | yes |
+| `free` | Suppliers, and Kitchain's own organisation. | yes |
 
 **Read-only** means:
 - every write returns `402 subscription_inactive`;
@@ -60,7 +60,7 @@ Paying (Billing, then **Pay now**, or choosing a plan) restores full use straigh
 ## Invoices
 
 Each charge issues a tax invoice (`BOH-YYYY-NNNNNN`). It records:
-- **Seller:** Backhouse's name, VAT and CR numbers, from the `BOH_SELLER_*` settings.
+- **Seller:** Kitchain's name, VAT and CR numbers, from the `BOH_SELLER_*` settings.
 - **Buyer:** the customer's legal entity, with VAT and CR numbers and the registered name when verified.
 - **Contents:** lines, VAT and total.
 - **QR code:** ZATCA's phase-1 QR (TLV: seller name, VAT number, time, total, VAT).
@@ -69,16 +69,16 @@ Invoices can't be deleted. **ZATCA phase 2** (signed XML, clearance and reportin
 
 ## Company verification
 
-**When it runs:** at sign-up, and whenever a legal entity's CR number or name changes. Backhouse looks up the CR in the Ministry of Commerce commercial register:
+**When it runs:** at sign-up, and whenever a legal entity's CR number or name changes. Kitchain looks up the CR in the Ministry of Commerce commercial register:
 
 | Result | Status |
 |---|---|
 | Active CR, name matches (similarity ≥ 0.6; legal forms such as شركة/LLC/Est. and the Arabic article ignored) | `verified` |
 | Not found, expired, cancelled or suspended | `rejected`, with the reason |
-| Active, but the name doesn't match | `needs_review`, which goes to Backhouse's review queue |
+| Active, but the name doesn't match | `needs_review`, which goes to Kitchain's review queue |
 | Register unreachable | `pending`, retried by the worker |
 
-**What verification unlocks:** only verified companies can have Backhouse send orders and messages to suppliers from Backhouse's WhatsApp number. This protects the number from spam and keeps its quality rating with Meta. Unverified companies still get prepared messages and links.
+**What verification unlocks:** only verified companies can have Kitchain send orders and messages to suppliers from Kitchain's WhatsApp number. This protects the number from spam and keeps its quality rating with Meta. Unverified companies still get prepared messages and links.
 
 **The registry provider:**
 - `REGISTRY_PROVIDER=simulated` (default) uses these test rules, by how the CR number ends:
@@ -96,5 +96,5 @@ Invoices can't be deleted. **ZATCA phase 2** (signed XML, clearance and reportin
 **VAT numbers:** checked for format only (15 digits, starting and ending with 3). ZATCA offers no public API for checking a VAT number against a CR.
 
 **Review queue:**
-- **Who reviews:** Backhouse staff are members of Backhouse's own organisation (type `platform`). To add one: `pnpm --filter @boh/api platform:admin someone@boh.sa`.
+- **Who reviews:** Kitchain staff are members of Kitchain's own organisation (type `platform`). To add one: `pnpm --filter @boh/api platform:admin someone@boh.sa`.
 - **Endpoints:** `GET /v1/platform/verifications` lists the queue, and `POST /v1/platform/verifications/:id/decide` with `{ decision: approve|deny }` decides one.

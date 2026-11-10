@@ -53,7 +53,7 @@ export const ExtractionSchema = z.object({
 });
 export type Extraction = z.infer<typeof ExtractionSchema>;
 
-const SYSTEM = `You read supplier invoices for Backhouse, a back-office platform for restaurant groups in Saudi Arabia, the Gulf and the wider Middle East.
+const SYSTEM = `You read supplier invoices for Kitchain, a back-office platform for restaurant groups in Saudi Arabia, the Gulf and the wider Middle East.
 Invoices may be in Arabic, English or both, typed, printed or photographed. Extract the fields into the given structure.
 Rules:
 - Copy numbers exactly as printed. Do not calculate values that are not printed, and do not correct the supplier's arithmetic: mismatches are checked separately.

@@ -1,8 +1,8 @@
 # WhatsApp setup and message templates
 
-Backhouse sends approval cards on WhatsApp through Meta's WhatsApp Business Cloud API.
+Kitchain sends approval cards on WhatsApp through Meta's WhatsApp Business Cloud API.
 
-- **Inside the 24-hour window** (the person wrote to Backhouse in the last 24 hours, for example by linking or tapping a button): an interactive message with reply buttons. No template is needed, and Meta does not charge for it.
+- **Inside the 24-hour window** (the person wrote to Kitchain in the last 24 hours, for example by linking or tapping a button): an interactive message with reply buttons. No template is needed, and Meta does not charge for it.
 - **Outside the window:** one of the templates below. Templates must be approved by Meta before use, and are billed as **utility** messages.
 
 ## Environment
@@ -15,12 +15,12 @@ Backhouse sends approval cards on WhatsApp through Meta's WhatsApp Business Clou
 | `WHATSAPP_APP_SECRET` | Meta app secret. Every webhook's `X-Hub-Signature-256` is checked against it. |
 | `WHATSAPP_VERIFY_TOKEN` | Any secret string; enter the same value when subscribing the webhook. |
 | `WHATSAPP_GRAPH_VERSION` | Default `v25.0`. |
-| `WHATSAPP_BUSINESS_NUMBER` | Backhouse's number in E.164, shown to people for linking. |
+| `WHATSAPP_BUSINESS_NUMBER` | Kitchain's number in E.164, shown to people for linking. |
 | `WHATSAPP_TEMPLATE_APPROVAL`, `WHATSAPP_TEMPLATE_NOTICE`, `WHATSAPP_TEMPLATE_DIGEST`, `WHATSAPP_TEMPLATE_SUPPLIER_ORDER`, `WHATSAPP_TEMPLATE_SUPPLIER_FOLLOWUP`, `WHATSAPP_TEMPLATE_SUPPLIER_UPDATE` | Template names, if yours differ. |
 | `WHATSAPP_PROMPT_TTL_HOURS` | How long a card's buttons stay valid (default 72). |
-| `PUBLIC_WEB_URL` | Base URL for "open in Backhouse" links. |
+| `PUBLIC_WEB_URL` | Base URL for "open in Kitchain" links. |
 
-**Webhook:** `https://<api>/v1/webhooks/whatsapp`. Subscribe to the `messages` field. Backhouse uses incoming messages, button replies and delivery statuses.
+**Webhook:** `https://<api>/v1/webhooks/whatsapp`. Subscribe to the `messages` field. Kitchain uses incoming messages, button replies and delivery statuses.
 
 ## Templates
 
@@ -56,11 +56,11 @@ Buttons, in this order:
 |---|---|---|---|---|
 | 0 | Quick reply | اعتماد | Approve | payload set per message |
 | 1 | Quick reply | رفض | Reject | payload set per message |
-| 2 | URL (dynamic) | افتح في Backhouse | Open in Backhouse | `https://app.boh.sa/inbox?task={{1}}` |
+| 2 | URL (dynamic) | افتح في Kitchain | Open in Kitchain | `https://app.boh.sa/inbox?task={{1}}` |
 
 ### `boh_task_notice`
 
-This one is used when the task is above the organisation's WhatsApp approval limit (Settings → WhatsApp). The person can reject from WhatsApp, but approving has to happen in Backhouse.
+This one is used when the task is above the organisation's WhatsApp approval limit (Settings → WhatsApp). The person can reject from WhatsApp, but approving has to happen in Kitchain.
 
 Arabic body:
 
@@ -70,7 +70,7 @@ Arabic body:
 
 {{3}}
 
-هذا أعلى من حد الاعتماد عبر واتساب. اعتمده من Backhouse.
+هذا أعلى من حد الاعتماد عبر واتساب. اعتمده من Kitchain.
 ```
 
 English body:
@@ -81,7 +81,7 @@ English body:
 
 {{3}}
 
-This is above the limit for approving on WhatsApp. Approve it in Backhouse.
+This is above the limit for approving on WhatsApp. Approve it in Kitchain.
 ```
 
 Buttons, in this order:
@@ -89,7 +89,7 @@ Buttons, in this order:
 | # | Type | Arabic | English | Value |
 |---|---|---|---|---|
 | 0 | Quick reply | رفض | Reject | payload set per message |
-| 1 | URL (dynamic) | افتح في Backhouse | Open in Backhouse | `https://app.boh.sa/inbox?task={{1}}` |
+| 1 | URL (dynamic) | افتح في Kitchain | Open in Kitchain | `https://app.boh.sa/inbox?task={{1}}` |
 
 ### `boh_daily_digest`
 
@@ -113,9 +113,9 @@ Buttons, in this order:
 | # | Type | Arabic | English | Value |
 |---|---|---|---|---|
 | 0 | Quick reply | اعرض القرارات | Show decisions | payload set per message |
-| 1 | URL (dynamic) | افتح في Backhouse | Open in Backhouse | `https://app.boh.sa/{{1}}` (suffix `inbox`) |
+| 1 | URL (dynamic) | افتح في Kitchain | Open in Kitchain | `https://app.boh.sa/{{1}}` (suffix `inbox`) |
 
-**Show decisions** is the key button. Tapping it opens the 24-hour window, so Backhouse then re-sends up to five waiting approval cards as interactive messages. Those don't need a template and aren't charged separately.
+**Show decisions** is the key button. Tapping it opens the 24-hour window, so Kitchain then re-sends up to five waiting approval cards as interactive messages. Those don't need a template and aren't charged separately.
 
 Inside the window, the digest goes out as a full message: the waiting decisions, what agents did on their own, orders (spend approval, due today, late), low stock by site and price rises.
 
@@ -129,7 +129,7 @@ Inside the window, the digest goes out as a full message: the waiting decisions,
 
 ## Supplier templates
 
-Backhouse writes to suppliers from the same number, on behalf of the restaurant. These templates are registered in **Arabic** (`ar`), the language Saudi suppliers use. The free-form versions sent inside the window are bilingual (Arabic first).
+Kitchain writes to suppliers from the same number, on behalf of the restaurant. These templates are registered in **Arabic** (`ar`), the language Saudi suppliers use. The free-form versions sent inside the window are bilingual (Arabic first).
 
 ### `boh_purchase_order` (Utility)
 
@@ -198,11 +198,11 @@ Button: URL "افتح الطلب" / "Open order", `https://app.boh.sa/{{1}}` (su
 ### How supplier replies work
 
 - **Confirm** (WhatsApp button or the order link): recorded once on the order, with where it came from.
-- **Problem:** Backhouse asks for one message describing it, and takes the supplier's next message within 2 hours as the description. (On the link, they type it straight away.) The problem is:
+- **Problem:** Kitchain asks for one message describing it, and takes the supplier's next message within 2 hours as the description. (On the link, they type it straight away.) The problem is:
   - stored on the order;
   - sent as a WhatsApp notice to people who manage that site's orders and have notifications on;
   - added to the inbox as a high-priority Purchasing task.
-- **Any other text** from a supplier's number is attached to their latest order from Backhouse (within 30 days), relayed the same way, and acknowledged.
+- **Any other text** from a supplier's number is attached to their latest order from Kitchain (within 30 days), relayed the same way, and acknowledged.
 - **Safety checks:**
   - buttons only work from the number the order was sent to;
   - order links are random 192-bit tokens, stored hashed, and expire after 45 days;
@@ -212,7 +212,7 @@ Button: URL "افتح الطلب" / "Open order", `https://app.boh.sa/{{1}}` (su
 ## Security model
 
 - **Linking:** a person proves they hold a number by sending a one-time code (valid for 15 minutes) *from* that number. Only the code's hash is stored. A number can be linked to only one account.
-- **Taps:** button payloads carry a random prompt id. Backhouse acts on a tap only if:
+- **Taps:** button payloads carry a random prompt id. Kitchain acts on a tap only if:
   - it comes from the number the card was sent to;
   - the card hasn't been used and hasn't expired;
   - the task is still open;

@@ -1,4 +1,4 @@
-# Backhouse API and worker (same image; the worker runs a different command).
+# Kitchain API and worker (same image; the worker runs a different command).
 FROM node:22-slim AS build
 RUN corepack enable
 WORKDIR /app

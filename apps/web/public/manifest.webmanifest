@@ -1,6 +1,6 @@
 {
-  "name": "Backhouse",
-  "short_name": "Backhouse",
+  "name": "Kitchain",
+  "short_name": "Kitchain",
   "description": "The AI back office for restaurant groups: agents for purchasing and supplier prices, approved on WhatsApp",
   "start_url": "/overview",
   "scope": "/",

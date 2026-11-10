@@ -36,10 +36,10 @@ const LINK_CODE_TTL_MIN = 15;
 const MAX_ATTEMPTS = 5;
 const MAX_RECIPIENTS = 10;
 const SHOW_DECISIONS_MAX = 5;
-/** Messages Backhouse starts itself: free-form only inside the 24-hour window, a template otherwise. */
+/** Messages Kitchain starts itself: free-form only inside the 24-hour window, a template otherwise. */
 const SCHEDULED_KINDS = new Set(['approval_card', 'digest', 'supplier_order', 'supplier_followup', 'supplier_update']);
 
-/** One message as the webhook delivers it (the parts Backhouse uses). */
+/** One message as the webhook delivers it (the parts Kitchain uses). */
 export interface InboundMessage {
   id: string;
   from: string;
@@ -127,7 +127,7 @@ export class ChannelsService {
     };
   }
 
-  /** Start linking: a one-time code the person sends to Backhouse's number from their WhatsApp. */
+  /** Start linking: a one-time code the person sends to Kitchain's number from their WhatsApp. */
   async startLink(userId: string) {
     const code = linkCode(randomBytes(6));
     const expiresAt = new Date(Date.now() + LINK_CODE_TTL_MIN * 60_000);
@@ -351,7 +351,7 @@ export class ChannelsService {
       for (const { msg, lastInboundAt } of due) {
         const content = msg.content as unknown as MessageContent;
         // Replies to someone who just wrote are always inside the window, linked or not;
-        // messages Backhouse starts (cards, digests) check it.
+        // messages Kitchain starts (cards, digests) check it.
         const windowOpen = !SCHEDULED_KINDS.has(msg.kind) || inServiceWindow(lastInboundAt);
         const form: SendForm | null = windowOpen ? (content.buttons?.length ? 'interactive' : 'text') : content.template ? 'template' : null;
         if (!form) {
@@ -474,7 +474,7 @@ export class ChannelsService {
 
     const digestOrg = payload ? parseDigestPayload(payload) : null;
     const supplierAnswer = payload ? parseSupplierPayload(payload) : null;
-    // Numbers that are not Backhouse users may be suppliers answering an order.
+    // Numbers that are not Kitchain users may be suppliers answering an order.
     const supplier =
       !recorded.channel && !code && (supplierAnswer || !payload)
         ? await this.suppliers.handleInbound({ from, inboundId: recorded.rowId, answer: supplierAnswer ?? undefined, text })
@@ -633,7 +633,7 @@ export class ChannelsService {
 
   // ---------- simulator (development only) ----------
 
-  /** The conversation between Backhouse and the person's phone, oldest first. */
+  /** The conversation between Kitchain and the person's phone, oldest first. */
   async simulatorThread(userId: string, address?: string) {
     this.assertSimulator();
     const mine = await this.myChannel(userId);

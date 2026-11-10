@@ -1,4 +1,4 @@
-# Deploying Backhouse (Railway)
+# Deploying Kitchain (Railway)
 
 Four services in one Railway project, built from this repository's Dockerfiles:
 

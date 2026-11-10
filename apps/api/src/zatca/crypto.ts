@@ -143,7 +143,7 @@ QaRmnnAKpy0RIbV/LBvSAp+hRANCAATEpNsw+Mcrat3iHTFZB9J1JZAibfDIrc6f
 -----END PRIVATE KEY-----`;
 
 export function createTestCa(): TestCa {
-  return { keyPem: TEST_CA_KEY, name: seq(rdn('0.9.2342.19200300.100.1.25', utf8('local')), rdn('0.9.2342.19200300.100.1.25', utf8('backhouse')), rdn(OID.commonName, utf8('Backhouse-Simulated-ZATCA-CA'))) };
+  return { keyPem: TEST_CA_KEY, name: seq(rdn('0.9.2342.19200300.100.1.25', utf8('local')), rdn('0.9.2342.19200300.100.1.25', utf8('kitchain')), rdn(OID.commonName, utf8('Kitchain-Simulated-ZATCA-CA'))) };
 }
 
 /** Issue a certificate for a subject and public key (simulated onboarding). */

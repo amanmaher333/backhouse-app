@@ -139,7 +139,7 @@ describe('recipes', () => {
       ['Chicken Burger', 3],
       ['Chicken Salad', 2],
     ]);
-    // Shakshuka uses eggs, which aren't a Backhouse item yet.
+    // Shakshuka uses eggs, which aren't a Kitchain item yet.
     expect(r.skipped).toEqual([expect.objectContaining({ name: 'Shakshuka', reason: expect.stringContaining("Eggs isn't linked") })]);
 
     const burger = (await http.get(`/v1/recipes/${r.created[0].id}`).set(auth(x.token)).expect(200)).body;

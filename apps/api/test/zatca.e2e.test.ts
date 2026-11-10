@@ -75,7 +75,7 @@ describe('ZATCA onboarding', () => {
 
     const unit = (await http.post('/v1/zatca/units').set(auth(x.token)).send({ legalEntityId: x.le.id, name: 'Main', environment: 'simulation' }).expect(201)).body;
     expect(unit).toMatchObject({ status: 'new', environment: 'simulation', invoiceTypes: '1100', icv: 0 });
-    expect(unit.egsSerial).toMatch(/^1-Backhouse\|2-1\.0\|3-/);
+    expect(unit.egsSerial).toMatch(/^1-Kitchain\|2-1\.0\|3-/);
     expect(unit).not.toHaveProperty('privateKeyEnc');
 
     const bad = await http.post(`/v1/zatca/units/${unit.id}/onboard`).set(auth(x.token)).send({ otp: '000000' }).expect(400);
@@ -114,7 +114,7 @@ describe('Issuing', () => {
     const b = (await sell(x, { kind: 'simplified', issue: true }).expect(201)).body;
     expect(b).toMatchObject({ number: 'INV-00002', status: 'reported', icv: 2, pih: a.hash });
 
-    // The XML is a ZATCA e-invoice Backhouse (or anyone) can read back.
+    // The XML is a ZATCA e-invoice Kitchain (or anyone) can read back.
     const xml = await http.get(`/v1/sales-invoices/${a.id}/xml`).set(auth(x.token)).expect(200);
     expect(xml.headers['content-type']).toContain('application/xml');
     const parsed = parseUblInvoice(xml.text);

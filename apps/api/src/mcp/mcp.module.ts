@@ -84,7 +84,7 @@ const json = (data: unknown) => ({ content: [{ type: 'text' as const, text: JSON
 const fail = (message: string) => ({ content: [{ type: 'text' as const, text: message }], isError: true });
 
 /**
- * Backhouse as an MCP server (Streamable HTTP, stateless). Each request builds a
+ * Kitchain as an MCP server (Streamable HTTP, stateless). Each request builds a
  * server whose tools are limited to what the caller may do, and every tool
  * call goes through the same services, row-level security and audit log as
  * the REST API.
@@ -105,7 +105,7 @@ export class McpController {
   private buildServer(a: AccessContext): McpServer {
     const server = new McpServer(
       { name: 'boh', version: '0.1.0' },
-      { instructions: 'Backhouse restaurant back office: items, suppliers, prices, the shared ingredient map, supplier invoices, and the agent inbox. Prices are in SAR.' },
+      { instructions: 'Kitchain restaurant back office: items, suppliers, prices, the shared ingredient map, supplier invoices, and the agent inbox. Prices are in SAR.' },
     );
     const guard = async <T>(fn: () => Promise<T>) => {
       try {

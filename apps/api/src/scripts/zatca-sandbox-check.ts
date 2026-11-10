@@ -1,5 +1,5 @@
 /**
- * Checks Backhouse's ZATCA phase 2 documents against ZATCA's own validator.
+ * Checks Kitchain's ZATCA phase 2 documents against ZATCA's own validator.
  *
  * Onboards a throwaway EGS unit on the Fatoora Developer Portal (sandbox OTP),
  * then submits a standard invoice, credit note and debit note and a simplified
@@ -22,9 +22,9 @@ async function main() {
     privateKeyPem: keys.privateKeyPem,
     environment: 'sandbox',
     commonName: `BOH-EGS-${randomUUID().slice(0, 8)}`,
-    organizationName: 'Backhouse Test Kitchens',
+    organizationName: 'Kitchain Test Kitchens',
     organizationUnit: 'Riyadh Branch',
-    egsSerial: `1-Backhouse|2-1.0|3-${randomUUID()}`,
+    egsSerial: `1-Kitchain|2-1.0|3-${randomUUID()}`,
     vatNumber: VAT,
     invoiceTypes: '1100',
     location: 'Riyadh',
@@ -59,7 +59,7 @@ async function main() {
       icv,
       pih,
       seller: {
-        name: 'شركة باك هاوس للمطابخ',
+        name: 'شركة كيتشين للمطابخ',
         vatNumber: VAT,
         id: { scheme: 'CRN', value: '1010010000' },
         address: { street: 'King Fahd Road', building: '1234', district: 'Al Olaya', city: 'Riyadh', postalCode: '12345', additionalNumber: '5678' },
@@ -103,7 +103,7 @@ async function main() {
       const input: InvoiceInput = {
         kind, type: 'invoice', number: `BOH-P-${icv}`, uuid: randomUUID(), issueDate: now.toISOString().slice(0, 10), issueTime: now.toISOString().slice(11, 19),
         supplyDate: now.toISOString().slice(0, 10), icv, pih,
-        seller: { name: 'شركة باك هاوس للمطابخ', vatNumber: VAT, id: { scheme: 'CRN', value: '1010010000' }, address: { street: 'King Fahd Road', building: '1234', district: 'Al Olaya', city: 'Riyadh', postalCode: '12345' } },
+        seller: { name: 'شركة كيتشين للمطابخ', vatNumber: VAT, id: { scheme: 'CRN', value: '1010010000' }, address: { street: 'King Fahd Road', building: '1234', district: 'Al Olaya', city: 'Riyadh', postalCode: '12345' } },
         buyer: kind === 'standard' ? { name: 'شركة مطابخ نجد', vatNumber: '310122393500003', address: { street: 'Prince Sultan Street', building: '4321', district: 'Al Malqa', city: 'Riyadh', postalCode: '13521' } } : null,
         lines: [
           { name: 'وجبة', qty: 1, unitPrice: '100', vatCategory: 'S', vatRate: 15 },

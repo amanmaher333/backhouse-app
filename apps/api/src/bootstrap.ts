@@ -20,7 +20,7 @@ export async function createApp(config: AppConfig, opts: { logger?: boolean } = 
 
 export function buildOpenApi(app: INestApplication): OpenAPIObject {
   const doc = new DocumentBuilder()
-    .setTitle('Backhouse API')
+    .setTitle('Kitchain API')
     .setDescription('Restaurant back-of-house platform API')
     .setVersion('0.1.0')
     .addBearerAuth()

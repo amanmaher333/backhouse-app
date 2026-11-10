@@ -35,9 +35,9 @@ The editor recalculates as you type (`POST /v1/recipes/preview`). Nothing is sav
 
 ## From Foodics
 
-**Recipes → Create from Foodics** turns the recipes Foodics keeps for its menu items into Backhouse menu recipes:
+**Recipes → Create from Foodics** turns the recipes Foodics keeps for its menu items into Kitchain menu recipes:
 - Each recipe is linked to its Foodics product, and Foodics quantities are converted to our units (e.g. Gram → g, Liter → ml).
-- A product whose ingredients aren't all linked to Backhouse items (Integrations → Items) is skipped, with the reason.
+- A product whose ingredients aren't all linked to Kitchain items (Integrations → Items) is skipped, with the reason.
 - Products that already have a recipe are left alone.
 
 ## Permissions

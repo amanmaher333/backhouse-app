@@ -1,6 +1,6 @@
 # Savings
 
-The Savings page (`/savings`, API `GET /v1/savings?from=&to=`) shows the money Backhouse recovered or avoided for an organisation. It's what a restaurant group weighs against the subscription, so it counts only what is on their own records. Nothing is projected or estimated from things that didn't happen.
+The Savings page (`/savings`, API `GET /v1/savings?from=&to=`) shows the money Kitchain recovered or avoided for an organisation. It's what a restaurant group weighs against the subscription, so it counts only what is on their own records. Nothing is projected or estimated from things that didn't happen.
 
 Needs `price:read`.
 
@@ -8,7 +8,7 @@ Needs `price:read`.
 
 | Kind | Counted when | Amount |
 |---|---|---|
-| **Credit notes received** (`credit_note`) | A supplier credit note arrives against an invoice Backhouse disputed | The credit note, up to the disputed claim. A credit for returned goods on top of the claim isn't a saving and isn't counted |
+| **Credit notes received** (`credit_note`) | A supplier credit note arrives against an invoice Kitchain disputed | The credit note, up to the disputed claim. A credit for returned goods on top of the claim isn't a saving and isn't counted |
 | **Duplicate invoices stopped** (`duplicate`) | An invoice the matcher flagged as a duplicate is rejected | The whole invoice, which would otherwise have been paid twice |
 | **Cheaper suppliers** (`supplier_switch`) | Goods are received from the supplier Price Watch switched to, within a year of the switch | What the same deliveries would have cost at the old supplier's price at the time of the switch: `spend × p / (1 − p)`, with `p` the saving % on the task |
 | **Waiting for a credit note** (`claim_open`) | An invoice is disputed and the claim isn't fully credited yet | The claim less credits received. Shown separately and **not** added to the total; it moves to "Credit notes received" when the credit note arrives |
@@ -17,9 +17,9 @@ Each kind is dated when it happened (credit received, duplicate rejected, latest
 
 Not counted (yet): price rises a supplier withdrew after a message, waste reductions, food cost gap improvements. These are real but need a baseline before a figure can be defended; they belong in reporting, not in the savings total.
 
-## Against the cost of Backhouse
+## Against the cost of Kitchain
 
-- **Cost:** subscription invoices paid that were issued in the period. "Saved N× what Backhouse cost" shows when savings exceed the cost.
+- **Cost:** subscription invoices paid that were issued in the period. "Saved N× what Kitchain cost" shows when savings exceed the cost.
 - **During the trial:** savings since the trial started, against the monthly price of the current plan (sites and hired agents as they are now). Shown on the Savings page and on the Billing page, where the decision to pay is made.
 
 Amounts include VAT where the source does (credit notes and invoices), and so does the subscription cost they are compared with.
