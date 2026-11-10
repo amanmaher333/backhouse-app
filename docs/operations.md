@@ -36,4 +36,4 @@ Once daily backups are on (checklist item 2), test a restore before relying on t
 2. Point a local API at the restored database (`DATABASE_URL=...`) and check `/v1/health`, sign in, and open the inbox and food cost pages.
 3. Write down how long it took. Repeat every quarter.
 
-Until backups are on, a manual copy can be taken with `pg_dump "$DATABASE_URL" -Fc -f backhouse-$(date +%F).dump` using the database's public URL.
+Until backups are on, a manual copy can be taken with `pg_dump "$DATABASE_URL" -Fc -f kitchain-$(date +%F).dump` using the database's public URL.

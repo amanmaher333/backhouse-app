@@ -1,6 +1,6 @@
 # Supplier invoices and the Invoice agent
 
-Backhouse checks every supplier invoice against the purchase order and what was actually received before anyone pays it. The Invoice agent turns the result into decisions in the inbox.
+Kitchain checks every supplier invoice against the purchase order and what was actually received before anyone pays it. The Invoice agent turns the result into decisions in the inbox.
 
 ## How invoices come in
 
@@ -59,7 +59,7 @@ The **claim** is the overcharge plus VAT on it: the amount a credit note should 
 
 - **Approve for payment:** for a match. A mismatch can be approved anyway, with a reason that is kept on the invoice.
 - **Ask for a credit note:** lists the differences and the amount, in Arabic and English.
-  - Suppliers who take orders on WhatsApp get it from Backhouse's number.
+  - Suppliers who take orders on WhatsApp get it from Kitchain's number.
   - Otherwise it's prepared as an email or WhatsApp message.
 - **Reject** (with a reason) and **Mark as paid** (date and payment reference).
 - **Who can do what:**
@@ -90,17 +90,17 @@ A mismatch is never approved automatically.
 
 | Variable | Purpose |
 |---|---|
-| `INBOUND_EMAIL_DOMAIN` | The domain of invoice addresses (default `in.backhouse.sa`). Point its MX records at your inbound email provider. |
+| `INBOUND_EMAIL_DOMAIN` | The domain of invoice addresses (default `in.kitchain.online`). Point its MX records at your inbound email provider. |
 | `INBOUND_EMAIL_SECRET` | Shared secret. Email intake is off until it's set. |
 
 Configure the provider (Postmark, SendGrid Inbound Parse, Mailgun routes) to post each email to `https://<api>/v1/webhooks/invoice-email` as JSON:
 
 ```json
-{ "messageId": "<…>", "from": "billing@supplier.sa", "to": ["invoices+3f9a…@in.backhouse.sa"], "subject": "…",
+{ "messageId": "<…>", "from": "billing@supplier.sa", "to": ["invoices+3f9a…@in.kitchain.online"], "subject": "…",
   "attachments": [{ "filename": "INV-1.pdf", "contentType": "application/pdf", "content": "<base64>" }] }
 ```
 
-with the header `X-Backhouse-Signature: sha256=<hex HMAC-SHA256 of the raw body with INBOUND_EMAIL_SECRET>`. A small adapter maps each provider's own format to this.
+with the header `X-Kitchain-Signature: sha256=<hex HMAC-SHA256 of the raw body with INBOUND_EMAIL_SECRET>` (the older `X-Backhouse-Signature` is still accepted). A small adapter maps each provider's own format to this.
 
 - **Retries:** deduplicated by `messageId`.
 - **Ignored attachments:** images under 20 KB (logos, signatures).
@@ -110,4 +110,4 @@ with the header `X-Backhouse-Signature: sha256=<hex HMAC-SHA256 of the raw body 
 ## Not yet
 
 - **Storage:** documents are stored in Postgres, and move to object storage when volume needs it.
-- **ZATCA phase 2 issuing** (for suppliers and central kitchens on Backhouse) and posting to accounting systems.
+- **ZATCA phase 2 issuing** (for suppliers and central kitchens on Kitchain) and posting to accounting systems.

@@ -1,22 +1,22 @@
 # Foodics integration
 
-Backhouse connects to [Foodics](https://www.foodics.com) to import sales and menus, and to record Backhouse deliveries as purchases in Foodics inventory. This follows Foodics' "Inventory Suppliers Integration" guide at developers.foodics.com.
+Kitchain connects to [Foodics](https://www.foodics.com) to import sales and menus, and to record Kitchain deliveries as purchases in Foodics inventory. This follows Foodics' "Inventory Suppliers Integration" guide at developers.foodics.com.
 
 ## Getting access from Foodics
 
 Foodics creates developer apps on request. Email **support@foodics.com** with the following details.
 
-- **App:** Backhouse, an AI back office for restaurant groups covering procurement, supplier invoices, stock, recipes and food cost.
+- **App:** Kitchain, an AI back office for restaurant groups covering procurement, supplier invoices, stock, recipes and food cost.
 - **Scopes:**
 
   | Scope | Why |
   |---|---|
   | `general.read` | branches, warehouses, settings |
   | `inventory.settings.read` | inventory items |
-  | `inventory.settings.write` | create the "Backhouse" supplier |
+  | `inventory.settings.write` | create the "Kitchain" supplier |
   | `inventory.transactions.read` | read purchases |
   | `inventory.transactions.write` | record purchases |
-  | `users.write` | create the "Backhouse" user that purchases are recorded under |
+  | `users.write` | create the "Kitchain" user that purchases are recorded under |
   | `orders.list` | sales |
   | `menu.ingredients.read` | menu items and their Foodics recipes |
   | `tokens.limited.revoke` | revoke our token on disconnect |
@@ -26,7 +26,7 @@ Foodics creates developer apps on request. Email **support@foodics.com** with th
 - **Webhook URL:** `<api>/v1/integrations/foodics/webhook`
 - **Webhook events:** `order.created`, `order.updated`, `menu.updated`
 
-Foodics replies with a client ID and secret and a sandbox account (console-sandbox.foodics.com). The sandbox cashier app needs an iPad. Production links must be live HTTPS URLs, so give Backhouse its own domain before asking for the production app.
+Foodics replies with a client ID and secret and a sandbox account (console-sandbox.foodics.com). The sandbox cashier app needs an iPad. Production links must be live HTTPS URLs, so give Kitchain its own domain before asking for the production app.
 
 ## Settings
 
@@ -47,10 +47,10 @@ Everything works end to end in this mode, so you can try it and run the tests wi
 ## How it works
 
 **Connecting**
-- Integrations → Connect Foodics opens Foodics' authorisation page, where the Foodics **account owner** approves Backhouse.
-- Foodics sends them back with a code. Backhouse checks the one-time state against the signed-in person (Foodics requires the business to be signed in before the token is created). It then exchanges the code for a token and stores the token encrypted.
+- Integrations → Connect Foodics opens Foodics' authorisation page, where the Foodics **account owner** approves Kitchain.
+- Foodics sends them back with a code. Kitchain checks the one-time state against the signed-in person (Foodics requires the business to be signed in before the token is created). It then exchanges the code for a token and stores the token encrypted.
 - Foodics tokens don't expire. Disconnecting revokes the token at Foodics and forgets it; imported data stays.
-- A Foodics account can be connected to only one Backhouse organisation at a time.
+- A Foodics account can be connected to only one Kitchain organisation at a time.
 
 **Catalogue** (branches, warehouses, inventory items, menu products)
 - Synced on connect, every 12 hours, and when Foodics sends `menu.updated`.
@@ -69,11 +69,11 @@ Everything works end to end in this mode, so you can try it and run the tests wi
 - Sales are kept per branch, product and business day, net of VAT.
 
 **Webhooks**
-- Foodics needs a reply within 5 seconds and doesn't sign webhooks. So a webhook only tells Backhouse which business changed; the data itself is always fetched from the Foodics API.
+- Foodics needs a reply within 5 seconds and doesn't sign webhooks. So a webhook only tells Kitchain which business changed; the data itself is always fetched from the Foodics API.
 
 **Purchases**
 - Each goods receipt at a linked site, received after connecting, is recorded in Foodics as a **closed purchasing transaction** (type 1, status 4). It is recorded:
-  - under the supplier and user named "Backhouse" (created once per business);
+  - under the supplier and user named "Kitchain" (created once per business);
   - with item quantities in Foodics storage units and costs before VAT;
   - with the VAT as `paid_tax`;
   - with the delivery-note number as the invoice number.

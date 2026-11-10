@@ -17,7 +17,7 @@ const schema = z.object({
   AGENTS_MODEL: z.string().default('claude-opus-5-5'),
   ANTHROPIC_API_KEY: z.string().optional(),
   WORKER_POLL_MS: z.coerce.number().int().min(200).default(5000),
-  /** Where people open Backhouse; used in links inside WhatsApp messages. */
+  /** Where people open Kitchain; used in links inside WhatsApp messages. */
   PUBLIC_WEB_URL: z.string().url().default('http://localhost:3001'),
   /**
    * WhatsApp Business Cloud API. 'cloud' sends through Meta (needs token, phone number id, app secret).
@@ -31,7 +31,7 @@ const schema = z.object({
   /** Token you choose when subscribing the webhook in Meta's dashboard. */
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
   WHATSAPP_GRAPH_VERSION: z.string().default('v25.0'),
-  /** Backhouse's WhatsApp number in E.164, shown to people for linking (wa.me link). */
+  /** Kitchain's WhatsApp number in E.164, shown to people for linking (wa.me link). */
   WHATSAPP_BUSINESS_NUMBER: z.string().default('+966500000000'),
   WHATSAPP_TEMPLATE_APPROVAL: z.string().default('boh_approval_request'),
   WHATSAPP_TEMPLATE_NOTICE: z.string().default('boh_task_notice'),
@@ -46,9 +46,9 @@ const schema = z.object({
   MOYASAR_PUBLISHABLE_KEY: z.string().optional(),
   /** The secret_token set on the Moyasar webhook; every webhook must carry it. */
   MOYASAR_WEBHOOK_SECRET: z.string().optional(),
-  /** Backhouse as the seller on its own tax invoices. */
-  BOH_SELLER_NAME: z.string().default('Backhouse Technologies'),
-  BOH_SELLER_NAME_AR: z.string().default('شركة باك هاوس للتقنية'),
+  /** Kitchain as the seller on its own tax invoices. */
+  BOH_SELLER_NAME: z.string().default('Kitchain Technologies'),
+  BOH_SELLER_NAME_AR: z.string().default('Kitchain'),
   BOH_SELLER_VAT: z.string().default('300000000000003'),
   BOH_SELLER_CR: z.string().default('1010000000'),
   BOH_SELLER_ADDRESS: z.string().default('Riyadh, Saudi Arabia'),
@@ -57,8 +57,8 @@ const schema = z.object({
   WATHQ_API_KEY: z.string().optional(),
   WATHQ_BASE_URL: z.string().url().default('https://api.wathq.sa/v5/commercialregistration'),
   /** Supplier invoices by email: invoices+<org token>@INBOUND_EMAIL_DOMAIN, posted to /v1/webhooks/invoice-email by the mail provider. */
-  INBOUND_EMAIL_DOMAIN: z.string().default('in.backhouse.sa'),
-  /** Shared secret for the inbound email webhook (HMAC-SHA256 of the body in X-Backhouse-Signature). Unset = email intake off. */
+  INBOUND_EMAIL_DOMAIN: z.string().default('in.kitchain.online'),
+  /** Shared secret for the inbound email webhook (HMAC-SHA256 of the body in X-Kitchain-Signature). Unset = email intake off. */
   INBOUND_EMAIL_SECRET: z.string().optional(),
   /** ZATCA e-invoicing: 'live' calls ZATCA's Fatoora API; 'simulated' (default) uses a local stand-in with a test CA. */
   ZATCA_MODE: z.enum(['simulated', 'live']).default('simulated'),
@@ -69,7 +69,7 @@ const schema = z.object({
   FOODICS_MODE: z.enum(['simulated', 'sandbox', 'production']).default('simulated'),
   FOODICS_CLIENT_ID: z.string().optional(),
   FOODICS_CLIENT_SECRET: z.string().optional(),
-  /** Where Foodics sends people back after they approve Backhouse. Defaults to PUBLIC_WEB_URL/integrations/foodics/callback. */
+  /** Where Foodics sends people back after they approve Kitchain. Defaults to PUBLIC_WEB_URL/integrations/foodics/callback. */
   FOODICS_REDIRECT_URI: z.string().url().optional(),
   /** Encrypts integration access tokens at rest (32+ characters). Falls back to ZATCA_SECRET_KEY. */
   INTEGRATIONS_SECRET_KEY: z.string().min(32).optional(),

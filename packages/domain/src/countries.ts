@@ -3,7 +3,7 @@ import { Decimal } from 'decimal.js';
 /*
  * What differs by country: currency, VAT, time zone, phone numbers, company and
  * tax identifiers, and which e-invoicing and company register integrations apply.
- * Backhouse sells in Saudi Arabia first, but nothing outside a country's own
+ * Kitchain sells in Saudi Arabia first, but nothing outside a country's own
  * integrations (ZATCA, Wathq) should assume it.
  */
 
@@ -30,9 +30,9 @@ export interface CountryProfile {
   /** Tax registration number format, or null where there is no VAT registration. */
   vatNumber: { pattern: RegExp; hint: string } | null;
   crNumber: { pattern: RegExp; hint: string };
-  /** Mandatory e-invoicing integration Backhouse supports there. */
+  /** Mandatory e-invoicing integration Kitchain supports there. */
   eInvoicing: 'zatca' | null;
-  /** Commercial register Backhouse checks automatically. */
+  /** Commercial register Kitchain checks automatically. */
   registry: 'wathq' | null;
   defaultLocale: 'ar' | 'en';
 }

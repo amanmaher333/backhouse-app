@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { API_URL } from '@/lib/server';
 
-/** Same-origin proxy to the Backhouse API, so the browser needs no CORS and the API URL stays private. */
+/** Same-origin proxy to the Kitchain API, so the browser needs no CORS and the API URL stays private. */
 async function proxy(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
   const url = `${API_URL}/v1/${path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`;

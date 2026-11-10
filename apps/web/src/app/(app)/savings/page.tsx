@@ -89,7 +89,7 @@ export default function SavingsPage() {
             </div>
             {hasCost ? (
               <div className="stat">
-                <div className="stat-label">{t('costOfBackhouse')}</div>
+                <div className="stat-label">{t('costOfKitchain')}</div>
                 <div className="stat-value" style={{ fontSize: 22 }}>{money(r.totals.cost)}</div>
               </div>
             ) : (

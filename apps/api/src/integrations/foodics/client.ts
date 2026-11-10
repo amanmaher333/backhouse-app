@@ -261,7 +261,7 @@ const DAY = 86400_000;
  */
 export class SimulatedFoodics implements FoodicsApi {
   readonly mode = 'simulated' as const;
-  /** What Backhouse created in the demo business (this process only; for tests and the simulator). */
+  /** What Kitchain created in the demo business (this process only; for tests and the simulator). */
   readonly created: { kind: string; token: string; body: unknown }[] = [];
   /** Orders a test returned after closing: order id → returned quantity on its first line. */
   readonly returns = new Map<string, number>();

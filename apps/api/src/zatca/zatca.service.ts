@@ -173,7 +173,7 @@ export class ZatcaService {
       if (!le) throw new NotFoundException('legal entity not found');
       const party = this.requireSeller(le);
       const keys = generateKeys();
-      const serial = `1-Backhouse|2-1.0|3-${randomUUID()}`;
+      const serial = `1-Kitchain|2-1.0|3-${randomUUID()}`;
       const commonName = `BOH-${le.crNumber}-${randomBytes(3).toString('hex')}`;
       const csr = buildCsr({
         privateKeyPem: keys.privateKeyPem,

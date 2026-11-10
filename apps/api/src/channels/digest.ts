@@ -175,7 +175,7 @@ export class DigestService {
       const r = d.rises.map((x) => `${ar ? (x.nameAr ?? x.name) : x.name} +${x.pct.toFixed(1)}%`);
       out.push('', ar ? `*الأسعار*: ${c.priceRises} ارتفاع: ${list(r)}` : `*Prices*: ${c.priceRises} ${c.priceRises === 1 ? 'rise' : 'rises'}: ${list(r)}`);
     }
-    out.push('', `${ar ? 'افتح Backhouse' : 'Open Backhouse'}: ${this.config.PUBLIC_WEB_URL.replace(/\/$/, '')}/inbox`);
+    out.push('', `${ar ? 'افتح Kitchain' : 'Open Kitchain'}: ${this.config.PUBLIC_WEB_URL.replace(/\/$/, '')}/inbox`);
 
     const showTitle = ar ? 'اعرض القرارات' : 'Show decisions';
     return {

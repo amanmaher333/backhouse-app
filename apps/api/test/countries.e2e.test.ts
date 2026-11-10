@@ -35,7 +35,7 @@ describe('Organisations outside Saudi Arabia', () => {
     const s = (await signup({ country: 'AE' }, { name: 'Gulf Bites LLC', vatNumber: '100123456789012', crNumber: 'CN-1234567' }).expect(201)).body;
     expect(s.organization).toMatchObject({ country: 'AE', defaultCurrency: 'AED' });
     expect(s.legalEntity).toMatchObject({ country: 'AE', currency: 'AED' });
-    // No automatic register for the UAE: Backhouse reviews it (not rejected for failing a Saudi lookup).
+    // No automatic register for the UAE: Kitchain reviews it (not rejected for failing a Saudi lookup).
     expect(s.legalEntity.verificationStatus).toBe('needs_review');
     const token = s.accessToken as string;
 

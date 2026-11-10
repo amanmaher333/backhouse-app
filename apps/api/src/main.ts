@@ -8,4 +8,4 @@ initMonitoring(config, 'api');
 const app = await createApp(config);
 SwaggerModule.setup('docs', app, buildOpenApi(app));
 await app.listen(config.PORT);
-console.log(`Backhouse API listening on http://localhost:${config.PORT} (docs at /docs)`);
+console.log(`Kitchain API listening on http://localhost:${config.PORT} (docs at /docs)`);

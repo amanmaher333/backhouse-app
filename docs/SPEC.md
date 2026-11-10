@@ -1,6 +1,6 @@
-# Backhouse — Product Spec v0.4 (Agents as a Service, moat-first, KSA-first)
+# Kitchain — Product Spec v0.4 (Agents as a Service, moat-first, KSA-first)
 
-Product name **Backhouse** (logo mark "BOH", for back of house). Launch market: **Saudi Arabia first**, UAE second.
+Product name **Kitchain** (logo mark "BOH", for back of house). Launch market: **Saudi Arabia first**, UAE second.
 - v0.1 was feature parity.
 - v0.2–0.3 added defensibility and Saudi-first.
 - **v0.4 changes what customers buy: agents that do back-office jobs, not software they operate.**
@@ -22,9 +22,9 @@ This is an original product. No Supy code, branding, copy or UI is used.
 
 ## 1. Thesis
 
-> **Restaurant groups don't want more software. They want the back-office work done. Backhouse gives them agents that do purchasing, invoice checking, stock control and cost control. People approve and correct, mostly over WhatsApp, and every correction makes the agents and the shared network better.**
+> **Restaurant groups don't want more software. They want the back-office work done. Kitchain gives them agents that do purchasing, invoice checking, stock control and cost control. People approve and correct, mostly over WhatsApp, and every correction makes the agents and the shared network better.**
 
-| | SaaS (what incumbents sell) | Backhouse: Agents as a Service |
+| | SaaS (what incumbents sell) | Kitchain: Agents as a Service |
 |---|---|---|
 | Customer buys | Seats, modules, locations | **Agents hired per site** to do specific jobs |
 | Home screen | Lists and forms | **The inbox:** work the agents did or propose, waiting for a decision |
@@ -32,7 +32,7 @@ This is an original product. No Supy code, branding, copy or UI is used.
 | Value measured by | Logins | **Jobs done, hours saved, riyals saved** |
 | Gets better by | New features | **Every approval and correction**, plus the network's data |
 
-What still holds from v0.3: the moat stack (§3). Agents are how customers experience the product. The moats are why agents on Backhouse beat agents built anywhere else.
+What still holds from v0.3: the moat stack (§3). Agents are how customers experience the product. The moats are why agents on Kitchain beat agents built anywhere else.
 
 ---
 
@@ -61,7 +61,7 @@ Each agent is a product: a clear job, the tools it may use, the actions it may p
 
 | # | Moat | What builds up over time | How it makes agents better |
 |---|---|---|---|
-| 1 | **Supplier network** (two-sided, deduplicated by VAT number) | Suppliers transacting on Backhouse | Agents can message, compare and switch suppliers; suppliers confirm orders on the platform |
+| 1 | **Supplier network** (two-sided, deduplicated by VAT number) | Suppliers transacting on Kitchain | Agents can message, compare and switch suppliers; suppliers confirm orders on the platform |
 | 2 | **Data flywheel** | Shared ingredient map, price index, benchmarks | Agents know whether a price is fair across the market, not just versus last week |
 | 3 | **Corrections → training data** | Every approval, rejection and edit, stored | Agents tuned and evaluated on real decisions; rejected suggestions teach the agent |
 | 4 | **Regulatory depth** | ZATCA e-invoicing, VAT, in-Kingdom hosting | The Invoice agent reads structured e-invoices exactly |
@@ -114,9 +114,9 @@ Each agent is a product: a clear job, the tools it may use, the actions it may p
 
 ### 4.6 Open access: API, tokens and MCP
 - **Personal access tokens** (`boh_pat_…`): created by a user for one org, inheriting that user's permissions there, hashed at rest, with expiry and revocation.
-- **MCP server** at `/mcp` (Streamable HTTP, stateless) exposes Backhouse's actions as tools: search items, item details, suppliers, recent price changes, ingredient matching, the agent inbox, approving and rejecting tasks.
+- **MCP server** at `/mcp` (Streamable HTTP, stateless) exposes Kitchain's actions as tools: search items, item details, suppliers, recent price changes, ingredient matching, the agent inbox, approving and rejecting tasks.
   - The same permissions apply.
-  - This lets a customer's own AI assistant work with Backhouse, and lets Backhouse agents be offered inside other agent platforms.
+  - This lets a customer's own AI assistant work with Kitchain, and lets Kitchain agents be offered inside other agent platforms.
 - **Public REST API** with OpenAPI (existing).
 
 ### 4.7 Channels
@@ -216,7 +216,7 @@ Detail carried over from v0.1, condensed. See `research/` for the incumbent's be
 - **POS:** Foodics first (GCC market leader), then Square / Lightspeed / others on demand. Menu pull and sales pull or webhook → depletion.
 - **Accounting:** Xero, Zoho Books (popular in the GCC), QuickBooks. Bills, credit notes, period-end journals (COGS, waste, stock value change, intercompany). GL mapping per category and entity.
 - **E-invoicing:**
-  - **KSA (first):** ZATCA Phase 2 issuing module for suppliers and central kitchens on Backhouse (UBL 2.1 XML, cryptographic stamp, QR, device/EGS onboarding per supplier, B2B clearance and B2C reporting); ingestion of received XML / PDF-A3 from suppliers' own systems. *To check: ZATCA's current rules on solution providers / qualified vendor lists, and whether a third-party specialist (SDK or middleware) is faster to build on than doing it ourselves.*
+  - **KSA (first):** ZATCA Phase 2 issuing module for suppliers and central kitchens on Kitchain (UBL 2.1 XML, cryptographic stamp, QR, device/EGS onboarding per supplier, B2B clearance and B2C reporting); ingestion of received XML / PDF-A3 from suppliers' own systems. *To check: ZATCA's current rules on solution providers / qualified vendor lists, and whether a third-party specialist (SDK or middleware) is faster to build on than doing it ourselves.*
   - **UAE (Year 2):** partner with an Accredited Service Provider (receive as buyer endpoint; issue for suppliers), PINT AE format. Path to becoming a Peppol service provider (UAE ASP accreditation reportedly needs about 2 years of operating history).
 - **WhatsApp:** WhatsApp Business Platform (Cloud API) via a business solution provider; message templates for POs, approvals and reports.
 - **Speech:** a multilingual speech-to-text provider (evaluate Hindi, Urdu, Malayalam, Tagalog, Gulf Arabic accuracy), then Claude to parse into structured commands against the tenant's catalogue.
@@ -256,7 +256,7 @@ infra/        docker-compose (postgres, redis, minio), CI
 | B Channels | **WhatsApp approval cards** ✅ (linking by code, cards routed by permission and site, approve/reject from buttons, value cap, templates outside the 24-hour window, delivery tracking, simulator) and **daily digest** ✅ (per person and org, local hour, permission-scoped, "Show decisions" reopens the window). and **direct supplier messaging** ✅ (orders with Confirm/Problem buttons and a private order link, replies onto the order and the inbox, direct chasers). Still to do: push; supplier email | in progress |
 | Billing + verification | Self-serve trial and subscriptions (platform fee + agent per site, SAR + VAT), renewals, retries, read-only mode, Moyasar adapter, invoices with ZATCA phase-1 QR; CR verification against the commercial register (Wathq adapter) with review queue for mismatches | ✅ |
 | 2 Procurement + **Purchasing agent** | POs, approvals and spend limits, sending, receiving (GRN), stock ledger with weighted average cost, Purchasing agent (reorder drafts, late-delivery chasing). Built agent-first (core actions and review screens, few hand-entry forms). Requisitions and multi-level approval deferred | ✅ |
-| 3 Invoices + **Invoice agent** | Email/e-invoice intake ✅, AI extraction ✅, three-way matching ✅, credit-note requests ✅, Invoice agent ✅ (see `docs/invoices.md`). ZATCA phase 2 issuing ✅: EGS onboarding, clearance and reporting, notes, validated by ZATCA's Developer Portal (see `docs/zatca.md`). Still to do: posting to accounting, PDF/A-3 and email delivery, Backhouse's own billing on phase 2, supplier accounts, documents in object storage | in progress |
+| 3 Invoices + **Invoice agent** | Email/e-invoice intake ✅, AI extraction ✅, three-way matching ✅, credit-note requests ✅, Invoice agent ✅ (see `docs/invoices.md`). ZATCA phase 2 issuing ✅: EGS onboarding, clearance and reporting, notes, validated by ZATCA's Developer Portal (see `docs/zatca.md`). Still to do: posting to accounting, PDF/A-3 and email delivery, Kitchain's own billing on phase 2, supplier accounts, documents in object storage | in progress |
 | 4 Stock + **Stock agent** | Counts by typing or voice ✅, waste ✅, transfers ✅, variance ✅ (see `docs/stock-counts.md`, `docs/waste-transfers.md`). Still to do: Stock agent (counting and reminders on WhatsApp) | in progress |
 | 5 Recipes, POS + **Cost Controller** | Foodics integration ✅ (connect, branch and item mapping, sales import, purchases recorded in Foodics; see `docs/foodics.md`). Recipes and costing ✅ (menu items and preps, trim loss, allergens, food cost %, recipes from Foodics; see `docs/recipes.md`). Theoretical vs actual ✅ (by dates or between counts, gaps flagged), Cost Controller weekly report ✅ (see `docs/food-cost.md`). Still to do: dated recipe versions, Foodics modifiers, menu price suggestions | ✅ (core) |
 | Onboarding agent | Runs alongside phases 2–3 as document AI matures | |
@@ -299,7 +299,7 @@ infra/        docker-compose (postgres, redis, minio), CI
 ---
 
 ## 13. Open decisions
-1. ~~Product name and brand.~~ Decided: Backhouse.
+1. ~~Product name and brand.~~ Decided: Kitchain.
 2. Pricing validation with 3–5 design partners (agent-per-site vs. performance share).
 3. Anthropic data-residency and processing terms for KSA customers. Prompts and outputs that include customer data need a data processing agreement.
 4. WhatsApp Business provider for Phase B: built on Meta's Cloud API directly (no BSP). Revisit if we need a BSP for onboarding many sender numbers.

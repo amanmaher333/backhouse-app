@@ -28,7 +28,7 @@ import { FOODICS_API, FoodicsError, type FoodicsApi, type FoodicsBranch, type Fo
 
 type Conn = typeof posConnections.$inferSelect;
 const PROVIDER = 'foodics';
-/** Scopes Backhouse asks Foodics for (see docs/foodics.md). */
+/** Scopes Kitchain asks Foodics for (see docs/foodics.md). */
 export const FOODICS_SCOPES = [
   'general.read',
   'inventory.settings.read',
@@ -137,7 +137,7 @@ export class FoodicsService {
     });
   }
 
-  /** Start connecting: a one-time state and the Foodics page where the owner approves Backhouse. */
+  /** Start connecting: a one-time state and the Foodics page where the owner approves Kitchain. */
   async connect(a: AccessContext) {
     this.must(a, 'pos:manage');
     return this.db.tenant(a.tenant, async (tx) => {
@@ -151,7 +151,7 @@ export class FoodicsService {
 
   /**
    * Foodics sent the owner back with a code. Foodics requires the business to be signed in to
-   * Backhouse before the token is created: this runs in the signed-in person's session, and the
+   * Kitchain before the token is created: this runs in the signed-in person's session, and the
    * state must be the one this person started.
    */
   async callback(a: AccessContext, code: string, state: string) {
@@ -198,7 +198,7 @@ export class FoodicsService {
     } catch (e) {
       if ((e as { code?: string }).code === '23505') {
         await this.api.revoke(token).catch(() => undefined);
-        throw new ConflictException('This Foodics account is already connected to another Backhouse organisation');
+        throw new ConflictException('This Foodics account is already connected to another Kitchain organisation');
       }
       throw e;
     }
@@ -412,17 +412,17 @@ export class FoodicsService {
 
   // ---------- recording purchases in Foodics ----------
 
-  /** The Backhouse supplier and user in Foodics, created once per business (Foodics' guide asks for both). */
+  /** The Kitchain supplier and user in Foodics, created once per business (Foodics' guide asks for both). */
   private async ensureIdentity(c: Conn): Promise<Conn> {
     let next = c;
     if (!c.posSupplierId) {
-      if (!c.scopes.includes('inventory.settings.write')) throw new Error('Foodics did not grant inventory.settings.write (needed to create the Backhouse supplier)');
-      const s = await this.call(c, (t) => this.api.createSupplier(t, { name: 'Backhouse', code: 'BACKHOUSE' }));
+      if (!c.scopes.includes('inventory.settings.write')) throw new Error('Foodics did not grant inventory.settings.write (needed to create the Kitchain supplier)');
+      const s = await this.call(c, (t) => this.api.createSupplier(t, { name: 'Kitchain', code: 'KITCHAIN' }));
       next = { ...next, posSupplierId: s.id };
     }
     if (!c.posUserId) {
-      if (!c.scopes.includes('users.write')) throw new Error('Foodics did not grant users.write (needed to create the Backhouse user)');
-      const u = await this.call(c, (t) => this.api.createUser(t, { name: 'Backhouse', pin: String(randomInt(100000, 999999)), lang: 'en' }));
+      if (!c.scopes.includes('users.write')) throw new Error('Foodics did not grant users.write (needed to create the Kitchain user)');
+      const u = await this.call(c, (t) => this.api.createUser(t, { name: 'Kitchain', pin: String(randomInt(100000, 999999)), lang: 'en' }));
       next = { ...next, posUserId: u.id };
     }
     if (next !== c) await this.db.tenant(this.tenantFor(c), (tx) => tx.update(posConnections).set({ posSupplierId: next.posSupplierId, posUserId: next.posUserId, updatedAt: new Date() }).where(eq(posConnections.id, c.id)));
@@ -509,7 +509,7 @@ export class FoodicsService {
       invoice_date: g.receivedAt.toISOString().slice(0, 10),
       paid_tax: Number(subtotal.mul(po?.taxRate ?? 0).toFixed(2)),
       additional_cost: 0,
-      notes: `Backhouse ${g.number}${po ? ` · ${po.number}` : ''}`,
+      notes: `Kitchain ${g.number}${po ? ` · ${po.number}` : ''}`,
       items: lines.map((l) => ({ id: l.posItemId, quantity: Number(l.qty.toFixed(4)), cost: Number(l.cost.toFixed(2)) })),
     };
     try {

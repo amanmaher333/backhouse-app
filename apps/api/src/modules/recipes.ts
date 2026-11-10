@@ -417,7 +417,7 @@ export class RecipesService {
 
   /**
    * Menu recipes from the recipes Foodics keeps for its products, for products that don't have
-   * a Backhouse recipe yet. Ingredients must be linked to our items (Integrations → Items).
+   * a Kitchain recipe yet. Ingredients must be linked to our items (Integrations → Items).
    */
   fromPos(a: AccessContext, dto: FromPosDto) {
     this.must(a, 'recipe:manage');
@@ -447,12 +447,12 @@ export class RecipesService {
           const pi = pItems.find((x) => x.externalId === ing.externalItemId);
           const it = pi?.itemId ? ours.find((o) => o.id === pi.itemId) : undefined;
           if (!pi || !it) {
-            problems.push(`${pi?.name ?? 'an ingredient'} isn't linked to a Backhouse item`);
+            problems.push(`${pi?.name ?? 'an ingredient'} isn't linked to a Kitchain item`);
             continue;
           }
           const u = posUnitToBase(pi.ingredientUnit);
           if (!u || u.base !== it.baseUnit) {
-            problems.push(`${pi.name}: Foodics measures it in ${pi.ingredientUnit ?? '?'}, Backhouse in ${it.baseUnit}`);
+            problems.push(`${pi.name}: Foodics measures it in ${pi.ingredientUnit ?? '?'}, Kitchain in ${it.baseUnit}`);
             continue;
           }
           const qty = new Decimal(ing.quantity).mul(u.factor);
@@ -470,7 +470,7 @@ export class RecipesService {
     });
   }
 
-  /** POS products without a Backhouse recipe (for linking). */
+  /** POS products without a Kitchain recipe (for linking). */
   unlinkedProducts(a: AccessContext) {
     this.must(a, 'recipe:read');
     return this.db.tenant(a.tenant, async (tx) => {

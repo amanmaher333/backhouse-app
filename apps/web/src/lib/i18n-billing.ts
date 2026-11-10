@@ -15,7 +15,7 @@ export const enBilling = {
   renewsOn: 'Renews on',
   endsOn: 'Ends on',
   willStartOn: 'Paid plan starts on',
-  readOnlyNotice: 'Backhouse is read-only until a plan is active. Your data is safe and still visible.',
+  readOnlyNotice: 'Kitchain is read-only until a plan is active. Your data is safe and still visible.',
   pastDueNotice: 'The last payment failed. We will try again on {date}. Update the card or pay now to avoid suspension.',
   choosePlan: 'Choose your plan',
   monthly: 'Monthly',
@@ -71,7 +71,7 @@ export const enBilling = {
   ver_rejected: 'Not verified',
   verifyNow: 'Check now',
   registryName: 'Registered name',
-  verificationHint: 'Backhouse checks your CR with the Ministry of Commerce register automatically. A verified company can send orders to suppliers from Backhouse’s WhatsApp.',
+  verificationHint: 'Kitchain checks your CR with the Ministry of Commerce register automatically. A verified company can send orders to suppliers from Kitchain’s WhatsApp.',
 };
 
 export type BillingDict = typeof enBilling;
@@ -91,7 +91,7 @@ export const arBilling: BillingDict = {
   renewsOn: 'يتجدد في',
   endsOn: 'ينتهي في',
   willStartOn: 'تبدأ الخطة المدفوعة في',
-  readOnlyNotice: 'Backhouse للقراءة فقط حتى تُفعَّل خطة. بياناتك محفوظة وما زالت ظاهرة.',
+  readOnlyNotice: 'Kitchain للقراءة فقط حتى تُفعَّل خطة. بياناتك محفوظة وما زالت ظاهرة.',
   pastDueNotice: 'تعذّرت آخر عملية دفع. سنحاول مجددًا في {date}. حدّث البطاقة أو ادفع الآن لتجنب الإيقاف.',
   choosePlan: 'اختر خطتك',
   monthly: 'شهري',
@@ -147,5 +147,5 @@ export const arBilling: BillingDict = {
   ver_rejected: 'غير موثّقة',
   verifyNow: 'تحقق الآن',
   registryName: 'الاسم المسجّل',
-  verificationHint: 'يتحقق Backhouse تلقائيًا من سجلك التجاري لدى وزارة التجارة. المنشأة الموثّقة يمكنها إرسال الطلبات للموردين عبر واتساب Backhouse.',
+  verificationHint: 'يتحقق Kitchain تلقائيًا من سجلك التجاري لدى وزارة التجارة. المنشأة الموثّقة يمكنها إرسال الطلبات للموردين عبر واتساب Kitchain.',
 };

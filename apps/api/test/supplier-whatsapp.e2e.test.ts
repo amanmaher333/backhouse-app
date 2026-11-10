@@ -3,7 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createHmac } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import { runMigrations } from '@boh/db';
+import { and, eq, inArray, type SQL } from 'drizzle-orm';
+import { outboundMessages, runMigrations } from '@boh/db';
+import { DbService } from '../src/common/db.service.js';
 import { createApp } from '../src/bootstrap.js';
 import { loadConfig } from '../src/config.js';
 import { AgentRuntime } from '../src/agents/runtime.js';
@@ -21,6 +23,7 @@ let http: ReturnType<typeof request>;
 let runtime: AgentRuntime;
 let channels: ChannelsService;
 let sim: SimulatedTransport;
+let db: DbService;
 
 const sign = (raw: string) => `sha256=${createHmac('sha256', SECRET).update(raw).digest('hex')}`;
 function webhook(value: Record<string, unknown>) {
@@ -33,6 +36,15 @@ const tap = (from: string, payload: string, title = 'x') =>
   webhook({ messages: [{ id: `wamid.s${Date.now()}${seq++}`, from: from.slice(1), type: 'interactive', interactive: { type: 'button_reply', button_reply: { id: payload, title } } }] });
 const sentTo = (to: string) => sim.sent.filter((m) => m.to === to);
 const lastTo = (to: string) => sentTo(to).at(-1)!;
+/**
+ * Deliver only this test's queued messages. The worker's deliver() takes the oldest batch across every
+ * organisation in the shared test database, so with other test files running it may not reach ours.
+ */
+async function deliverWhere(cond: SQL | undefined) {
+  const rows = await db.system((tx) => tx.select({ id: outboundMessages.id }).from(outboundMessages).where(and(eq(outboundMessages.status, 'queued'), cond)));
+  if (rows.length) await channels.deliver(rows.map((r) => r.id));
+}
+const deliverTo = (...numbers: string[]) => deliverWhere(inArray(outboundMessages.toAddress, numbers));
 
 async function link(token: string) {
   const number = phone();
@@ -44,7 +56,7 @@ async function link(token: string) {
 /**
  * The CR number always ends in 1, so it never hits the simulated register's special endings
  * (0000 not found, 7777 unavailable, 8888 other name, 9999 expired), which would leave the
- * company unverified and stop Backhouse messaging the supplier.
+ * company unverified and stop Kitchain messaging the supplier.
  *
  * A restaurant whose supplier takes orders on WhatsApp, an approved order to it, and the owner's WhatsApp linked. */
 async function setup(opts: { channel?: 'whatsapp' | 'email'; deliveryDate?: string; hidePrices?: boolean; cr?: string } = {}) {
@@ -77,7 +89,7 @@ async function sendDirect(x: Awaited<ReturnType<typeof setup>>) {
   const res = await http.post(`/v1/purchase-orders/${x.po.id}/send`).set(auth(x.token)).send({});
   if (res.status !== 200) throw new Error(`send failed (${res.status}): ${JSON.stringify(res.body)}`);
   const sent = res.body;
-  await channels.deliver();
+  await deliverTo(x.supplierPhone);
   const msg = lastTo(x.supplierPhone);
   const token = msg.content.template!.urlSuffix!;
   return { sent, msg, token };
@@ -94,19 +106,20 @@ beforeAll(async () => {
   runtime = app.get(AgentRuntime);
   channels = app.get(ChannelsService);
   sim = app.get(WHATSAPP_TRANSPORT);
+  db = app.get(DbService);
 });
 afterAll(async () => {
   await app?.close();
 });
 
 describe('Sending orders to suppliers on WhatsApp', () => {
-  it('sends the order from Backhouse with Confirm / Problem buttons and a private link', async () => {
+  it('sends the order from Kitchain with Confirm / Problem buttons and a private link', async () => {
     const x = await setup();
     const { sent, msg, token } = await sendDirect(x);
     expect(sent).toMatchObject({ status: 'sent', sentVia: 'whatsapp_direct', direct: { to: x.supplierPhone } });
     expect(sent.direct.viewUrl).toContain(`/s/${token}`);
 
-    // The supplier never wrote to Backhouse: the approved template is used.
+    // The supplier never wrote to Kitchain: the approved template is used.
     expect(msg.form).toBe('template');
     const body = cloudRequestBody(x.supplierPhone, msg.content, msg.form) as any;
     expect(body.template).toMatchObject({ name: 'boh_purchase_order', language: { code: 'ar' } });
@@ -206,7 +219,7 @@ describe('Sending orders to suppliers on WhatsApp', () => {
     await http.post(`/v1/purchase-orders/${y.po.id}/send`).set(auth(y.token)).send({ direct: true }).expect(400);
   });
 
-  it('only lets verified companies send through Backhouse’s number', async () => {
+  it('only lets verified companies send through Kitchain’s number', async () => {
     const x = await setup({ cr: '1010120000' }); // not in the register: rejected
     const res = await http.post(`/v1/purchase-orders/${x.po.id}/send`).set(auth(x.token)).send({ direct: true }).expect(400);
     expect(res.body.message).toContain('Verify your company');
@@ -221,7 +234,7 @@ describe('Sending orders to suppliers on WhatsApp', () => {
     const task = (await http.get('/v1/agent-tasks').set(auth(x.token)).expect(200)).body.find((k: any) => k.kind === 'po_overdue');
     const done = (await http.post(`/v1/agent-tasks/${task.id}/approve`).set(auth(x.token)).send({ actionId: 'contact' }).expect(200)).body;
     expect(done.result).toMatchObject({ sentDirect: true, to: x.supplierPhone });
-    await channels.deliver();
+    await deliverTo(x.supplierPhone);
     const chaser = lastTo(x.supplierPhone);
     expect(chaser.form).toBe('template');
     expect(chaser.content.template!.name).toBe('boh_supplier_followup');

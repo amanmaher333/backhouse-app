@@ -5,7 +5,7 @@ import type { MessageContent } from './transport.js';
 
 /*
  * What people see on WhatsApp. Two forms of every approval card:
- * - interactive (reply buttons), allowed for 24 hours after the person last wrote to Backhouse;
+ * - interactive (reply buttons), allowed for 24 hours after the person last wrote to Kitchain;
  * - an approved template (quick-reply buttons + link), for any other time.
  * Template text must match what is registered with Meta: see docs/whatsapp-templates.md.
  */
@@ -30,7 +30,7 @@ export interface CardInput {
   orgName: string;
   promptId: string;
   canApprove: boolean;
-  /** Largest value approvable on WhatsApp, for the "open Backhouse" note. */
+  /** Largest value approvable on WhatsApp, for the "open Kitchain" note. */
   cap: number;
   webUrl: string;
   templates: { approval: string; notice: string };
@@ -92,8 +92,8 @@ export function approvalCard(i: CardInput): MessageContent {
   const f = facts(i.task.evidence, i.lang);
 
   const capNote = ar
-    ? `هذا أعلى من حد الاعتماد عبر واتساب (${money(i.cap, i.lang, currencyOf(i.task.evidence))}). اعتمده من Backhouse.`
-    : `This is above the ${money(i.cap, i.lang, currencyOf(i.task.evidence))} limit for approving on WhatsApp. Approve it in Backhouse.`;
+    ? `هذا أعلى من حد الاعتماد عبر واتساب (${money(i.cap, i.lang, currencyOf(i.task.evidence))}). اعتمده من Kitchain.`
+    : `This is above the ${money(i.cap, i.lang, currencyOf(i.task.evidence))} limit for approving on WhatsApp. Approve it in Kitchain.`;
   const tail = [i.canApprove ? (ar ? `✅ اعتماد يعني: ${actionLabel}` : `✅ Approve means: ${actionLabel}`) : `⚠️ ${capNote}`, link];
 
   const head = ar ? `🤖 *${agent}* يحتاج قرارك` : `🤖 *${agent}* needs your decision`;
@@ -112,7 +112,7 @@ export function approvalCard(i: CardInput): MessageContent {
   return {
     lang: i.lang,
     text,
-    footer: clip(`Backhouse · ${i.orgName}`, 60),
+    footer: clip(`Kitchain · ${i.orgName}`, 60),
     buttons,
     template: {
       name: i.canApprove ? i.templates.approval : i.templates.notice,
@@ -127,24 +127,24 @@ export function approvalCard(i: CardInput): MessageContent {
 export const replies = {
   linked: (lang: Lang, name: string) =>
     lang === 'ar'
-      ? `✅ تم ربط واتساب بحساب ${name} في Backhouse.\nستصلك هنا طلبات الاعتماد من وكلائك. أرسل "إيقاف" لإيقافها و"تشغيل" لإعادتها.`
-      : `✅ WhatsApp is now linked to ${name}'s Backhouse account.\nApproval requests from your agents will arrive here. Send "STOP" to pause them and "START" to resume.`,
+      ? `✅ تم ربط واتساب بحساب ${name} في Kitchain.\nستصلك هنا طلبات الاعتماد من وكلائك. أرسل "إيقاف" لإيقافها و"تشغيل" لإعادتها.`
+      : `✅ WhatsApp is now linked to ${name}'s Kitchain account.\nApproval requests from your agents will arrive here. Send "STOP" to pause them and "START" to resume.`,
   badCode: (lang: Lang) =>
-    lang === 'ar' ? 'رمز الربط غير صحيح أو منتهي. أنشئ رمزًا جديدًا من الإعدادات ← واتساب في Backhouse.' : 'That link code is wrong or has expired. Create a new one in Backhouse under Settings → WhatsApp.',
+    lang === 'ar' ? 'رمز الربط غير صحيح أو منتهي. أنشئ رمزًا جديدًا من الإعدادات ← واتساب في Kitchain.' : 'That link code is wrong or has expired. Create a new one in Kitchain under Settings → WhatsApp.',
   numberTaken: (lang: Lang) =>
-    lang === 'ar' ? 'هذا الرقم مربوط بحساب آخر في Backhouse. افصله من ذلك الحساب أولًا.' : 'This number is linked to another Backhouse account. Unlink it there first.',
+    lang === 'ar' ? 'هذا الرقم مربوط بحساب آخر في Kitchain. افصله من ذلك الحساب أولًا.' : 'This number is linked to another Kitchain account. Unlink it there first.',
   unknown: () =>
-    'هذا الرقم غير مربوط بحساب في Backhouse. للربط: الإعدادات ← واتساب.\nThis number is not linked to a Backhouse account. To link it, go to Settings → WhatsApp in Backhouse.',
+    'هذا الرقم غير مربوط بحساب في Kitchain. للربط: الإعدادات ← واتساب.\nThis number is not linked to a Kitchain account. To link it, go to Settings → WhatsApp in Kitchain.',
   help: (lang: Lang, enabled: boolean) =>
     lang === 'ar'
-      ? `هذا رقم Backhouse. نرسل هنا طلبات الاعتماد من وكلائك، وتردّ عليها بالأزرار.\nالتنبيهات ${enabled ? 'مفعّلة' : 'موقوفة'}. أرسل "إيقاف" أو "تشغيل".`
-      : `This is Backhouse. Approval requests from your agents arrive here; answer them with the buttons.\nAlerts are ${enabled ? 'on' : 'paused'}. Send "STOP" or "START".`,
+      ? `هذا رقم Kitchain. نرسل هنا طلبات الاعتماد من وكلائك، وتردّ عليها بالأزرار.\nالتنبيهات ${enabled ? 'مفعّلة' : 'موقوفة'}. أرسل "إيقاف" أو "تشغيل".`
+      : `This is Kitchain. Approval requests from your agents arrive here; answer them with the buttons.\nAlerts are ${enabled ? 'on' : 'paused'}. Send "STOP" or "START".`,
   paused: (lang: Lang) => (lang === 'ar' ? 'تم إيقاف طلبات الاعتماد على واتساب. أرسل "تشغيل" لإعادتها.' : 'WhatsApp approval requests are paused. Send "START" to resume.'),
   resumed: (lang: Lang) => (lang === 'ar' ? 'تمت إعادة تشغيل طلبات الاعتماد على واتساب.' : 'WhatsApp approval requests are back on.'),
   notYours: (lang: Lang) => (lang === 'ar' ? 'هذا الزر ليس لهذا الرقم.' : 'That button is not for this number.'),
-  expired: (lang: Lang, link: string) => (lang === 'ar' ? `انتهت صلاحية هذا الطلب على واتساب. افتحه في Backhouse:\n${link}` : `This request has expired on WhatsApp. Open it in Backhouse:\n${link}`),
+  expired: (lang: Lang, link: string) => (lang === 'ar' ? `انتهت صلاحية هذا الطلب على واتساب. افتحه في Kitchain:\n${link}` : `This request has expired on WhatsApp. Open it in Kitchain:\n${link}`),
   overCap: (lang: Lang, link: string) =>
-    lang === 'ar' ? `هذا الطلب أعلى من حد الاعتماد عبر واتساب. اعتمده من Backhouse:\n${link}` : `This is above the limit for approving on WhatsApp. Approve it in Backhouse:\n${link}`,
+    lang === 'ar' ? `هذا الطلب أعلى من حد الاعتماد عبر واتساب. اعتمده من Kitchain:\n${link}` : `This is above the limit for approving on WhatsApp. Approve it in Kitchain:\n${link}`,
   alreadyDecided: (lang: Lang, title: string, status: string, via: string | null) => {
     const st: Record<string, [string, string]> = {
       executed: ['done', 'تم تنفيذه'],
@@ -155,7 +155,7 @@ export const replies = {
       approved: ['approved', 'تم اعتماده'],
     };
     const [en, arS] = st[status] ?? [status, status];
-    const where = via === 'whatsapp' ? (lang === 'ar' ? ' عبر واتساب' : ' on WhatsApp') : via === 'web' ? (lang === 'ar' ? ' من Backhouse' : ' in Backhouse') : '';
+    const where = via === 'whatsapp' ? (lang === 'ar' ? ' عبر واتساب' : ' on WhatsApp') : via === 'web' ? (lang === 'ar' ? ' من Kitchain' : ' in Kitchain') : '';
     return lang === 'ar' ? `ℹ️ «${title}» ${arS}${where} مسبقًا.` : `ℹ️ "${title}" was already ${en}${where}.`;
   },
   done: (lang: Lang, title: string, result: Record<string, unknown> | null) => {
@@ -166,7 +166,7 @@ export const replies = {
         ? `✅ تم: أُنشئ الطلب ${po}.${pending ? ' ينتظر اعتماد صاحب صلاحية الإنفاق.' : ''}\n${title}`
         : `✅ Done: order ${po} created.${pending ? ' It is waiting for spend approval.' : ''}\n${title}`;
     }
-    if (result?.prepared) return lang === 'ar' ? `✅ تم تجهيز الرسالة للمورد. أرسلها من Backhouse.\n${title}` : `✅ The supplier message is ready. Send it from Backhouse.\n${title}`;
+    if (result?.prepared) return lang === 'ar' ? `✅ تم تجهيز الرسالة للمورد. أرسلها من Kitchain.\n${title}` : `✅ The supplier message is ready. Send it from Kitchain.\n${title}`;
     return lang === 'ar' ? `✅ تم: ${title}` : `✅ Done: ${title}`;
   },
   blocked: (lang: Lang, title: string, reason: string) => (lang === 'ar' ? `⚠️ لم يُنفَّذ «${title}»: ${reason}` : `⚠️ Not done: "${title}": ${reason}`),

@@ -371,7 +371,7 @@ function CardDialog({ provider, onClose, onSaved }: { provider: 'simulated' | 'm
   );
 }
 
-/** During the trial: what Backhouse has saved so far, against the monthly price (from the Savings report). */
+/** During the trial: what Kitchain has saved so far, against the monthly price (from the Savings report). */
 function TrialValue() {
   const { t, fmtMoney, fmtDate } = useI18n();
   const { data: r } = useApi<SavingsReport>('/savings');

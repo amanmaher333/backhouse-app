@@ -8,7 +8,7 @@ import type { AccessContext } from '../common/access.js';
 import { auditRaw } from '../common/audit.js';
 import { PAYMENT_PROVIDER, type ChargeResult, type PaymentProvider } from './payments.js';
 
-/** Statuses in which the organisation can use Backhouse fully. Others are read-only. */
+/** Statuses in which the organisation can use Kitchain fully. Others are read-only. */
 export const ENTITLED_STATUSES = ['free', 'trialing', 'active', 'past_due'] as const;
 /** Retries after a failed renewal: one day, then three days; the third failure suspends. */
 const RETRY_DAYS = [1, 3];
@@ -24,7 +24,7 @@ export class SubscriptionInactiveError extends HttpException {
         statusCode: HttpStatus.PAYMENT_REQUIRED,
         code: 'subscription_inactive',
         status,
-        message: 'Your Backhouse subscription is not active, so Backhouse is read-only. An admin can choose a plan under Billing.\nاشتراكك في Backhouse غير نشط، لذلك أصبح للقراءة فقط. يمكن للمسؤول اختيار خطة من صفحة الفوترة.',
+        message: 'Your Kitchain subscription is not active, so Kitchain is read-only. An admin can choose a plan under Billing.\nاشتراكك في Kitchain غير نشط، لذلك أصبح للقراءة فقط. يمكن للمسؤول اختيار خطة من صفحة الفوترة.',
       },
       HttpStatus.PAYMENT_REQUIRED,
     );
@@ -35,7 +35,7 @@ export class SubscriptionInactiveError extends HttpException {
  * Subscriptions for restaurant groups: a free trial, then monthly or annual billing in SAR
  * (platform fee + each hired agent per active site, plus 15% VAT), charged to a saved card.
  * Failed renewals are retried; after the last retry the org becomes read-only until it pays.
- * Suppliers are free. Nobody at Backhouse needs to be involved in any of it.
+ * Suppliers are free. Nobody at Kitchain needs to be involved in any of it.
  */
 @Injectable()
 export class BillingService {
@@ -94,7 +94,7 @@ export class BillingService {
     return this.db.system((tx) => this.billFor(tx, orgId, 'month'));
   }
 
-  /** Subscription invoices paid for periods issued in [from, to): what Backhouse actually cost. */
+  /** Subscription invoices paid for periods issued in [from, to): what Kitchain actually cost. */
   async paidBetween(orgId: string, from: Date, to: Date): Promise<{ total: string; count: number }> {
     const [r] = await this.db.system((tx) =>
       tx
@@ -187,7 +187,7 @@ export class BillingService {
     await this.db.system(async (tx) => {
       const [s] = await tx.select().from(subscriptions).where(eq(subscriptions.orgId, a.orgId)).for('update');
       if (!s || s.plan !== 'restaurant') throw new BadRequestException('This organisation has no paid plan');
-      // In a trial, cancelling just means "don't start paying": the trial runs out and Backhouse becomes read-only.
+      // In a trial, cancelling just means "don't start paying": the trial runs out and Kitchain becomes read-only.
       const values = s.status === 'trialing' ? { interval: null } : { cancelAtPeriodEnd: true };
       await tx.update(subscriptions).set(values).where(eq(subscriptions.orgId, a.orgId));
       await auditRaw(tx, { orgId: a.orgId, userId: a.userId, requestId: a.requestId, action: 'billing.canceled', entityType: 'subscription', entityId: a.orgId, after: values });
@@ -259,7 +259,7 @@ export class BillingService {
     const result = await this.payments.charge({
       amountHalalas: toHalalas(inv.total),
       token: s.paymentMethod!.token,
-      description: `Backhouse ${inv.number}`,
+      description: `Kitchain ${inv.number}`,
       invoiceId: inv.id,
       callbackUrl: `${this.config.PUBLIC_WEB_URL.replace(/\/$/, '')}/billing`,
     });

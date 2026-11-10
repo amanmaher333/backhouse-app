@@ -58,7 +58,7 @@ export const organizations = pgTable('organizations', {
 });
 
 export interface OrgSettings {
-  /** Largest task value (SAR, incl. VAT) that can be approved from WhatsApp. Above it, the card links to Backhouse instead. */
+  /** Largest task value (SAR, incl. VAT) that can be approved from WhatsApp. Above it, the card links to Kitchain instead. */
   whatsappApprovalMax?: number;
   /** Stock counts whose variances add up to more than this (absolute value, org currency) need someone with stock:approve to post them. Default 500. */
   countApprovalValue?: number;
@@ -324,7 +324,7 @@ export const orgCounters = pgTable(
 );
 
 /**
- * Shared ingredient map (global, curated by Backhouse). Every tenant item and supplier
+ * Shared ingredient map (global, curated by Kitchain). Every tenant item and supplier
  * item points here; it powers matching, onboarding and benchmarks.
  */
 export const canonicalIngredients = pgTable('canonical_ingredients', {
@@ -342,7 +342,7 @@ export const canonicalIngredients = pgTable('canonical_ingredients', {
 });
 
 /**
- * Names that point at a canonical ingredient. Seed aliases come from Backhouse;
+ * Names that point at a canonical ingredient. Seed aliases come from Kitchain;
  * learned aliases come from people confirming matches and only count once
  * confirmed by at least 2 different organisations (so one tenant can't poison the map).
  */
@@ -460,7 +460,7 @@ export const itemSiteSettings = pgTable(
 );
 
 /**
- * A supplier as a business, shared across Backhouse. Created "unclaimed" by the first
+ * A supplier as a business, shared across Kitchain. Created "unclaimed" by the first
  * restaurant that adds it; the supplier can later claim it as their own org.
  * Deduplicated by VAT number.
  */
@@ -1181,7 +1181,7 @@ export const channelLinkCodes = pgTable(
   (t) => [uniqueIndex('channel_link_codes_hash_uq').on(t.codeHash)],
 );
 
-/** Outbox and log of messages Backhouse sends. org_id is NULL for account messages (e.g. link confirmations). */
+/** Outbox and log of messages Kitchain sends. org_id is NULL for account messages (e.g. link confirmations). */
 export const outboundMessages = pgTable(
   'outbound_messages',
   {
@@ -1258,7 +1258,7 @@ export const approvalPrompts = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     taskId: uuid('task_id').notNull(),
     actionId: text('action_id').notNull(),
-    /** False when the task is above the org's WhatsApp approval cap: the card can reject, or link to Backhouse. */
+    /** False when the task is above the org's WhatsApp approval cap: the card can reject, or link to Kitchain. */
     canApprove: boolean('can_approve').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     usedAt: timestamp('used_at', { withTimezone: true }),
@@ -1336,7 +1336,7 @@ export const subscriptions = pgTable('subscriptions', {
   currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
   currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
   cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
-  /** Saved card: provider token plus display details. The token only works with Backhouse's secret key. */
+  /** Saved card: provider token plus display details. The token only works with Kitchain's secret key. */
   paymentMethod: jsonb('payment_method').$type<{ provider: string; token: string; brand: string; last4: string; expMonth?: number; expYear?: number } | null>(),
   failedAttempts: integer('failed_attempts').notNull().default(0),
   nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
@@ -1344,7 +1344,7 @@ export const subscriptions = pgTable('subscriptions', {
   updatedAt: updatedAt(),
 });
 
-/** Backhouse's own tax invoices to its customers (simplified ZATCA phase-1 fields until the ZATCA integration). */
+/** Kitchain's own tax invoices to its customers (simplified ZATCA phase-1 fields until the ZATCA integration). */
 export const billingInvoices = pgTable(
   'billing_invoices',
   {
@@ -1463,7 +1463,7 @@ export const supplierInvoices = pgTable(
   {
     id: id(),
     orgId: uuid('org_id').notNull(),
-    /** Backhouse's reference, SI-00001. */
+    /** Kitchain's reference, SI-00001. */
     ref: text('ref').notNull(),
     type: text('type').notNull().default('invoice'),
     status: supplierInvoiceStatus('status').notNull().default('needs_review'),
@@ -1739,7 +1739,7 @@ export const posConnections = pgTable(
     timezone: text('timezone'),
     scopes: text('scopes').array().notNull().default(sql`'{}'::text[]`),
     tokenSealed: text('token_sealed'),
-    /** The supplier and user created for Backhouse in the POS, used on purchases it records. */
+    /** The supplier and user created for Kitchain in the POS, used on purchases it records. */
     posSupplierId: text('pos_supplier_id'),
     posUserId: text('pos_user_id'),
     /** Record goods receipts as purchases in the POS inventory. */
@@ -1760,7 +1760,7 @@ export const posConnections = pgTable(
   (t) => [
     unique('pos_connections_org_id_id_uq').on(t.orgId, t.id),
     index('pos_connections_org_idx').on(t.orgId, t.provider),
-    // One live connection per POS account across Backhouse.
+    // One live connection per POS account across Kitchain.
     uniqueIndex('pos_connections_business_live_uq').on(t.provider, t.businessReference).where(sql`status <> 'disconnected'`),
   ],
 );
@@ -1788,7 +1788,7 @@ export const posLocations = pgTable(
     nameAr: text('name_ar'),
     reference: text('reference'),
     siteId: uuid('site_id'),
-    /** 'auto' when Backhouse matched it by name, 'human' when someone chose. */
+    /** 'auto' when Kitchain matched it by name, 'human' when someone chose. */
     mappedBy: text('mapped_by'),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
@@ -1893,7 +1893,7 @@ export const posSalesDaily = pgTable(
   ],
 );
 
-/** Things Backhouse records in the POS (purchases from goods receipts), and how it went. */
+/** Things Kitchain records in the POS (purchases from goods receipts), and how it went. */
 export const posPushes = pgTable(
   'pos_pushes',
   {

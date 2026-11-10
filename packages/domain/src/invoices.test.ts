@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { InvoiceParseError, looksLikeUbl, matchInvoice, pairLines, parseUblInvoice, type MatchPoLine } from './invoices.js';
 
-/** A ZATCA phase 2 standard tax invoice, trimmed to the elements Backhouse reads (plus some it ignores). */
+/** A ZATCA phase 2 standard tax invoice, trimmed to the elements Kitchain reads (plus some it ignores). */
 const ZATCA = `<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
   xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"

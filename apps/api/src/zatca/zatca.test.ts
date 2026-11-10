@@ -15,7 +15,7 @@ const csrInput = (privateKeyPem: string) => ({
   commonName: 'BOH-EGS-1',
   organizationName: 'Najd Kitchens Co.',
   organizationUnit: 'Olaya',
-  egsSerial: `1-Backhouse|2-1.0|3-${randomUUID()}`,
+  egsSerial: `1-Kitchain|2-1.0|3-${randomUUID()}`,
   vatNumber: '399999999900003',
   invoiceTypes: '1100',
   location: 'Riyadh',
@@ -58,7 +58,7 @@ describe('ZATCA certificate request', () => {
     expect(out).toContain('C=SA, OU=Olaya, O=Najd Kitchens Co., CN=BOH-EGS-1');
     expect(out).toContain('secp256k1');
     expect(out).toContain('TSTZATCA-Code-Signing');
-    expect(out).toMatch(/SN=1-Backhouse\|2-1\.0\|3-/);
+    expect(out).toMatch(/SN=1-Kitchain\|2-1\.0\|3-/);
     expect(out).toContain('399999999900003');
     expect(out).toContain('1100');
   });

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createHmac } from 'node:crypto';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, type SQL } from 'drizzle-orm';
 import type { INestApplication } from '@nestjs/common';
 import { agentTasks, approvalPrompts, outboundMessages, runMigrations, userChannels } from '@boh/db';
 import { createApp } from '../src/bootstrap.js';
@@ -46,6 +46,15 @@ const tap = (from: string, payload: string, id = `wamid.b${Date.now()}${seq++}`)
   webhook({ messages: [{ id, from: from.slice(1), type: 'interactive', interactive: { type: 'button_reply', button_reply: { id: payload, title: 'x' } } }] });
 const sentTo = (to: string) => sim.sent.filter((m) => m.to === to);
 const lastTo = (to: string) => sentTo(to).at(-1)!;
+/**
+ * Deliver only this test's queued messages. The worker's deliver() takes the oldest batch across every
+ * organisation in the shared test database, so with other test files running it may not reach ours.
+ */
+async function deliverWhere(cond: SQL | undefined) {
+  const rows = await db.system((tx) => tx.select({ id: outboundMessages.id }).from(outboundMessages).where(and(eq(outboundMessages.status, 'queued'), cond)));
+  if (rows.length) await channels.deliver(rows.map((r) => r.id));
+}
+const deliverTo = (...numbers: string[]) => deliverWhere(inArray(outboundMessages.toAddress, numbers));
 
 async function link(token: string, number = phone()) {
   const { code } = (await http.post('/v1/me/whatsapp/link').set(auth(token)).expect(201)).body;
@@ -83,7 +92,7 @@ async function propose(x: Awaited<ReturnType<typeof setup>>, kg = 3) {
     const [t] = await db.system((tx) => tx.select({ n: agentTasks.notifiedAt }).from(agentTasks).where(eq(agentTasks.id, task.id)));
     if (t?.n) break;
   }
-  await channels.deliver();
+  await deliverWhere(eq(outboundMessages.taskId, task.id));
   return task;
 }
 
@@ -141,13 +150,13 @@ describe('Linking a number', () => {
     expect(lastTo(number).content.text).toContain('wrong or has expired');
     const { code: code2 } = (await http.post('/v1/me/whatsapp/link').set(auth(other.token)).expect(201)).body;
     await text(number, code2).expect(200);
-    expect(lastTo(number).content.text).toContain('linked to another Backhouse account');
+    expect(lastTo(number).content.text).toContain('linked to another Kitchain account');
   });
 
   it('answers unknown numbers and supports STOP / START', async () => {
     const stranger = phone();
     await text(stranger, 'hello').expect(200);
-    expect(lastTo(stranger).content.text).toContain('not linked to a Backhouse account');
+    expect(lastTo(stranger).content.text).toContain('not linked to a Kitchain account');
 
     const x = await setup('ar');
     const number = await link(x.token);
@@ -281,7 +290,7 @@ describe('Approving on WhatsApp', () => {
     // Decided in the web meanwhile
     await http.post(`/v1/agent-tasks/${task.id}/reject`).set(auth(x.token)).send({}).expect(200);
     await tap(owner, lastTo(owner).content.buttons![0]!.id).expect(200);
-    expect(lastTo(owner).content.text).toContain('was already rejected in Backhouse');
+    expect(lastTo(owner).content.text).toContain('was already rejected in Kitchain');
     expect((await http.get('/v1/purchase-orders?status=all').set(auth(x.token))).body).toHaveLength(0);
   });
 
@@ -362,7 +371,7 @@ describe('Daily digest', () => {
     const before = sentTo(number).length;
     await digests.runDue(EVENING);
     await digests.runDue(EVENING); // a second worker, or a restart: no repeat
-    await channels.deliver();
+    await deliverTo(number);
     const sent = sentTo(number).slice(before);
     expect(sent).toHaveLength(1);
     const body = cloudRequestBody(number, sent[0]!.content, sent[0]!.form) as any;
@@ -392,7 +401,7 @@ describe('Daily digest', () => {
     await http.patch('/v1/me/whatsapp').set(auth(off.token)).send({ digestHour: 20, digestEnabled: false }).expect(200);
     const before = [sentTo(n1).length, sentTo(n2).length];
     await digests.runDue(EVENING);
-    await channels.deliver();
+    await deliverTo(n1, n2);
     expect([sentTo(n1).length, sentTo(n2).length]).toEqual(before);
     const me = (await http.get('/v1/auth/me').set(auth(quiet.token))).body;
     const runs = await db.system((tx) => tx.select().from(digestRuns).where(eq(digestRuns.userId, me.user.id)));

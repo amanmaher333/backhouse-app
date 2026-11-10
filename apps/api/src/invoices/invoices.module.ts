@@ -195,8 +195,9 @@ class InvoiceEmailWebhookController {
   constructor(private readonly svc: InvoiceEmailService) {}
 
   @Public() @Post() @HttpCode(200)
-  receive(@Req() req: RawBodyRequest<Request>, @Body() dto: EmailDto, @Headers('x-backhouse-signature') signature?: string) {
-    this.svc.verifySignature(req.rawBody, signature);
+  receive(@Req() req: RawBodyRequest<Request>, @Body() dto: EmailDto, @Headers('x-kitchain-signature') signature?: string, @Headers('x-backhouse-signature') legacySignature?: string) {
+    // X-Backhouse-Signature is the header's name before the rename; still accepted so existing mail adapters keep working.
+    this.svc.verifySignature(req.rawBody, signature ?? legacySignature);
     return this.svc.receive(dto);
   }
 }

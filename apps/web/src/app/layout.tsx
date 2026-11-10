@@ -17,11 +17,11 @@ import './ai.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Backhouse',
-  description: 'Backhouse: the AI back office for restaurant groups',
+  title: 'Kitchain',
+  description: 'Kitchain: the AI back office for restaurant groups',
   manifest: '/manifest.webmanifest',
   icons: { icon: '/icons/icon.svg', apple: '/icons/icon-192.png' },
-  appleWebApp: { capable: true, title: 'Backhouse', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'Kitchain', statusBarStyle: 'default' },
 };
 
 export const viewport: Viewport = {

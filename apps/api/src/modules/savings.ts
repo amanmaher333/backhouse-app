@@ -33,7 +33,7 @@ export interface SavingRow {
 }
 
 /**
- * Money Backhouse saved an organisation over a period, from records only. See docs/savings.md.
+ * Money Kitchain saved an organisation over a period, from records only. See docs/savings.md.
  */
 @Injectable()
 export class SavingsService {
@@ -57,7 +57,7 @@ export class SavingsService {
     const inPeriod = entries.filter((e) => e.kind !== 'claim_open');
     const totals = summariseSavings(entries);
 
-    // What Backhouse cost over the same period (paid subscription invoices), and the plan price for context.
+    // What Kitchain cost over the same period (paid subscription invoices), and the plan price for context.
     const t0 = zonedTimeToUtc(period.from, '00:00', tz);
     const t1 = zonedTimeToUtc(addDays(period.to, 1), '00:00', tz);
     const cost = await this.billing.paidBetween(a.orgId, t0, t1);
@@ -104,7 +104,7 @@ export class SavingsService {
     const sup = (r: { name: string | null; nameAr: string | null } | null) => (r?.name ? { name: r.name, nameAr: r.nameAr ?? r.name } : null);
     const invLabel = (ref: string, number: string | null) => (number ? `${ref} · ${number}` : ref);
 
-    // Credit notes against invoices Backhouse disputed: count up to the claim, oldest credit first.
+    // Credit notes against invoices Kitchain disputed: count up to the claim, oldest credit first.
     const disputed = await tx
       .select({ id: supplierInvoices.id, ref: supplierInvoices.ref, number: supplierInvoices.number, status: supplierInvoices.status, claim: supplierInvoices.claimTotal, disputedAt: supplierInvoices.disputedAt, name: tradingRelationships.displayName, nameAr: tradingRelationships.displayNameAr })
       .from(supplierInvoices)

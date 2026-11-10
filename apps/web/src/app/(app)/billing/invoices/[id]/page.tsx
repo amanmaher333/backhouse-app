@@ -32,7 +32,7 @@ interface Invoice {
   qr: string;
 }
 
-/** Backhouse's tax invoice to the customer, printable, with the ZATCA phase-1 QR. */
+/** Kitchain's tax invoice to the customer, printable, with the ZATCA phase-1 QR. */
 export default function InvoicePage() {
   const { id } = useParams<{ id: string }>();
   const { t, lang, fmtMoney, fmtDate } = useI18n();

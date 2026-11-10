@@ -30,12 +30,12 @@ describe('addInterval', () => {
 
 describe('ZATCA QR', () => {
   it('encodes the five phase-1 fields as TLV, Arabic included', () => {
-    const qr = zatcaQr({ sellerName: 'شركة باك هاوس للتقنية', vatNumber: '310122393500003', timestamp: '2026-11-08T12:00:00Z', total: '2185.00', vatTotal: '285.00' });
-    expect(decodeZatcaQr(qr)).toEqual(['شركة باك هاوس للتقنية', '310122393500003', '2026-11-08T12:00:00Z', '2185.00', '285.00']);
+    const qr = zatcaQr({ sellerName: 'شركة كيتشين للتقنية', vatNumber: '310122393500003', timestamp: '2026-11-08T12:00:00Z', total: '2185.00', vatTotal: '285.00' });
+    expect(decodeZatcaQr(qr)).toEqual(['شركة كيتشين للتقنية', '310122393500003', '2026-11-08T12:00:00Z', '2185.00', '285.00']);
     // Tag 1, length in UTF-8 bytes (Arabic letters are two bytes each)
     const raw = atob(qr);
     expect(raw.charCodeAt(0)).toBe(1);
-    expect(raw.charCodeAt(1)).toBe(new TextEncoder().encode('شركة باك هاوس للتقنية').length);
+    expect(raw.charCodeAt(1)).toBe(new TextEncoder().encode('شركة كيتشين للتقنية').length);
   });
 });
 
