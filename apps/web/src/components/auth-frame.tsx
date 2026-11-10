@@ -9,6 +9,13 @@ export function AuthFrame({ title, children }: { title: string; children: ReactN
   return (
     <div className="auth">
       <section className="auth-hero" aria-hidden="true">
+        {/* Decorative loop (no text, so the same for Arabic and English). Video is ~10× lighter than the GIF. */}
+        <div className="auth-anim">
+          <video autoPlay muted loop playsInline preload="auto" poster="/hero/poster.jpg" tabIndex={-1}>
+            <source src="/hero/hero.webm" type="video/webm" />
+            <source src="/hero/hero.mp4" type="video/mp4" />
+          </video>
+        </div>
         <span className="glass">{t('heroLabel')}</span>
         <h1>{t('heroTitle')}</h1>
         <p>{t('heroLead')}</p>
