@@ -1609,3 +1609,18 @@ input[type='time'].inline-input {
 .savings-entry:first-of-type {
   border-top: 0;
 }
+
+/* Bank transfer details */
+.bank-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--tile, rgba(127, 127, 127, 0.08));
+  font-size: 14px;
+}
+.bank-details dd {
+  overflow-wrap: anywhere;
+}

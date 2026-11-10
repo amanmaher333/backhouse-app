@@ -6,6 +6,9 @@ import QRCode from 'qrcode';
 import { PageHead } from '@/components/ui';
 import { useI18n, type TKey } from '@/lib/i18n';
 import { useApi } from '@/lib/session';
+import { BankDetails } from '@/components/bank-details';
+
+const tpl = (s: string, v: Record<string, string | number>) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? ''));
 
 interface Party {
   name: string;
@@ -15,6 +18,9 @@ interface Party {
   address?: string | Record<string, string>;
 }
 interface Invoice {
+  dueAt: string | null;
+  paymentReference: string | null;
+  bank: { bankName: string | null; accountName: string; iban: string } | null;
   id: string;
   number: string;
   status: string;
@@ -78,6 +84,15 @@ export default function InvoicePage() {
           </div>
         }
       />
+      {inv.status === 'awaiting_transfer' && (
+        <section className="card no-print-break" style={{ gap: 10 }}>
+          <h2 className="card-title">
+            {t('payByTransferBox')}
+            {inv.dueAt && <span className="faint num" style={{ fontSize: 14, fontWeight: 400 }}> · {tpl(t('dueOn'), { date: fmtDate(inv.dueAt) })}</span>}
+          </h2>
+          <BankDetails bank={inv.bank} reference={inv.number} />
+        </section>
+      )}
       <section className="card invoice-card">
         <div className="invoice-parties">
           {party(t('seller'), inv.seller)}

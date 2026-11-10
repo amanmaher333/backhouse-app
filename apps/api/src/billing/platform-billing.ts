@@ -2,8 +2,9 @@ import { BadRequestException, Body, Controller, Get, HttpCode, Injectable, NotFo
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
-import { and, asc, eq, ne, sql } from 'drizzle-orm';
-import { agents, organizations, sites, subscriptions } from '@boh/db';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { agents, billingInvoices, organizations, sites, subscriptions } from '@boh/db';
+import { BillingService } from './billing.service.js';
 import { computeBill, pricingActive, type CustomPricing } from '@boh/domain';
 import { CurrentAuth } from '../common/auth.js';
 import { DbService } from '../common/db.service.js';
@@ -23,6 +24,8 @@ const PricingSchema = z.object({
 });
 class PricingDto extends createZodDto(z.object({ pricing: PricingSchema.nullable() })) {}
 class TrialDto extends createZodDto(z.object({ trialEndsOn: date })) {}
+class ModeDto extends createZodDto(z.object({ mode: z.enum(['card', 'bank_transfer']) })) {}
+class PaidDto extends createZodDto(z.object({ reference: z.string().trim().min(1).max(120) })) {}
 class ListDto extends createZodDto(z.object({ q: z.string().max(100).optional() })) {}
 
 /**
@@ -34,6 +37,7 @@ export class PlatformBillingService {
   constructor(
     private readonly db: DbService,
     private readonly verification: VerificationService,
+    private readonly billing: BillingService,
   ) {}
 
   async list(userId: string, q?: string, onlyId?: string) {
@@ -67,6 +71,13 @@ export class PlatformBillingService {
           agents: hired.map((h) => h.kind),
           pricing,
           pricingActive: pricingActive(pricing, today),
+          paymentMode: sub.paymentMode,
+          // Invoices waiting for a bank transfer (or failed), newest first: what staff may need to mark paid.
+          unpaid: await tx
+            .select({ id: billingInvoices.id, number: billingInvoices.number, total: billingInvoices.total, status: billingInvoices.status, dueAt: billingInvoices.dueAt, issuedAt: billingInvoices.issuedAt })
+            .from(billingInvoices)
+            .where(and(eq(billingInvoices.orgId, org.id), inArray(billingInvoices.status, ['awaiting_transfer', 'failed', 'open'])))
+            .orderBy(desc(billingInvoices.issuedAt)),
           monthly: { list: computeBill(input).total, agreed: computeBill({ ...input, pricing }).total },
         });
       }
@@ -84,6 +95,24 @@ export class PlatformBillingService {
       await auditRaw(tx, { orgId, userId, requestId: 'platform', action: clean ? 'billing.pricing_set' : 'billing.pricing_cleared', entityType: 'subscription', entityId: orgId, before: { pricing: s.pricing }, after: { pricing: clean } });
     });
     return (await this.list(userId, undefined, orgId))[0] ?? null;
+  }
+
+  /** Card (default) or bank transfer. With bank transfer no card is needed and invoices wait for the money. */
+  async setPaymentMode(userId: string, orgId: string, mode: 'card' | 'bank_transfer') {
+    await this.verification.assertPlatformAdmin(userId);
+    await this.db.system(async (tx) => {
+      const [s] = await tx.select().from(subscriptions).where(eq(subscriptions.orgId, orgId)).for('update');
+      if (!s) throw new NotFoundException('Organisation not found');
+      await tx.update(subscriptions).set({ paymentMode: mode }).where(eq(subscriptions.orgId, orgId));
+      await auditRaw(tx, { orgId, userId, requestId: 'platform', action: 'billing.payment_mode_set', entityType: 'subscription', entityId: orgId, before: { paymentMode: s.paymentMode }, after: { paymentMode: mode } });
+    });
+    return (await this.list(userId, undefined, orgId))[0] ?? null;
+  }
+
+  /** The bank transfer for an invoice arrived. */
+  async markPaid(userId: string, invoiceId: string, reference: string) {
+    await this.verification.assertPlatformAdmin(userId);
+    return this.billing.markTransferPaid(userId, invoiceId, reference);
   }
 
   /** Extend (or shorten) the trial. An expired trial starts again. Paying organisations are left alone. */
@@ -114,6 +143,12 @@ export class PlatformBillingController {
 
   @Put(':id/pricing') @HttpCode(200)
   pricing(@CurrentAuth() auth: { userId: string }, @Param('id', new ParseUUIDPipe()) id: string, @Body() dto: PricingDto) { return this.svc.setPricing(auth.userId, id, dto.pricing as CustomPricing | null); }
+
+  @Put(':id/payment-mode') @HttpCode(200)
+  mode(@CurrentAuth() auth: { userId: string }, @Param('id', new ParseUUIDPipe()) id: string, @Body() dto: ModeDto) { return this.svc.setPaymentMode(auth.userId, id, dto.mode); }
+
+  @Post('invoices/:invoiceId/paid') @HttpCode(200)
+  paid(@CurrentAuth() auth: { userId: string }, @Param('invoiceId', new ParseUUIDPipe()) invoiceId: string, @Body() dto: PaidDto) { return this.svc.markPaid(auth.userId, invoiceId, dto.reference); }
 
   @Post(':id/trial') @HttpCode(200)
   trial(@CurrentAuth() auth: { userId: string }, @Param('id', new ParseUUIDPipe()) id: string, @Body() dto: TrialDto) { return this.svc.setTrialEnd(auth.userId, id, dto.trialEndsOn); }

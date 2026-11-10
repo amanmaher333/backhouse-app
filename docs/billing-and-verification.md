@@ -49,6 +49,16 @@ Kitchain staff can agree prices with one organisation on the **Platform** page (
 
 **Who is staff:** members of Kitchain's own organisation (type `platform`). To add someone, they sign up first, then run `pnpm --filter @boh/api platform:admin their@email` against production; the Platform item then appears in their menu (choose the Kitchain organisation after signing in).
 
+### Bank transfer (agreed per organisation)
+
+For pilots who can't or won't pay by card, Kitchain staff switch the organisation to **bank transfer** on the Platform page (`PUT /v1/platform/organizations/:id/payment-mode`):
+- **No card needed:** the customer chooses monthly or annual on Billing and starts the plan without a card. The Billing page shows "You pay by bank transfer" with Kitchain's bank details.
+- **Each period:** at the end of the trial and at each renewal, the invoice is issued as **Awaiting transfer**, due `BANK_TRANSFER_DUE_DAYS` (default 14) days later. It shows the bank, account name, IBAN and the invoice number as the reference to quote. The service continues meanwhile.
+- **Unpaid after the due date:** the account becomes past due (still usable) for the same number of days again, then suspended (read-only), as with a failed card.
+- **When the money arrives:** staff open Platform, find the invoice under "Unpaid invoices", click **Mark paid** and enter the bank reference (`POST /v1/platform/organizations/invoices/:invoiceId/paid`). A past-due or suspended account becomes active again.
+- **Bank details:** `BOH_BANK_NAME`, `BOH_BANK_ACCOUNT_NAME` and `BOH_BANK_IBAN` on the API and worker. Until the IBAN is set, invoices say Kitchain will send the bank details.
+- **Audit:** `billing.payment_mode_set`, `billing.awaiting_transfer`, `billing.transfer_overdue`, `billing.transfer_received`.
+
 ### Trial ending reminder
 
 Three days before the trial ends, at their digest hour (any hour on the last day), people who can manage billing and see prices get a WhatsApp message, once:

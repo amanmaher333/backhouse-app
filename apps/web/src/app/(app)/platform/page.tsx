@@ -26,6 +26,8 @@ interface OrgRow {
   pricing: Pricing | null;
   pricingActive: boolean;
   monthly: { list: string; agreed: string };
+  paymentMode: 'card' | 'bank_transfer';
+  unpaid: { id: string; number: string; total: string; status: string; dueAt: string | null }[];
 }
 
 /** List prices (before VAT), mirrored from the billing rules, to show what an empty field means. */
@@ -40,6 +42,8 @@ export default function PlatformPage() {
   const { data, error, reload } = useApi<OrgRow[]>(`/platform/organizations${q ? `?q=${encodeURIComponent(q)}` : ''}`, [q]);
   const [pricingFor, setPricingFor] = useState<OrgRow | null>(null);
   const [trialFor, setTrialFor] = useState<OrgRow | null>(null);
+  const [paying, setPaying] = useState<{ org: OrgRow; invoice: OrgRow['unpaid'][number] } | null>(null);
+  const { api } = useSession();
   const [toast, setToast] = useState<string | null>(null);
 
   return (
@@ -105,6 +109,36 @@ export default function PlatformPage() {
                         <span className="faint">{t('noCustomPricing')}</span>
                       )}
                     </div>
+                    <label className="faint" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginTop: 6 }}>
+                      {t('paymentModeLabel')}
+                      <select
+                        className="select"
+                        style={{ height: 32, padding: '0 8px', fontSize: 13, width: 'auto' }}
+                        value={o.paymentMode}
+                        onChange={async (e) => {
+                          await api(`/platform/organizations/${o.id}/payment-mode`, { method: 'PUT', body: { mode: e.target.value } });
+                          reload();
+                        }}
+                      >
+                        <option value="card">{t('modeCard')}</option>
+                        <option value="bank_transfer">{t('modeTransfer')}</option>
+                      </select>
+                    </label>
+                    {o.unpaid.length > 0 && (
+                      <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
+                        <div className="faint" style={{ fontSize: 12 }}>{t('unpaidInvoices')}</div>
+                        {o.unpaid.map((inv) => (
+                          <div key={inv.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 13 }}>
+                            <span className="num">{inv.number}</span>
+                            <span className="num">{fmtMoney(inv.total, 2, 'SAR')}</span>
+                            {inv.dueAt && <span className="faint num">{fmtDate(inv.dueAt)}</span>}
+                            <button className="btn btn-sm btn-quiet" onClick={() => setPaying({ org: o, invoice: inv })}>
+                              {t('markPaid')}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                       <button className="btn btn-sm btn-quiet" onClick={() => setPricingFor(o)}>
                         {t('editPricing')}
@@ -140,6 +174,18 @@ export default function PlatformPage() {
           onSaved={() => {
             setTrialFor(null);
             setToast(t('trialSaved'));
+            reload();
+          }}
+        />
+      )}
+      {paying && (
+        <MarkPaidDialog
+          number={paying.invoice.number}
+          invoiceId={paying.invoice.id}
+          onClose={() => setPaying(null)}
+          onSaved={() => {
+            setPaying(null);
+            setToast(t('markedPaid'));
             reload();
           }}
         />
@@ -278,6 +324,47 @@ function TrialDialog({ org, onClose, onSaved }: { org: OrgRow; onClose: () => vo
         {err && <div className="notice notice-error">{err}</div>}
         <Field label={t('trialEndsOnField')} hint={t('trialOnlyWhen')}>
           <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+      </div>
+    </Dialog>
+  );
+}
+
+function MarkPaidDialog({ number, invoiceId, onClose, onSaved }: { number: string; invoiceId: string; onClose: () => void; onSaved: () => void }) {
+  const { t } = useI18n();
+  const { api } = useSession();
+  const [ref, setRef] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog
+      title={`${t('markPaid')} · ${number}`}
+      onClose={onClose}
+      actions={
+        <button
+          className="btn btn-primary"
+          disabled={busy || !ref.trim()}
+          onClick={async () => {
+            setBusy(true);
+            setErr(null);
+            try {
+              await api(`/platform/organizations/invoices/${invoiceId}/paid`, { method: 'POST', body: { reference: ref.trim() } });
+              onSaved();
+            } catch (e) {
+              setErr((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {t('markPaid')}
+        </button>
+      }
+    >
+      <div style={{ display: 'grid', gap: 12 }}>
+        {err && <div className="notice notice-error">{err}</div>}
+        <Field label={t('transferRefField')}>
+          <input className="input" value={ref} onChange={(e) => setRef(e.target.value)} maxLength={120} />
         </Field>
       </div>
     </Dialog>

@@ -12,7 +12,9 @@ export type ChargeResult =
   | { status: 'paid'; paymentId: string }
   | { status: 'failed'; paymentId: string | null; message: string; retryable: boolean }
   /** The bank wants the cardholder to confirm (3-D Secure). Only possible when they are present. */
-  | { status: 'requires_action'; paymentId: string; actionUrl: string };
+  | { status: 'requires_action'; paymentId: string; actionUrl: string }
+  /** Bank transfer agreed with Kitchain: the invoice waits for the money (service continues until the due date and grace). */
+  | { status: 'awaiting_transfer'; dueAt: Date };
 
 export interface WebhookEvent {
   id: string;

@@ -169,6 +169,13 @@
       "when": 1794327668470,
       "tag": "0023_custom_pricing",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794341280161,
+      "tag": "0024_bank_transfer",
+      "breakpoints": true
     }
   ]
 }

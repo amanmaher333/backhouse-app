@@ -54,6 +54,12 @@ const schema = z.object({
   BOH_SELLER_VAT: z.string().default('300000000000003'),
   BOH_SELLER_CR: z.string().default('1010000000'),
   BOH_SELLER_ADDRESS: z.string().default('Riyadh, Saudi Arabia'),
+  /** Kitchain's bank account, shown on invoices paid by bank transfer. Unset = "Kitchain will send the bank details". */
+  BOH_BANK_NAME: z.string().optional(),
+  BOH_BANK_ACCOUNT_NAME: z.string().optional(),
+  BOH_BANK_IBAN: z.string().optional(),
+  /** Days to pay a bank-transfer invoice, and again as grace before suspending. */
+  BANK_TRANSFER_DUE_DAYS: z.coerce.number().int().min(1).max(90).default(14),
   /** Company checks: 'wathq' queries the Ministry of Commerce register (needs WATHQ_API_KEY); 'simulated' (default) follows test rules. */
   REGISTRY_PROVIDER: z.enum(['simulated', 'wathq']).default('simulated'),
   WATHQ_API_KEY: z.string().optional(),

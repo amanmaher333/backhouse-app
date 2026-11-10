@@ -99,6 +99,8 @@ export class BillingService {
 
   /** A card is only needed when the period would cost something (custom pricing can make it free). */
   private async needsCard(tx: Tx, orgId: string, interval: BillingInterval, asOf?: Date) {
+    const [sub] = await tx.select({ mode: subscriptions.paymentMode }).from(subscriptions).where(eq(subscriptions.orgId, orgId));
+    if (sub?.mode === 'bank_transfer') return false;
     return toHalalas((await this.billFor(tx, orgId, interval, asOf)).total) > 0;
   }
 
@@ -125,6 +127,12 @@ export class BillingService {
     return s?.createdAt ?? new Date();
   }
 
+  /** Kitchain's bank account for transfers, or null when not configured yet (staff send it themselves). */
+  bankDetails() {
+    const c = this.config;
+    return c.BOH_BANK_IBAN ? { bankName: c.BOH_BANK_NAME ?? null, accountName: c.BOH_BANK_ACCOUNT_NAME ?? c.BOH_SELLER_NAME, iban: c.BOH_BANK_IBAN } : null;
+  }
+
   /** Everything the Billing page shows. */
   async overview(a: AccessContext) {
     return this.db.system(async (tx) => {
@@ -132,7 +140,7 @@ export class BillingService {
       if (!s) throw new NotFoundException('No subscription');
       const [month, year] = await Promise.all([this.billFor(tx, a.orgId, 'month'), this.billFor(tx, a.orgId, 'year')]);
       const invoices = await tx
-        .select({ id: billingInvoices.id, number: billingInvoices.number, status: billingInvoices.status, total: billingInvoices.total, issuedAt: billingInvoices.issuedAt, periodStart: billingInvoices.periodStart, periodEnd: billingInvoices.periodEnd, failureMessage: billingInvoices.failureMessage })
+        .select({ id: billingInvoices.id, number: billingInvoices.number, status: billingInvoices.status, total: billingInvoices.total, issuedAt: billingInvoices.issuedAt, periodStart: billingInvoices.periodStart, periodEnd: billingInvoices.periodEnd, failureMessage: billingInvoices.failureMessage, dueAt: billingInvoices.dueAt })
         .from(billingInvoices)
         .where(eq(billingInvoices.orgId, a.orgId))
         .orderBy(desc(billingInvoices.issuedAt))
@@ -151,6 +159,8 @@ export class BillingService {
         nextRetryAt: s.nextRetryAt,
         paymentMethod: pm ? { brand: pm.brand, last4: pm.last4, expMonth: pm.expMonth, expYear: pm.expYear } : null,
         estimates: { month, year },
+        paymentMode: s.paymentMode as 'card' | 'bank_transfer',
+        bank: s.paymentMode === 'bank_transfer' ? this.bankDetails() : null,
         pricing: pricingActive(s.pricing as CustomPricing | null, new Date().toISOString().slice(0, 10))
           ? (({ note: _note, ...rest }) => rest)(s.pricing as unknown as CustomPricing)
           : null,
@@ -222,7 +232,8 @@ export class BillingService {
   async invoice(a: AccessContext, id: string) {
     const [inv] = await this.db.tenant(a.tenant, (tx) => tx.select().from(billingInvoices).where(eq(billingInvoices.id, id)));
     if (!inv) throw new NotFoundException('invoice not found');
-    return inv;
+    // Where to send the money, for invoices paid by bank transfer.
+    return { ...inv, bank: inv.status === 'awaiting_transfer' ? this.bankDetails() : null };
   }
 
   // ---------- charging ----------
@@ -279,6 +290,7 @@ export class BillingService {
       await this.markPaid(tx, inv, paymentId, inv.attempts);
       return { status: 'paid', paymentId };
     }
+    if (s.paymentMode === 'bank_transfer') return this.awaitTransfer(tx, inv);
     const result = await this.payments.charge({
       amountHalalas: toHalalas(inv.total),
       token: s.paymentMethod!.token,
@@ -287,6 +299,7 @@ export class BillingService {
       callbackUrl: `${this.config.PUBLIC_WEB_URL.replace(/\/$/, '')}/billing`,
     });
     const attempts = inv.attempts + 1;
+    if (result.status === 'awaiting_transfer') return result; // card providers never answer this
     if (result.status === 'paid') {
       await this.markPaid(tx, inv, result.paymentId, attempts);
     } else if (result.status === 'requires_action' && opts.interactive) {
@@ -302,6 +315,38 @@ export class BillingService {
       return { status: 'failed', paymentId: result.paymentId, message, retryable: true };
     }
     return result;
+  }
+
+  /**
+   * Bank transfer: the invoice waits for the money, due in BANK_TRANSFER_DUE_DAYS. The period starts now
+   * (service continues); an unpaid invoice later makes the account past due, then suspended.
+   */
+  private async awaitTransfer(tx: Tx, inv: Invoice): Promise<ChargeResult> {
+    const dueAt = new Date(inv.issuedAt.getTime() + this.config.BANK_TRANSFER_DUE_DAYS * 86400_000);
+    await tx.update(billingInvoices).set({ status: 'awaiting_transfer', dueAt, attempts: inv.attempts + 1 }).where(eq(billingInvoices.id, inv.id));
+    await tx
+      .update(subscriptions)
+      .set({ status: 'active', currentPeriodStart: inv.periodStart, currentPeriodEnd: inv.periodEnd, failedAttempts: 0, nextRetryAt: null, interval: inv.interval })
+      .where(eq(subscriptions.orgId, inv.orgId));
+    await auditRaw(tx, { orgId: inv.orgId, userId: null, requestId: 'billing', action: 'billing.awaiting_transfer', entityType: 'billing_invoice', entityId: inv.id, after: { number: inv.number, total: inv.total, dueAt } });
+    return { status: 'awaiting_transfer', dueAt };
+  }
+
+  /** Kitchain staff: the transfer for this invoice arrived. Reactivates a past-due or suspended account. */
+  async markTransferPaid(staffUserId: string, invoiceId: string, reference: string) {
+    return this.db.system(async (tx) => {
+      const [inv] = await tx.select().from(billingInvoices).where(eq(billingInvoices.id, invoiceId)).for('update');
+      if (!inv) throw new NotFoundException('Invoice not found');
+      if (inv.status === 'paid') throw new BadRequestException('This invoice is already paid');
+      const [s] = await tx.select().from(subscriptions).where(eq(subscriptions.orgId, inv.orgId)).for('update');
+      await tx.update(billingInvoices).set({ status: 'paid', paidAt: new Date(), providerPaymentId: `transfer:${inv.id}`, paymentReference: reference.trim().slice(0, 120), failureMessage: null }).where(eq(billingInvoices.id, inv.id));
+      // Back to active for the invoice's period, unless a later period has already started.
+      if (s && ['past_due', 'suspended', 'active'].includes(s.status) && (!s.currentPeriodEnd || s.currentPeriodEnd <= inv.periodEnd)) {
+        await tx.update(subscriptions).set({ status: 'active', currentPeriodStart: inv.periodStart, currentPeriodEnd: inv.periodEnd, failedAttempts: 0, nextRetryAt: null }).where(eq(subscriptions.orgId, inv.orgId));
+      }
+      await auditRaw(tx, { orgId: inv.orgId, userId: staffUserId, requestId: 'platform', action: 'billing.transfer_received', entityType: 'billing_invoice', entityId: inv.id, before: { status: inv.status }, after: { status: 'paid', reference } });
+      return { id: inv.id, number: inv.number, status: 'paid' };
+    });
   }
 
   private async markPaid(tx: Tx, inv: Invoice, paymentId: string, attempts = inv.attempts) {
@@ -333,7 +378,8 @@ export class BillingService {
         .select({ orgId: subscriptions.orgId })
         .from(subscriptions)
         .where(
-          sql`(${subscriptions.status} = 'trialing' and ${subscriptions.trialEndsAt} <= ${now})
+          sql`(${subscriptions.status} = 'active' and exists (select 1 from billing_invoices i where i.org_id = ${subscriptions.orgId} and i.status = 'awaiting_transfer' and i.due_at <= ${now}))
+           or (${subscriptions.status} = 'trialing' and ${subscriptions.trialEndsAt} <= ${now})
            or (${subscriptions.status} = 'active' and ${subscriptions.currentPeriodEnd} <= ${now})
            or (${subscriptions.status} = 'past_due' and ${subscriptions.nextRetryAt} <= ${now})`,
         ),
@@ -344,6 +390,27 @@ export class BillingService {
         await this.db.system(async (tx) => {
           const [s] = await tx.select().from(subscriptions).where(eq(subscriptions.orgId, orgId)).for('update', { skipLocked: true });
           if (!s) return;
+          // Bank transfer: an invoice past its due date makes the account past due, with the same time again as grace.
+          if (s.status === 'active') {
+            const [overdue] = await tx
+              .select()
+              .from(billingInvoices)
+              .where(and(eq(billingInvoices.orgId, orgId), eq(billingInvoices.status, 'awaiting_transfer'), sql`${billingInvoices.dueAt} <= ${now}`))
+              .limit(1);
+            if (overdue) {
+              const graceUntil = new Date(overdue.dueAt!.getTime() + this.config.BANK_TRANSFER_DUE_DAYS * 86400_000);
+              await tx.update(subscriptions).set({ status: 'past_due', nextRetryAt: graceUntil }).where(eq(subscriptions.orgId, orgId));
+              await auditRaw(tx, { orgId, userId: null, requestId: 'billing', action: 'billing.transfer_overdue', entityType: 'billing_invoice', entityId: overdue.id, after: { number: overdue.number, graceUntil } });
+              out.failed++;
+              return;
+            }
+          }
+          if (s.status === 'past_due' && s.paymentMode === 'bank_transfer' && s.nextRetryAt && s.nextRetryAt <= now) {
+            const [unpaid] = await tx.select({ id: billingInvoices.id }).from(billingInvoices).where(and(eq(billingInvoices.orgId, orgId), eq(billingInvoices.status, 'awaiting_transfer'))).limit(1);
+            await tx.update(subscriptions).set({ status: unpaid ? 'suspended' : 'active', nextRetryAt: null }).where(eq(subscriptions.orgId, orgId));
+            await auditRaw(tx, { orgId, userId: null, requestId: 'billing', action: unpaid ? 'billing.suspended' : 'billing.reactivated', entityType: 'subscription', entityId: orgId });
+            return;
+          }
           if (s.status === 'trialing' && s.trialEndsAt && s.trialEndsAt <= now) {
             out.trialsEnded++;
             if (!s.interval || (!s.paymentMethod && (await this.needsCard(tx, orgId, s.interval as BillingInterval, s.trialEndsAt)))) {
@@ -352,7 +419,7 @@ export class BillingService {
               return;
             }
             const r = await this.chargePeriod(tx, s, s.trialEndsAt, { interactive: false });
-            if (r.status === 'paid') out.renewed++;
+            if (r.status === 'paid' || r.status === 'awaiting_transfer') out.renewed++;
             else out.failed++;
           } else if (s.status === 'active' && s.currentPeriodEnd && s.currentPeriodEnd <= now) {
             if (s.cancelAtPeriodEnd || (!s.paymentMethod && (await this.needsCard(tx, orgId, (s.interval ?? 'month') as BillingInterval, s.currentPeriodEnd)))) {
@@ -361,7 +428,7 @@ export class BillingService {
               return;
             }
             const r = await this.chargePeriod(tx, s, s.currentPeriodEnd, { interactive: false });
-            if (r.status === 'paid') out.renewed++;
+            if (r.status === 'paid' || r.status === 'awaiting_transfer') out.renewed++;
             else out.failed++;
           } else if (s.status === 'past_due' && s.nextRetryAt && s.nextRetryAt <= now) {
             const [inv] = await tx
@@ -372,7 +439,7 @@ export class BillingService {
               .limit(1);
             if (!inv || !s.paymentMethod) return this.recordFailure(tx, s);
             const r = await this.chargeInvoice(tx, s, inv, { interactive: false });
-            if (r.status === 'paid') out.renewed++;
+            if (r.status === 'paid' || r.status === 'awaiting_transfer') out.renewed++;
             else out.failed++;
           }
         });

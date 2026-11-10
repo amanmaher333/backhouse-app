@@ -1386,6 +1386,8 @@ export const subscriptions = pgTable('subscriptions', {
   nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
   /** Prices agreed with this organisation (design partners, pilots); set by Kitchain staff. See CustomPricing. */
   pricing: jsonb('pricing').$type<Record<string, unknown> | null>(),
+  /** How this organisation pays: 'card' (default) or 'bank_transfer' (agreed with Kitchain staff; invoices wait for a transfer). */
+  paymentMode: text('payment_mode').notNull().default('card'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -1417,6 +1419,10 @@ export const billingInvoices = pgTable(
     providerPaymentId: text('provider_payment_id'),
     attempts: integer('attempts').notNull().default(0),
     failureMessage: text('failure_message'),
+    /** Bank transfer: pay by this date. */
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    /** Bank transfer: the reference Kitchain staff recorded when marking it paid. */
+    paymentReference: text('payment_reference'),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('billing_invoices_number_uq').on(t.number), uniqueIndex('billing_invoices_payment_uq').on(t.providerPaymentId), index('billing_invoices_org_idx').on(t.orgId, t.issuedAt)],

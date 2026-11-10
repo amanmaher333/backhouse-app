@@ -90,7 +90,9 @@ describe('items and the shared ingredient map', () => {
   });
 
   it('learns a new alias only after two organisations confirm it', async () => {
-    const name = `Bandoora ${uniq()}`;
+    // Fully random: earlier runs leave learned aliases in the shared test database, and a common prefix
+    // ("Bandoora …") could fuzzy-match one of them before any organisation has confirmed this name.
+    const name = `${uniq()}${uniq()}`.replace(/\d/g, 'q');
     const a = await signup();
     const b = await signup();
     const canon = await http.get('/v1/canonical-ingredients').query({ q: 'tomato' }).set(auth(a.token)).expect(200);

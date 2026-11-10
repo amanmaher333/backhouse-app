@@ -6,6 +6,7 @@ import { ArmButton, Dialog, Empty, Field, PageHead, Toast } from '@/components/u
 import { useI18n, type TKey } from '@/lib/i18n';
 import { ApiError, useApi, useSession } from '@/lib/session';
 import type { SavingsReport } from '@/lib/types-savings';
+import { BankDetails } from '@/components/bank-details';
 import { daysLabel } from '@/components/shell';
 
 interface BillLine {
@@ -35,8 +36,11 @@ interface BillingOverview {
   failedAttempts: number;
   nextRetryAt: string | null;
   paymentMethod: { brand: string; last4: string; expMonth?: number; expYear?: number } | null;
+  /** 'bank_transfer' when agreed with Kitchain: no card, invoices wait for a transfer. */
+  paymentMode: 'card' | 'bank_transfer';
+  bank: { bankName: string | null; accountName: string; iban: string } | null;
   estimates: { month: Bill; year: Bill };
-  invoices: { id: string; number: string; status: string; total: string; issuedAt: string; periodStart: string; periodEnd: string; failureMessage: string | null }[];
+  invoices: { id: string; number: string; status: string; total: string; issuedAt: string; periodStart: string; periodEnd: string; failureMessage: string | null; dueAt: string | null }[];
   provider: 'simulated' | 'moyasar';
   actionUrl?: string | null;
 }
@@ -88,6 +92,8 @@ export default function BillingPage() {
   const daysLeft = b.trialEndsAt ? Math.max(0, Math.ceil((new Date(b.trialEndsAt).getTime() - Date.now()) / 86400_000)) : null;
   const paying = ['active', 'past_due'].includes(b.status);
   const failedInvoice = b.invoices.find((i) => i.status === 'failed');
+  // A card is needed only when paying by card and the plan costs something (agreed pricing can make it free).
+  const cardNeeded = b.paymentMode !== 'bank_transfer' && Number(b.estimates[interval].total) > 0;
 
   return (
     <div className="page">
@@ -186,8 +192,8 @@ export default function BillingPage() {
             <div>
               <button
                 className="btn btn-primary"
-                disabled={busy || !b.paymentMethod || (b.interval === interval && b.status !== 'expired' && b.status !== 'canceled' && b.status !== 'suspended')}
-                title={!b.paymentMethod ? t('noCard') : undefined}
+                disabled={busy || (cardNeeded && !b.paymentMethod) || (b.interval === interval && b.status !== 'expired' && b.status !== 'canceled' && b.status !== 'suspended')}
+                title={cardNeeded && !b.paymentMethod ? t('noCard') : undefined}
                 onClick={() => run(() => api('/billing/subscribe', { method: 'POST', body: { interval } }), b.status === 'trialing' ? t('planChosenTrial') : t('paymentDone'))}
               >
                 {b.interval && b.interval !== interval ? t('switchPlan') : t('startPlan')}
@@ -197,7 +203,15 @@ export default function BillingPage() {
         </section>
       )}
 
-      {b.plan === 'restaurant' && (
+      {b.plan === 'restaurant' && b.paymentMode === 'bank_transfer' && (
+        <section className="card" style={{ gap: 10 }}>
+          <h2 className="card-title">{t('payByTransfer')}</h2>
+          <p className="muted" style={{ margin: 0 }}>{t('payByTransferBody')}</p>
+          <BankDetails bank={b.bank} />
+        </section>
+      )}
+
+      {b.plan === 'restaurant' && b.paymentMode !== 'bank_transfer' && (
         <section className="card">
           <div className="card-head">
             <h2 className="card-title">{t('card')}</h2>
@@ -259,6 +273,7 @@ export default function BillingPage() {
                     <td className="end num">{fmtMoney(i.total, 2, 'SAR')}</td>
                     <td>
                       <span className={`tag ${i.status === 'paid' ? 'tag-accent' : i.status === 'failed' ? 'tag-late' : ''}`}>{t(`inv_${i.status}` as TKey)}</span>
+                      {i.status === 'awaiting_transfer' && i.dueAt && <div className="faint num" style={{ fontSize: 12, marginTop: 4 }}>{tpl(t('dueOn'), { date: fmtDate(i.dueAt) })}</div>}
                     </td>
                     <td className="end">
                       <Link className="btn btn-sm btn-quiet" href={`/billing/invoices/${i.id}`}>
@@ -401,3 +416,4 @@ function TrialValue() {
     </section>
   );
 }
+
