@@ -14,6 +14,7 @@ import { arPos, enPos } from './i18n-pos';
 import { arRecipes, enRecipes } from './i18n-recipes';
 import { arFoodCost, enFoodCost } from './i18n-foodcost';
 import { arSavings, enSavings } from './i18n-savings';
+import { arPlatform, enPlatform } from './i18n-platform';
 
 export type Lang = 'en' | 'ar';
 
@@ -31,6 +32,7 @@ const en = {
   ...enRecipes,
   ...enFoodCost,
   ...enSavings,
+  ...enPlatform,
   appName: 'Kitchain',
   appSub: 'AI back office',
   // nav
@@ -212,6 +214,7 @@ const ar: Dict = {
   ...arRecipes,
   ...arFoodCost,
   ...arSavings,
+  ...arPlatform,
   appName: 'Kitchain',
   appSub: 'المكتب الخلفي الذكي',
   navMain: 'مساحة العمل',

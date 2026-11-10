@@ -40,6 +40,8 @@ interface NavItem {
   label: TKey;
   icon: (p: any) => ReactNode;
   perm?: string;
+  /** Only for Kitchain staff (members of the platform organisation). */
+  staff?: boolean;
 }
 
 const MAIN: NavItem[] = [
@@ -67,6 +69,7 @@ const ADMIN: NavItem[] = [
   { href: '/einvoicing', label: 'einvoicing', icon: IconShieldCheck, perm: 'sales_invoice:read' },
   { href: '/integrations', label: 'integrations', icon: IconPlug, perm: 'pos:read' },
   { href: '/developers', label: 'developers', icon: IconPlug, perm: 'token:manage' },
+  { href: '/platform', label: 'platform', icon: IconShield, staff: true },
 ];
 
 function isActive(path: string, href: string) {
@@ -131,7 +134,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const org = me.organizations.find((o) => o.id === me.currentOrgId);
   // ZATCA e-invoicing pages only for organisations in a country that uses it.
   const zatcaPages = ['/sales', '/einvoicing'];
-  const visible = (items: NavItem[]) => items.filter((i) => (!i.perm || can(i.perm)) && (!zatcaPages.includes(i.href) || org?.eInvoicing === 'zatca'));
+  const isStaff = me.organizations.some((o) => o.type === 'platform');
+  const visible = (items: NavItem[]) => items.filter((i) => (!i.perm || can(i.perm)) && (!i.staff || isStaff) && (!zatcaPages.includes(i.href) || org?.eInvoicing === 'zatca'));
   const all = [...visible(MAIN), ...visible(ADMIN)];
   const current = all.find((i) => isActive(path, i.href));
   const bottom = [...visible(MAIN), ...visible(ADMIN)].slice(0, 4);

@@ -1,7 +1,7 @@
 import { BadRequestException, HttpException, HttpStatus, Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { agents, billingEvents, billingInvoices, legalEntities, organizations, sites, subscriptions, type Tx } from '@boh/db';
-import { addInterval, computeBill, TRIAL_DAYS, toHalalas, zatcaQr, type Bill, type BillingInterval } from '@boh/domain';
+import { addInterval, computeBill, pricingActive, TRIAL_DAYS, toHalalas, zatcaQr, type Bill, type BillingInterval, type CustomPricing } from '@boh/domain';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { DbService } from '../common/db.service.js';
 import type { AccessContext } from '../common/access.js';
@@ -79,14 +79,27 @@ export class BillingService {
     if (!st.entitled) throw new SubscriptionInactiveError(st.status);
   }
 
-  private async billFor(tx: Tx, orgId: string, interval: BillingInterval): Promise<Bill> {
+  /** The bill for a period starting on `asOf` (default now), with any custom pricing agreed with the org. */
+  private async billFor(tx: Tx, orgId: string, interval: BillingInterval, asOf: Date = new Date()): Promise<Bill> {
+    const [sub] = await tx.select({ pricing: subscriptions.pricing }).from(subscriptions).where(eq(subscriptions.orgId, orgId));
     const [siteCount] = await tx.select({ n: sql<number>`count(*)::int` }).from(sites).where(and(eq(sites.orgId, orgId), eq(sites.isActive, true)));
     const hired = await tx
       .select({ kind: agents.kind, name: agents.name, nameAr: agents.nameAr })
       .from(agents)
       .where(and(eq(agents.orgId, orgId), eq(agents.status, 'active')))
       .orderBy(asc(agents.createdAt));
-    return computeBill({ interval, activeSites: siteCount?.n ?? 0, agents: hired.map((a) => ({ kind: a.kind, name: a.name, nameAr: a.nameAr ?? a.name })) });
+    return computeBill({
+      interval,
+      activeSites: siteCount?.n ?? 0,
+      agents: hired.map((a) => ({ kind: a.kind, name: a.name, nameAr: a.nameAr ?? a.name })),
+      pricing: (sub?.pricing as CustomPricing | null) ?? null,
+      asOf: asOf.toISOString().slice(0, 10),
+    });
+  }
+
+  /** A card is only needed when the period would cost something (custom pricing can make it free). */
+  private async needsCard(tx: Tx, orgId: string, interval: BillingInterval, asOf?: Date) {
+    return toHalalas((await this.billFor(tx, orgId, interval, asOf)).total) > 0;
   }
 
   /** What one month of the current plan costs (sites and hired agents as they are now). */
@@ -138,6 +151,9 @@ export class BillingService {
         nextRetryAt: s.nextRetryAt,
         paymentMethod: pm ? { brand: pm.brand, last4: pm.last4, expMonth: pm.expMonth, expYear: pm.expYear } : null,
         estimates: { month, year },
+        pricing: pricingActive(s.pricing as CustomPricing | null, new Date().toISOString().slice(0, 10))
+          ? (({ note: _note, ...rest }) => rest)(s.pricing as unknown as CustomPricing)
+          : null,
         invoices,
         provider: this.payments.name,
         publishableKey: this.payments.name === 'moyasar' ? (this.config.MOYASAR_PUBLISHABLE_KEY ?? null) : null,
@@ -167,7 +183,7 @@ export class BillingService {
     const outcome = await this.db.system(async (tx) => {
       const [s] = await tx.select().from(subscriptions).where(eq(subscriptions.orgId, a.orgId)).for('update');
       if (!s || s.plan !== 'restaurant') throw new BadRequestException('This organisation has no paid plan');
-      if (!s.paymentMethod) throw new BadRequestException('Add a card first');
+      if (!s.paymentMethod && (await this.needsCard(tx, a.orgId, interval))) throw new BadRequestException('Add a card first');
       await auditRaw(tx, { orgId: a.orgId, userId: a.userId, requestId: a.requestId, action: 'billing.plan_chosen', entityType: 'subscription', entityId: a.orgId, before: { status: s.status, interval: s.interval }, after: { interval } });
       if (s.status === 'trialing' || s.status === 'active' || s.status === 'past_due') {
         await tx.update(subscriptions).set({ interval, cancelAtPeriodEnd: false }).where(eq(subscriptions.orgId, a.orgId));
@@ -212,7 +228,7 @@ export class BillingService {
   // ---------- charging ----------
 
   private async issueInvoice(tx: Tx, s: Sub, interval: BillingInterval, periodStart: Date): Promise<Invoice> {
-    const bill = await this.billFor(tx, s.orgId, interval);
+    const bill = await this.billFor(tx, s.orgId, interval, periodStart);
     const [seq] = await tx.execute<{ n: string }>(sql`select nextval('billing_invoice_seq')::text as n`).then((r: any) => r.rows ?? r);
     const issuedAt = new Date();
     const number = `BOH-${issuedAt.getUTCFullYear()}-${String(seq!.n).padStart(6, '0')}`;
@@ -256,6 +272,13 @@ export class BillingService {
   }
 
   private async chargeInvoice(tx: Tx, s: Sub, inv: Invoice, opts: { interactive: boolean }): Promise<ChargeResult> {
+    // Nothing to collect (e.g. a free founding-partner plan): paid without touching the card.
+    if (toHalalas(inv.total) === 0) {
+      // Payment references are unique, so each zero invoice gets its own.
+      const paymentId = `no-charge:${inv.id}`;
+      await this.markPaid(tx, inv, paymentId, inv.attempts);
+      return { status: 'paid', paymentId };
+    }
     const result = await this.payments.charge({
       amountHalalas: toHalalas(inv.total),
       token: s.paymentMethod!.token,
@@ -323,7 +346,7 @@ export class BillingService {
           if (!s) return;
           if (s.status === 'trialing' && s.trialEndsAt && s.trialEndsAt <= now) {
             out.trialsEnded++;
-            if (!s.interval || !s.paymentMethod) {
+            if (!s.interval || (!s.paymentMethod && (await this.needsCard(tx, orgId, s.interval as BillingInterval, s.trialEndsAt)))) {
               await tx.update(subscriptions).set({ status: 'expired' }).where(eq(subscriptions.orgId, orgId));
               await auditRaw(tx, { orgId, userId: null, requestId: 'billing', action: 'billing.trial_expired', entityType: 'subscription', entityId: orgId });
               return;
@@ -332,7 +355,7 @@ export class BillingService {
             if (r.status === 'paid') out.renewed++;
             else out.failed++;
           } else if (s.status === 'active' && s.currentPeriodEnd && s.currentPeriodEnd <= now) {
-            if (s.cancelAtPeriodEnd || !s.paymentMethod) {
+            if (s.cancelAtPeriodEnd || (!s.paymentMethod && (await this.needsCard(tx, orgId, (s.interval ?? 'month') as BillingInterval, s.currentPeriodEnd)))) {
               await tx.update(subscriptions).set({ status: 'canceled' }).where(eq(subscriptions.orgId, orgId));
               await auditRaw(tx, { orgId, userId: null, requestId: 'billing', action: 'billing.ended', entityType: 'subscription', entityId: orgId });
               return;

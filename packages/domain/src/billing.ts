@@ -40,6 +40,35 @@ export interface BillInput {
   activeSites: number;
   /** Hired, active agents by kind, with display names. */
   agents: { kind: string; name: string; nameAr: string }[];
+  /** Custom pricing agreed with this organisation (design partners, pilots). */
+  pricing?: CustomPricing | null;
+  /** The date the bill is for (YYYY-MM-DD); custom pricing past its `until` date no longer applies. */
+  asOf?: string;
+}
+
+/**
+ * Prices agreed with one organisation, set by Kitchain staff. Anything left out uses the list price.
+ * After `until` (inclusive), list prices apply again.
+ */
+export interface CustomPricing {
+  /** Shown to the customer, e.g. "Design partner". */
+  label: string;
+  labelAr?: string | null;
+  /** Monthly platform fee before VAT, e.g. "0.00" or "200.00". */
+  platformFee?: string | null;
+  /** Monthly price per site by agent kind, before VAT. */
+  agentFees?: Record<string, string> | null;
+  /** Percentage off the whole bill (after the prices above), 0–100. */
+  discountPct?: number | null;
+  /** Last day the pricing applies (YYYY-MM-DD); empty = no end date. */
+  until?: string | null;
+  /** Internal note for Kitchain staff (not shown to the customer). */
+  note?: string | null;
+}
+
+/** Whether custom pricing applies on a given date. */
+export function pricingActive(p: CustomPricing | null | undefined, asOf: string): p is CustomPricing {
+  return Boolean(p && (!p.until || asOf <= p.until));
 }
 
 /** What the next period costs, line by line. Amounts rounded to halalas. */
@@ -52,15 +81,24 @@ export function computeBill(input: BillInput): Bill {
     const unit = new Decimal(monthly).mul(months);
     lines.push({ code, description: en, descriptionAr: ar, quantity: qty, unitPrice: unit.toFixed(2), amount: unit.mul(qty).toFixed(2) });
   };
-  add('platform', `Kitchain platform (1 ${per.en})`, `منصة Kitchain (${per.ar} واحد)`, 1, PLATFORM_FEE_MONTHLY);
+  const custom = pricingActive(input.pricing, input.asOf ?? new Date().toISOString().slice(0, 10)) ? input.pricing : null;
+  add('platform', `Kitchain platform (1 ${per.en})`, `منصة Kitchain (${per.ar} واحد)`, 1, custom?.platformFee ?? PLATFORM_FEE_MONTHLY);
   for (const a of input.agents) {
     add(
       `agent:${a.kind}`,
       `${a.name} agent × ${sites} ${sites === 1 ? 'site' : 'sites'} (1 ${per.en})`,
       `وكيل ${a.nameAr} × ${sites} ${sites === 1 ? 'فرع' : 'فروع'} (${per.ar} واحد)`,
       sites,
-      AGENT_SITE_FEES_MONTHLY[a.kind] ?? DEFAULT_AGENT_SITE_FEE,
+      custom?.agentFees?.[a.kind] ?? AGENT_SITE_FEES_MONTHLY[a.kind] ?? DEFAULT_AGENT_SITE_FEE,
     );
+  }
+  const pct = Math.min(100, Math.max(0, Number(custom?.discountPct ?? 0)));
+  if (custom && pct > 0) {
+    const before = lines.reduce((s, l) => s.add(l.amount), new Decimal(0));
+    const off = before.mul(pct).div(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).neg();
+    const name = custom.label.trim() || 'Agreed';
+    const nameAr = custom.labelAr?.trim() || name;
+    lines.push({ code: 'discount', description: `${name} discount (${pct}%)`, descriptionAr: `خصم ${nameAr} (${pct}٪)`, quantity: 1, unitPrice: off.toFixed(2), amount: off.toFixed(2) });
   }
   const subtotal = lines.reduce((s, l) => s.add(l.amount), new Decimal(0));
   const vat = subtotal.mul(BILLING_VAT_RATE).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);

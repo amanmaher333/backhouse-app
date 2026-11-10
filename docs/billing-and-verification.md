@@ -36,6 +36,19 @@ Paying (Billing, then **Pay now**, or choosing a plan) restores full use straigh
 
 **How renewals run:** the worker (`BillingService.runDue`) handles trials, renewals and retries. Each subscription is processed under a row lock, so two workers never charge twice.
 
+### Agreed pricing (design partners, pilots)
+
+Kitchain staff can agree prices with one organisation on the **Platform** page (or `PUT /v1/platform/organizations/:id/pricing`):
+- **What can change:** a label the customer sees (e.g. "Design partner"), the monthly platform fee, the price per site of each agent, a % discount on the whole bill, an end date, and an internal note.
+- **What stays at list price:** anything left empty.
+- **On the bill:** the estimate on the Billing page and every invoice use the agreed prices; a discount is its own line ("Design partner discount (20%)"). The Billing page shows "Design partner pricing · until …".
+- **When it ends:** from the day after the end date, bills go back to list prices automatically.
+- **Free plans:** a 100% discount (or zero prices) makes the plan free. It then starts without a card, and each period's invoice is issued at zero and marked paid without charging anything.
+- **Trials:** staff can move a trial's end date, or restart an expired trial, from the same page (`POST /v1/platform/organizations/:id/trial`).
+- **Audit:** every change is in the organisation's audit log (`billing.pricing_set`, `billing.pricing_cleared`, `billing.trial_changed`).
+
+**Who is staff:** members of Kitchain's own organisation (type `platform`). To add someone, they sign up first, then run `pnpm --filter @boh/api platform:admin their@email` against production; the Platform item then appears in their menu (choose the Kitchain organisation after signing in).
+
 ### Trial ending reminder
 
 Three days before the trial ends, at their digest hour (any hour on the last day), people who can manage billing and see prices get a WhatsApp message, once:

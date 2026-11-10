@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addInterval, companyNameSimilarity, computeBill, decodeZatcaQr, toHalalas, trialReminderDue, zatcaQr } from './billing.js';
+import { addInterval, companyNameSimilarity, computeBill, decodeZatcaQr, pricingActive, toHalalas, trialReminderDue, zatcaQr } from './billing.js';
 
 describe('computeBill', () => {
   it('charges the platform fee plus each agent per active site, with VAT', () => {
@@ -58,5 +58,33 @@ describe('trial reminder', () => {
     expect(trialReminderDue(new Date('2026-12-07T10:00:00Z'), end, 'Asia/Riyadh', 13)).toBe(true); // 13:00 local
     expect(trialReminderDue(new Date('2026-12-09T22:00:00Z'), end, 'Asia/Riyadh', 8)).toBe(true); // 01:00 local, last day
     expect(trialReminderDue(new Date('2026-12-10T09:00:00Z'), end, 'Asia/Riyadh', 8)).toBe(false); // ended
+  });
+});
+
+describe('custom pricing', () => {
+  const agents = [{ kind: 'price_watch', name: 'Price Watch', nameAr: 'مراقب الأسعار' }, { kind: 'purchasing', name: 'Purchasing', nameAr: 'المشتريات' }];
+  it('uses agreed prices and shows the discount as its own line', () => {
+    // List: 400 + 150×2 + 350×2 = 1400. Agreed: platform 200, Purchasing 300/site → 200 + 300 + 600 = 1100; 20% off → 880.
+    const b = computeBill({ interval: 'month', activeSites: 2, agents, asOf: '2026-12-01', pricing: { label: 'Design partner', labelAr: 'شريك تصميم', platformFee: '200.00', agentFees: { purchasing: '300.00' }, discountPct: 20 } });
+    expect(b.lines.map((l) => [l.code, l.amount])).toEqual([['platform', '200.00'], ['agent:price_watch', '300.00'], ['agent:purchasing', '600.00'], ['discount', '-220.00']]);
+    expect(b.lines.at(-1)).toMatchObject({ description: 'Design partner discount (20%)', descriptionAr: 'خصم شريك تصميم (20٪)' });
+    expect(b).toMatchObject({ subtotal: '880.00', vat: '132.00', total: '1012.00' });
+  });
+
+  it('applies to annual bills, and stops after its end date', () => {
+    const pricing = { label: 'Pilot', discountPct: 50, until: '2027-03-31' };
+    const year = computeBill({ interval: 'year', activeSites: 1, agents: [], asOf: '2027-03-31', pricing });
+    expect(year).toMatchObject({ subtotal: '2000.00' }); // 400 × 10 months, half off
+    const after = computeBill({ interval: 'month', activeSites: 1, agents: [], asOf: '2027-04-01', pricing });
+    expect(after.lines.map((l) => l.code)).toEqual(['platform']);
+    expect(after.subtotal).toBe('400.00');
+    expect(pricingActive(pricing, '2027-03-31')).toBe(true);
+    expect(pricingActive(pricing, '2027-04-01')).toBe(false);
+    expect(pricingActive(null, '2027-01-01')).toBe(false);
+  });
+
+  it('can make the plan free', () => {
+    const b = computeBill({ interval: 'month', activeSites: 1, agents, asOf: '2026-12-01', pricing: { label: 'Founding partner', discountPct: 100 } });
+    expect(b).toMatchObject({ subtotal: '0.00', vat: '0.00', total: '0.00' });
   });
 });
