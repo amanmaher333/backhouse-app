@@ -113,7 +113,7 @@ export default function PlatformPage() {
                       {t('paymentModeLabel')}
                       <select
                         className="select"
-                        style={{ height: 32, padding: '0 8px', fontSize: 13, width: 'auto' }}
+                        style={{ minHeight: 36, height: 36, paddingInlineStart: 10, fontSize: 13, width: 'auto' }}
                         value={o.paymentMode}
                         onChange={async (e) => {
                           await api(`/platform/organizations/${o.id}/payment-mode`, { method: 'PUT', body: { mode: e.target.value } });

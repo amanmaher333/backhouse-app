@@ -235,10 +235,25 @@ td.num,
 .select {
   width: 100%;
   min-height: 48px;
-  padding: 0 14px;
+  /* Our own chevron (the browser's sits against the edge and doesn't mirror in Arabic). */
+  appearance: none;
+  -webkit-appearance: none;
+  padding-block: 0;
+  padding-inline: 14px 42px;
   border: 1px solid var(--line-2);
   border-radius: 12px;
-  background: var(--card);
+  background-color: var(--card);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  background-position: right 14px center;
+  text-overflow: ellipsis;
+}
+[dir='rtl'] .select {
+  background-position: left 14px center;
+}
+.select:disabled {
+  opacity: 0.6;
 }
 .input:focus,
 .select:focus {
@@ -429,6 +444,8 @@ td.num,
 .segmented button {
   min-height: 44px;
   padding-inline: 18px;
+  /* One line per option; the row scrolls sideways on narrow screens instead of wrapping. */
+  white-space: nowrap;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -1623,4 +1640,30 @@ input[type='time'].inline-input {
 }
 .bank-details dd {
   overflow-wrap: anywhere;
+}
+
+/* No orphans: a single word alone on the last line. Paragraphs avoid it; headings and short UI text
+   wrap into even lines. The longhand text-wrap-style only changes how lines break, never whether
+   they do, so nowrap elsewhere still holds. Browsers without support simply wrap as before. */
+body {
+  text-wrap-style: pretty;
+}
+h1,
+h2,
+h3,
+h4,
+th,
+td,
+label,
+summary,
+blockquote,
+figcaption,
+.card-title,
+.page-sub,
+.stat-label,
+.field-hint,
+.tag,
+.btn,
+button {
+  text-wrap-style: balance;
 }

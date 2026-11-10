@@ -71,7 +71,7 @@ export default function AuditPage() {
                     <td dir="ltr" style={{ textAlign: 'start' }}>
                       <span className="tag">{e.action}</span>
                     </td>
-                    <td className="muted" dir="ltr" style={{ textAlign: 'start' }}>
+                    <td className="muted" dir="ltr" style={{ textAlign: 'start', whiteSpace: 'nowrap' }}>
                       {(e.after as any)?.name ?? (e.before as any)?.name ?? (e.after as any)?.email ?? e.entityType}
                     </td>
                   </tr>
@@ -90,8 +90,8 @@ export default function AuditPage() {
                             {diff(e.before, e.after).map((r) => (
                               <tr key={r.key}>
                                 <td style={{ fontWeight: 500 }}>{r.key}</td>
-                                <td className="muted" style={{ wordBreak: 'break-all' }}>{r.from}</td>
-                                <td style={{ wordBreak: 'break-all' }}>{r.to}</td>
+                                <td className="muted" style={{ overflowWrap: 'anywhere', whiteSpace: String(r.from ?? '').length <= 40 ? 'nowrap' : undefined }}>{r.from}</td>
+                                <td style={{ overflowWrap: 'anywhere', whiteSpace: String(r.to ?? '').length <= 40 ? 'nowrap' : undefined }}>{r.to}</td>
                               </tr>
                             ))}
                           </tbody>

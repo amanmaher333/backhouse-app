@@ -87,7 +87,7 @@ export default function SettingsPage() {
             <tbody>
               {entities?.map((e) => (
                 <tr key={e.id}>
-                  <td style={{ fontWeight: 500 }}>{pick(e)}</td>
+                  <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{pick(e)}</td>
                   <td className="num" dir="ltr" style={{ textAlign: 'start' }}>
                     {e.vatNumber ?? '–'}
                   </td>
