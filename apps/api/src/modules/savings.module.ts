@@ -8,6 +8,7 @@ import { BillingModule } from '../billing/billing.module.js';
 import { ChannelsModule } from '../channels/channels.module.js';
 import { SavingsSchema, SavingsService } from './savings.js';
 import { MonthlySavingsService } from './savings-monthly.js';
+import { TrialEndingService } from './trial-ending.js';
 
 class SavingsDto extends createZodDto(SavingsSchema) {}
 class MonthlyPreviewDto extends createZodDto(z.object({ send: z.boolean().default(false) })) {}
@@ -29,5 +30,5 @@ export class SavingsController {
   monthlyMessage(@Access() a: AccessContext, @Body() dto: MonthlyPreviewDto) { return this.monthly.preview(a, dto.send); }
 }
 
-@Module({ imports: [BillingModule, forwardRef(() => ChannelsModule)], controllers: [SavingsController], providers: [SavingsService, MonthlySavingsService], exports: [SavingsService, MonthlySavingsService] })
+@Module({ imports: [BillingModule, forwardRef(() => ChannelsModule)], controllers: [SavingsController], providers: [SavingsService, MonthlySavingsService, TrialEndingService], exports: [SavingsService, MonthlySavingsService, TrialEndingService] })
 export class SavingsModule {}

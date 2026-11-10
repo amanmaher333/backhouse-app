@@ -167,6 +167,37 @@ Inside the window it goes out as a full message: the total, each kind with money
 - **Once:** a `savings_reports` row (person, organisation, month) claims it, with the figures; months with nothing saved and nothing being claimed are recorded but not sent.
 - **Preview:** the WhatsApp page shows last month's report and can send it straight away.
 
+### `boh_trial_ending` (Utility)
+
+Three days before the trial ends, outside the 24-hour window. It's about the customer's own account and billing, so it stays **Utility**. Variables:
+
+- `{{1}}` the organisation
+- `{{2}}` the end date, e.g. "13 November 2026"
+- `{{3}}` saved during the trial, e.g. "SAR 756.17"
+- `{{4}}` the monthly price, e.g. "SAR 632.50"
+
+Arabic body:
+
+```
+⏳ {{1}} · تنتهي فترتك التجريبية في {{2}}
+وفّر لك Kitchain خلال الفترة التجريبية {{3}}. تكلفة الباقة {{4}} شهريًا.
+```
+
+English body:
+
+```
+⏳ {{1}} · Your Kitchain trial ends on {{2}}
+During the trial Kitchain saved you {{3}}. The plan is {{4}} a month.
+```
+
+Button:
+
+| # | Type | Arabic | English | Value |
+|---|---|---|---|---|
+| 0 | URL (dynamic) | الفوترة | Billing | `https://app.kitchain.online/{{1}}` (suffix `billing`) |
+
+Inside the window the full message lists the savings by kind, shows open claims separately, and says how many times the savings cover the price. If a plan is already chosen it says the plan starts by itself and asks for nothing. Who gets it and when: `docs/billing-and-verification.md`.
+
 ## Supplier templates
 
 Kitchain writes to suppliers from the same number, on behalf of the restaurant. These templates are registered in **Arabic** (`ar`), the language Saudi suppliers use. The free-form versions sent inside the window are bilingual (Arabic first).

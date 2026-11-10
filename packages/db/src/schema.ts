@@ -1296,6 +1296,27 @@ export const savingsReports = pgTable(
   (t) => [uniqueIndex('savings_reports_user_org_period_uq').on(t.userId, t.orgId, t.period)],
 );
 
+/** Reminders sent once per person and organisation, e.g. that the trial ends soon. */
+export const trialNotices = pgTable(
+  'trial_notices',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    /** trial_ending */
+    kind: text('kind').notNull(),
+    /** What it said: savings and price at the time, and whether a plan was already chosen. */
+    details: jsonb('details').$type<Record<string, unknown>>().notNull().default({}),
+    outboundMessageId: uuid('outbound_message_id'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('trial_notices_user_org_kind_uq').on(t.userId, t.orgId, t.kind)],
+);
+
 export const digestRuns = pgTable(
   'digest_runs',
   {

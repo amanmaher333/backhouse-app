@@ -37,6 +37,7 @@ const schema = z.object({
   WHATSAPP_TEMPLATE_NOTICE: z.string().default('boh_task_notice'),
   WHATSAPP_TEMPLATE_DIGEST: z.string().default('boh_daily_digest'),
   WHATSAPP_TEMPLATE_SAVINGS: z.string().default('boh_monthly_savings'),
+  WHATSAPP_TEMPLATE_TRIAL_ENDING: z.string().default('boh_trial_ending'),
   WHATSAPP_TEMPLATE_SUPPLIER_ORDER: z.string().default('boh_purchase_order'),
   WHATSAPP_TEMPLATE_SUPPLIER_FOLLOWUP: z.string().default('boh_supplier_followup'),
   WHATSAPP_TEMPLATE_SUPPLIER_UPDATE: z.string().default('boh_supplier_update'),

@@ -35,10 +35,14 @@ export class MonthlySavingsService {
     const money = (v: string) => formatMoney(v, r.currency, o.lang);
     const month = new Date(`${o.period}-15T12:00:00Z`).toLocaleDateString(ar ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
     const lines = monthlySavingsLines(r.totals, o.lang, money);
+    // What is still being claimed isn't part of the total: it goes on its own line.
+    const claimed = Number(r.totals.inProgress) > 0 ? lines.at(-1)! : null;
+    const savedLines = claimed ? lines.slice(0, -1) : lines;
     const saved = Number(r.totals.saved) > 0;
     const out = [`💰 *${o.orgName}* · ${ar ? `التوفير في ${month}` : `Savings in ${month}`}`, ''];
     out.push(saved ? (ar ? `وفّر لك Kitchain *${money(r.totals.saved)}*.` : `Kitchain saved you *${money(r.totals.saved)}*.`) : ar ? `لا يوجد توفير مؤكد في ${month}.` : `No confirmed savings in ${month}.`);
-    if (lines.length) out.push(...lines.map((l) => `• ${l}`));
+    if (savedLines.length) out.push(...savedLines.map((l) => `• ${l}`));
+    if (claimed) out.push('', claimed);
     if (r.totals.multiple !== null && r.totals.multiple >= 1) out.push('', ar ? `أي ${r.totals.multiple} أضعاف تكلفة Kitchain في هذا الشهر.` : `That's ${r.totals.multiple}× what Kitchain cost that month.`);
     else if (r.trial) out.push('', ar ? `فترتك التجريبية حتى الآن: ${money(r.trial.saved)} توفير، والباقة ${money(r.trial.monthlyPrice)} شهريًا.` : `Your trial so far: ${money(r.trial.saved)} saved; the plan is ${money(r.trial.monthlyPrice)} a month.`);
     const suffix = `savings?from=${r.period.from}&to=${r.period.to}`;

@@ -37,7 +37,7 @@ const MAX_ATTEMPTS = 5;
 const MAX_RECIPIENTS = 10;
 const SHOW_DECISIONS_MAX = 5;
 /** Messages Kitchain starts itself: free-form only inside the 24-hour window, a template otherwise. */
-const SCHEDULED_KINDS = new Set(['approval_card', 'digest', 'monthly_savings', 'supplier_order', 'supplier_followup', 'supplier_update']);
+const SCHEDULED_KINDS = new Set(['approval_card', 'digest', 'monthly_savings', 'trial_ending', 'supplier_order', 'supplier_followup', 'supplier_update']);
 
 /** One message as the webhook delivers it (the parts Kitchain uses). */
 export interface InboundMessage {
