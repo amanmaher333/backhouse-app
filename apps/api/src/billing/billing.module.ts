@@ -21,6 +21,7 @@ import { Access, MEMBER, Public, Requires, type AuthedRequest } from '../common/
 import type { AccessContext } from '../common/access.js';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { BillingService } from './billing.service.js';
+import { PlatformBillingController, PlatformBillingService } from './platform-billing.js';
 import { createPaymentProvider, PAYMENT_PROVIDER } from './payments.js';
 
 const BILLING_EXEMPT = 'boh:billing-exempt';
@@ -104,8 +105,8 @@ class PaymentsWebhookController {
 
 @Global()
 @Module({
-  controllers: [BillingController, PaymentsWebhookController],
-  providers: [BillingService, EntitlementGuard, { provide: PAYMENT_PROVIDER, inject: [APP_CONFIG], useFactory: (c: AppConfig) => createPaymentProvider(c) }],
+  controllers: [BillingController, PaymentsWebhookController, PlatformBillingController],
+  providers: [BillingService, PlatformBillingService, EntitlementGuard, { provide: PAYMENT_PROVIDER, inject: [APP_CONFIG], useFactory: (c: AppConfig) => createPaymentProvider(c) }],
   exports: [BillingService, EntitlementGuard, PAYMENT_PROVIDER],
 })
 export class BillingModule {}

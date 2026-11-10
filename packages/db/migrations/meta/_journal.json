@@ -162,6 +162,13 @@
       "when": 1794318144910,
       "tag": "0022_trial_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794327668470,
+      "tag": "0023_custom_pricing",
+      "breakpoints": true
     }
   ]
 }

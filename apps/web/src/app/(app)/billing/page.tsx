@@ -23,6 +23,8 @@ interface Bill {
   total: string;
 }
 interface BillingOverview {
+  /** Prices agreed with this organisation, while they apply. */
+  pricing: { label: string; labelAr?: string | null; discountPct?: number | null; until?: string | null } | null;
   plan: string;
   status: string;
   entitled: boolean;
@@ -98,7 +100,15 @@ export default function BillingPage() {
       <section className="card">
         <div className="card-head">
           <h2 className="card-title">{t('currentPlan')}</h2>
-          <SubTag status={b.status} />
+          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            {b.pricing && (
+              <span className="tag tag-accent">
+                {tpl(t('agreedPricingBadge'), { label: (lang === 'ar' && b.pricing.labelAr) || b.pricing.label })}
+                {b.pricing.until ? ` · ${tpl(t('agreedUntil'), { date: fmtDate(b.pricing.until) })}` : ''}
+              </span>
+            )}
+            <SubTag status={b.status} />
+          </span>
         </div>
         <div className="billing-summary">
           {b.status === 'trialing' && daysLeft !== null && (

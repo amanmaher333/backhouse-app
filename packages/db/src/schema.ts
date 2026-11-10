@@ -1384,6 +1384,8 @@ export const subscriptions = pgTable('subscriptions', {
   paymentMethod: jsonb('payment_method').$type<{ provider: string; token: string; brand: string; last4: string; expMonth?: number; expYear?: number } | null>(),
   failedAttempts: integer('failed_attempts').notNull().default(0),
   nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
+  /** Prices agreed with this organisation (design partners, pilots); set by Kitchain staff. See CustomPricing. */
+  pricing: jsonb('pricing').$type<Record<string, unknown> | null>(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
