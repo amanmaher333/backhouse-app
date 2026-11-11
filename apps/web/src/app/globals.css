@@ -231,7 +231,14 @@ td.num,
   font-weight: 500;
   color: var(--t2);
 }
-.input,
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--card);
+}
 .select {
   width: 100%;
   min-height: 48px;
